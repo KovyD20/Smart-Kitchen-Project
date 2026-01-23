@@ -1,0 +1,23 @@
+get http://localhost:3000/api/recipes
+
+###
+
+post http://localhost:3000/api/recipes
+Content-Type: application/json
+
+{
+  "name": "Spaghetti Bolognese",
+  "ingredients": [
+    "200g spaghetti",
+    "100g minced beef",
+    "1 onion",
+    "2 cloves garlic",
+    "400g canned tomatoes",
+    "Salt",
+    "Pepper",
+    "Olive oil"
+  ],
+  "instructions": "1. Cook spaghetti according to package instructions. 2. In a pan, heat olive oil and sauté chopped onion and garlic until translucent. 3. Add minced beef and cook until browned. 4. Add canned tomatoes, salt, and pepper. Simmer for 20 minutes. 5. Serve sauce over spaghetti."
+}
+
+###
