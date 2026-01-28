@@ -15,7 +15,8 @@
     "matter-js": "^0.20.0",
     "motion": "^12.29.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "three": "^0.150.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
