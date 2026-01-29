@@ -1,28 +1,53 @@
+
 export default function RecipeDetails({ recipe }) {
-  if (!recipe) return <p>Válassz egy receptet a bal oldali listából.</p>;
+  if (!recipe) return null;
+
+  const { name, ingredients = [], steps = [], tags = [] } = recipe;
 
   return (
-    <div style={{ backgroundColor: "#7a0303d2", borderRadius: "8px", padding: "1rem" }}>
-      <h2>{recipe.title || recipe.name}</h2>
+    <div className="recipe-details">
+      <h2>{name}</h2>
 
-      <h4>Hozzávalók:</h4>
-      <ul>
-        {(recipe.ingredients || []).map((ing, i) => <li key={i}>{ing}</li>)}
-      </ul>
+      <section>
+        <h3>Hozzávalók</h3>
+        {ingredients.length === 0 ? (
+          <p>Nincs megadva hozzávaló.</p>
+        ) : (
+          <ul>
+            {ingredients.map((ing, i) => (
+              <li key={i}>
+                {ing.amount} {ing.unit} – {ing.name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      <h4>Lépések:</h4>
-      <ol>
-        {(recipe.steps || []).map((step, i) => <li key={i}>{step}</li>)}
-      </ol>
+      <section>
+        <h3>Elkészítés</h3>
+        {steps.length === 0 ? (
+          <p>Nincs megadva elkészítési lépés.</p>
+        ) : (
+          <ol>
+            {steps.map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
+          </ol>
+        )}
+      </section>
 
-      <h4>Tag-ek:</h4>
-      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-        {(recipe.tags || []).map(tag => (
-          <span key={tag} style={{ padding: "2px 8px", backgroundColor: "#ddd", borderRadius: "8px" }}>
-            {tag}
-          </span>
-        ))}
-      </div>
+      {tags.length > 0 && (
+        <section>
+          <h3>Tag-ek</h3>
+          <div className="recipe-tags">
+            {tags.map((tag, i) => (
+              <span key={i} className="tag">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
