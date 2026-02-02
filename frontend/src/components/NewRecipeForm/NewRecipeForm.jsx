@@ -5,15 +5,18 @@ const UNITS = ["g", "dkg", "kg", "ml", "dl", "l", "db"];
 
 export default function NewRecipeForm({
   onRecipeCreated,
+  onSave,
   existingTags,
   onAddTag,
+  editMode = false,
+  recipe,
 }) {
-  const [name, setName] = useState("");
-  const [ingredients, setIngredients] = useState([
-    { name: "", amount: "", unit: "g" },
-  ]);
-  const [steps, setSteps] = useState([""]);
-  const [selectedTags, setSelectedTags] = useState([]);
+  const [name, setName] = useState(recipe?.name || "");
+  const [ingredients, setIngredients] = useState(
+    recipe?.ingredients || [{ name: "", amount: "", unit: "g" }],
+  );
+  const [steps, setSteps] = useState(recipe?.steps || [""]);
+  const [selectedTags, setSelectedTags] = useState(recipe?.tags || []);
   const [newTag, setNewTag] = useState("");
 
   const addIngredient = () =>
@@ -35,17 +38,22 @@ export default function NewRecipeForm({
       return alert("Lépések hiányosak");
     }
 
-    const recipe = {
+    const data = {
       name,
       ingredients,
       steps,
       tags: selectedTags,
     };
 
+    if (editMode) {
+      await onSave({ ...data, id: recipe.id });
+      return;
+    }
+
     const res = await fetch("/api/recipes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(recipe),
+      body: JSON.stringify(data),
     });
 
     const saved = await res.json();
@@ -60,7 +68,7 @@ export default function NewRecipeForm({
 
   return (
     <div>
-      <h3>Új recept</h3>
+      <h3>{editMode ? "Recept szerkesztése" : "Új recept"}</h3>
 
       <input
         tabIndex={1}
@@ -114,41 +122,74 @@ export default function NewRecipeForm({
 
       <h4>Lépések</h4>
       {steps.map((step, i) => (
-        <textarea
-          tabIndex={5 + i}
-          key={i}
-          className="step-textarea"
-          placeholder={`${i + 1}. lépés`}
-          value={step}
-          onChange={(e) => {
-            const copy = [...steps];
-            copy[i] = e.target.value;
-            setSteps(copy);
-          }}
-        />
+        <div key={i} style={{ position: "relative" }}>
+          <textarea
+            tabIndex={5 + i}
+            className="step-textarea"
+            placeholder={`${i + 1}. lépés`}
+            value={step}
+            onChange={(e) => {
+              const copy = [...steps];
+              copy[i] = e.target.value;
+              setSteps(copy);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() =>
+              setSteps((prev) => prev.filter((_, index) => index !== i))
+            }
+          >
+            Lépés törlése❌
+          </button>
+        </div>
       ))}
       <button onClick={addStep}>+ lépés</button>
 
       <h4>Címkék</h4>
 
-      <div>
-        {existingTags.map((tag) => (
-          <label key={tag} style={{ display: "block" }}>
-            <input
-              type="checkbox"
-              checked={selectedTags.includes(tag)}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setSelectedTags([...selectedTags, tag]);
-                } else {
-                  setSelectedTags(selectedTags.filter((t) => t !== tag));
-                }
-              }}
-            />
-            {tag}
-          </label>
-        ))}
-      </div>
+      {existingTags.map((tag) => (
+        <label
+          key={tag}
+          style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+        >
+          <input
+            type="checkbox"
+            checked={selectedTags.includes(tag)}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setSelectedTags([...selectedTags, tag]);
+              } else {
+                setSelectedTags(selectedTags.filter((t) => t !== tag));
+              }
+            }}
+          />
+          {tag}
+<button
+  type="button"
+  style={{ marginLeft: "auto" }}
+  onClick={async () => {
+    if (
+      !window.confirm(
+        `Biztosan törlöd a "${tag}" címkét minden receptből?`
+      )
+    )
+      return;
+
+const res = await fetch(`/api/recipes/tags/${tag}`, { method: "DELETE" });
+
+    if (res.ok) {
+      await onRecipeCreated?.();
+    } else {
+      alert("Hiba történt a címke törlésekor");
+    }
+  }}
+>
+  ❌
+</button>
+
+        </label>
+      ))}
 
       <input
         placeholder="Új címke"
@@ -164,7 +205,7 @@ export default function NewRecipeForm({
           onAddTag(tag);
 
           setSelectedTags((prev) =>
-            prev.includes(tag) ? prev : [...prev, tag]
+            prev.includes(tag) ? prev : [...prev, tag],
           );
 
           setNewTag("");
@@ -172,8 +213,9 @@ export default function NewRecipeForm({
       >
         + címke
       </button>
+      <div></div>
 
-      <button onClick={submit}>Mentés</button>
+      <button onClick={submit}>Recept mentése</button>
     </div>
   );
 }

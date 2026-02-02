@@ -1,12 +1,13 @@
-
-export default function RecipeDetails({ recipe }) {
+export default function RecipeDetails({ recipe, onDelete, onEdit }) {
   if (!recipe) return null;
 
-  const { name, ingredients = [], steps = [], tags = [] } = recipe;
+  const { id, name, ingredients = [], steps = [], tags = [] } = recipe;
 
   return (
     <div className="recipe-details">
       <h2>{name}</h2>
+
+      <button onClick={onEdit}>Recept szerkesztése ✏️</button>
 
       <section>
         <h3>Hozzávalók</h3>
@@ -39,15 +40,19 @@ export default function RecipeDetails({ recipe }) {
       {tags.length > 0 && (
         <section>
           <h3>Tag-ek</h3>
-          <div className="recipe-tags">
-            {tags.map((tag, i) => (
-              <span key={i} className="tag">
-                {tag}
-              </span>
-            ))}
-          </div>
+          <div className="recipe-tags">{tags.join(", ")}</div>
         </section>
       )}
+
+      <button
+        onClick={() => {
+          if (confirm("Biztosan törlöd ezt a receptet?")) {
+            onDelete(id);
+          }
+        }}
+      >
+        Recept törlése ❌
+      </button>
     </div>
   );
 }

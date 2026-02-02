@@ -12,8 +12,10 @@ import "./Home.css";
 export default function Home() {
   const [recipes, setRecipes] = useState([]);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [editingRecipe, setEditingRecipe] = useState(null);
   const [filterTag, setFilterTag] = useState("all");
   const [allTags, setAllTags] = useState([]);
+  const [showNewRecipeForm, setShowNewRecipeForm] = useState(false);
 
   useEffect(() => {
     fetch("/api/recipes")
@@ -29,7 +31,7 @@ export default function Home() {
   }, [recipes]);
 
   const filteredRecipes = recipes.filter(
-    (r) => filterTag === "all" || r.tags?.includes(filterTag)
+    (r) => filterTag === "all" || r.tags?.includes(filterTag),
   );
 
   const menuItems = [
@@ -42,7 +44,14 @@ export default function Home() {
 
   return (
     <div className="home-page">
-      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      >
         <LightPillar />
       </div>
 
@@ -70,33 +79,78 @@ export default function Home() {
           </select>
 
           <AnimatedList
-            items={filteredRecipes.map((r) => r.name)}
-            onItemSelect={(name) =>
-              setSelectedRecipe(recipes.find((r) => r.name === name))
+            items={filteredRecipes.map((r) => ({
+              id: r.id,
+              label: r.name,
+            }))}
+            onItemSelect={(item) =>
+              setSelectedRecipe(recipes.find((r) => r.id === item.id))
             }
           />
         </aside>
 
         <main className="center-panel">
-          {selectedRecipe ? (
-            <RecipeDetails recipe={selectedRecipe} />
+          {editingRecipe ? (
+            <NewRecipeForm
+              editMode
+              recipe={editingRecipe}
+              existingTags={allTags}
+              onSave={async (updated) => {
+                const res = await fetch(`/api/recipes/${updated.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(updated),
+                });
+                const saved = await res.json();
+                setRecipes((prev) =>
+                  prev.map((r) => (r.id === saved.id ? saved : r)),
+                );
+                setEditingRecipe(null);
+                setSelectedRecipe(saved);
+              }}
+            />
+          ) : selectedRecipe ? (
+            <RecipeDetails
+              recipe={selectedRecipe}
+              onDelete={async (id) => {
+                await fetch(`/api/recipes/${id}`, { method: "DELETE" });
+                setRecipes((prev) => prev.filter((r) => r.id !== id));
+                setSelectedRecipe(null);
+              }}
+              onEdit={() => setEditingRecipe(selectedRecipe)}
+            />
           ) : (
             <p>Kattints egy receptre.</p>
           )}
         </main>
 
         <aside className="right-panel">
-          <NewRecipeForm
-            existingTags={allTags}
-            onAddTag={(tag) =>
-              setAllTags((prev) =>
-                prev.includes(tag) ? prev : [...prev, tag]
-              )
-            }
-            onRecipeCreated={(recipe) =>
-              setRecipes((prev) => [...prev, recipe])
-            }
-          />
+          <button onClick={() => setShowNewRecipeForm((prev) => !prev)}>
+            Új Recept hozzáadása
+          </button>
+
+          {showNewRecipeForm && (
+            <NewRecipeForm
+              existingTags={allTags}
+              onAddTag={(tag) =>
+                setAllTags((prev) =>
+                  prev.includes(tag) ? prev : [...prev, tag],
+                )
+              }
+              onRecipeCreated={async () => {
+                try {
+                  const res = await fetch("/api/recipes");
+                  const updatedRecipes = await res.json();
+                  setRecipes(updatedRecipes);
+                } catch (err) {
+                  console.error(
+                    "Hiba történt a receptlista frissítésekor",
+                    err,
+                  );
+                }
+              }}
+            />
+          )}
         </aside>
       </div>
     </div>

@@ -148,7 +148,7 @@ const AnimatedList = ({
         {items.map((item, index) => (
           <AnimatedItem
             tabIndex={-1}
-            key={index}
+            key={typeof item === "object" ? item.id : index}
             delay={0.1}
             index={index}
             onMouseEnter={() => handleItemMouseEnter(index)}
@@ -157,7 +157,9 @@ const AnimatedList = ({
             <div
               className={`item ${selectedIndex === index ? "selected" : ""} ${itemClassName}`}
             >
-              <p className="item-text">{item}</p>
+              <p className="item-text">
+                {typeof item === "string" ? item : item.label}
+              </p>
             </div>
           </AnimatedItem>
         ))}
