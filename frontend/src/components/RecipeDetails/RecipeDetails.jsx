@@ -1,5 +1,6 @@
-export default function RecipeDetails({ recipe, onDelete, onEdit }) {
-  if (!recipe) return null;
+import "./RecipeDetails.css";
+
+export default function RecipeDetails({ recipe, onDelete, onEdit }) {  if (!recipe) return null;
 
   const { id, name, ingredients = [], steps = [], tags = [] } = recipe;
 

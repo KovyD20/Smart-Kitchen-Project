@@ -1,0 +1,8 @@
+.recipe-details {
+  background: #333232;
+  border: 1px solid #000000;
+  border-radius: 20px;
+  padding: 16px;
+  color: #eee;
+  max-width: 300px;
+}

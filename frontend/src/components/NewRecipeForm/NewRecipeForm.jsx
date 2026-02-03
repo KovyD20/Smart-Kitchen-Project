@@ -90,6 +90,7 @@ export default function NewRecipeForm({
               setIngredients(copy);
             }}
           />
+
           <input
             tabIndex={3}
             type="number"
@@ -116,9 +117,18 @@ export default function NewRecipeForm({
               <option key={u}>{u}</option>
             ))}
           </select>
+
+                    <button
+            type="button"
+            onClick={() =>
+              setIngredients((prev) => prev.filter((_, index) => index !== i))
+            }
+          >
+          ❌
+          </button>
         </div>
       ))}
-      <button onClick={addIngredient}>+ hozzávaló</button>
+      <button onClick={addIngredient}>➕ hozzávaló</button>
 
       <h4>Lépések</h4>
       {steps.map((step, i) => (
@@ -134,6 +144,8 @@ export default function NewRecipeForm({
               setSteps(copy);
             }}
           />
+                      <div></div>
+
           <button
             type="button"
             onClick={() =>
@@ -144,7 +156,7 @@ export default function NewRecipeForm({
           </button>
         </div>
       ))}
-      <button onClick={addStep}>+ lépés</button>
+      <button onClick={addStep}>➕ lépés</button>
 
       <h4>Címkék</h4>
 
@@ -165,29 +177,30 @@ export default function NewRecipeForm({
             }}
           />
           {tag}
-<button
-  type="button"
-  style={{ marginLeft: "auto" }}
-  onClick={async () => {
-    if (
-      !window.confirm(
-        `Biztosan törlöd a "${tag}" címkét minden receptből?`
-      )
-    )
-      return;
+          <button
+            type="button"
+            style={{ marginLeft: "auto" }}
+            onClick={async () => {
+              if (
+                !window.confirm(
+                  `Biztosan törlöd a "${tag}" címkét minden receptből?`,
+                )
+              )
+                return;
 
-const res = await fetch(`/api/recipes/tags/${tag}`, { method: "DELETE" });
+              const res = await fetch(`/api/recipes/tags/${tag}`, {
+                method: "DELETE",
+              });
 
-    if (res.ok) {
-      await onRecipeCreated?.();
-    } else {
-      alert("Hiba történt a címke törlésekor");
-    }
-  }}
->
-  ❌
-</button>
-
+              if (res.ok) {
+                await onRecipeCreated?.();
+              } else {
+                alert("Hiba történt a címke törlésekor");
+              }
+            }}
+          >
+            ❌
+          </button>
         </label>
       ))}
 
@@ -211,11 +224,11 @@ const res = await fetch(`/api/recipes/tags/${tag}`, { method: "DELETE" });
           setNewTag("");
         }}
       >
-        + címke
+        ➕ címke
       </button>
       <div></div>
 
-      <button onClick={submit}>Recept mentése</button>
+      <button onClick={submit}>Recept mentése💾</button>
     </div>
   );
 }
