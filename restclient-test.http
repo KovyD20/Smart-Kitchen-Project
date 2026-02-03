@@ -23,4 +23,8 @@ Content-Type: application/json
 ###
 
 curl -X DELETE http://localhost:3000/api/recipes/tags/reggeli
+###
 
+GET http://localhost:3000/api/shopping-list
+
+###
