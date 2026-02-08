@@ -4,5 +4,6 @@
   border-radius: 20px;
   padding: 16px;
   color: #eee;
+  min-width: 250px;
   max-width: 300px;
 }

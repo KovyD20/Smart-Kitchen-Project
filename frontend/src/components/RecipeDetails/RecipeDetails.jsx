@@ -1,6 +1,12 @@
 import "./RecipeDetails.css";
 
-export default function RecipeDetails({ recipe, onDelete, onEdit }) {  if (!recipe) return null;
+export default function RecipeDetails({
+  recipe,
+  onDelete,
+  onEdit,
+  onAddToShoppingList,
+}) {
+  if (!recipe) return null;
 
   const { id, name, ingredients = [], steps = [], tags = [] } = recipe;
 
@@ -8,6 +14,9 @@ export default function RecipeDetails({ recipe, onDelete, onEdit }) {  if (!reci
     <div className="recipe-details">
       <h2>{name}</h2>
 
+      <button onClick={() => onAddToShoppingList(ingredients)}>
+        Bevásárlólistához ad 🛒
+      </button>
       <button onClick={onEdit}>Recept szerkesztése ✏️</button>
 
       <section>

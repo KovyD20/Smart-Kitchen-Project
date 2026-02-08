@@ -19,8 +19,44 @@
   min-width: 0;
 }
 
+.shopping-list {
+  background: rgb(160, 137, 10);
+  border: 2px solid rgb(46, 42, 42);
+  border-radius: 20px;
+  padding: 16px;
+  color: #eee;
+  min-width: 100px;
+  max-width: 200px;
+}
+
+.fridge {
+  background: #2d86ec;
+  border: 2px solid #9cc9ff;
+  border-radius: 20px;
+  padding: 16px;
+  color: #eee;
+  min-width: 300px;
+  max-width: 350px;
+}
+
+.fridge ul {
+  list-style: none;
+  padding: 0;
+}
+
+.fridge li {
+  border: 1px solid #fff;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .right-panel {
-  position: sticky;
+  position: sticky; 
   top: 150px;
 
   align-self: start;
