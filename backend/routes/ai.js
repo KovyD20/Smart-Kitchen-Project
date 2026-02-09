@@ -120,7 +120,8 @@ router.post("/recipe-by-name", async (req, res) => {
 });
 
 router.post("/suggest-from-fridge", async (req, res) => {
-  const fridge = readFridge();
+  const fromBody = Array.isArray(req.body?.items) ? req.body.items : null;
+  const fridge = fromBody ?? readFridge();
   if (!Array.isArray(fridge) || fridge.length === 0) {
     return res.status(400).json({ error: "Fridge is empty" });
   }
@@ -131,7 +132,7 @@ router.post("/suggest-from-fridge", async (req, res) => {
 
   const prompt = [
     "Te egy kreatív séf asszisztens vagy.",
-        "Csak magyarul válaszolj. összetevő, mennyiség és elkészítési lépéseket is kizárólag magyarul.",
+    "Csak magyarul válaszolj. összetevő, mennyiség és elkészítési lépéseket is kizárólag magyarul.",
     "Kizárólag érvényes JSON-t adj vissza. Ne írj markdown-t, se extra szöveget.",
     "Az alábbi elérhető hozzávalók alapján adj 5-8 lehetséges ételnevet.",
     "Magyar neveket használj.",
@@ -161,7 +162,8 @@ router.post("/recipe-from-fridge", async (req, res) => {
     return res.status(400).json({ error: "Missing recipe name" });
   }
 
-  const fridge = readFridge();
+  const fromBody = Array.isArray(req.body?.items) ? req.body.items : null;
+  const fridge = fromBody ?? readFridge();
   if (!Array.isArray(fridge) || fridge.length === 0) {
     return res.status(400).json({ error: "Fridge is empty" });
   }

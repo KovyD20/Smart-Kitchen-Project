@@ -1,21 +1,36 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import AnimatedList from "../components/AnimatedList/AnimatedList";
 import BubbleMenu from "../components/BubbleMenu/BubbleMenu";
 import RecipeDetails from "../components/RecipeDetails/RecipeDetails";
 import LightPillar from "../components/Background/LightPillar";
 import NewRecipeForm from "../components/NewRecipeForm/NewRecipeForm";
+import AiRecipePanel from "../components/AiRecipePanel/AiRecipePanel";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  orderBy,
+  writeBatch,
+} from "firebase/firestore";
+import { signOut } from "firebase/auth";
+import { auth, db } from "../firebase";
 
 import "../components/AnimatedList/AnimatedList.css";
 import "../components/BubbleMenu/BubbleMenu.css";
 import "./Home.css";
 
-export default function Home() {
+export default function Home({ user }) {
   const [recipes, setRecipes] = useState([]);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
   const [filterTag, setFilterTag] = useState("all");
   const [allTags, setAllTags] = useState([]);
   const [showNewRecipeForm, setShowNewRecipeForm] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
   const [shoppingList, setShoppingList] = useState([]);
   const [fridge, setFridge] = useState([]);
   const [newShoppingItem, setNewShoppingItem] = useState({
@@ -36,22 +51,61 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const fetchLists = async () => {
-      try {
-        const resShop = await fetch("/api/shopping-list");
-        const shopData = await resShop.json();
-        setShoppingList(shopData);
+    if (!user?.uid) return;
 
-        const resFridge = await fetch("/api/fridge");
-        const fridgeData = await resFridge.json();
-        setFridge(fridgeData);
-      } catch (err) {
-        console.error("Hiba a listák lekérésekor", err);
-      }
+    const shopRef = collection(db, "users", user.uid, "shoppingList");
+    const fridgeRef = collection(db, "users", user.uid, "fridge");
+
+    const unsubShop = onSnapshot(
+      query(shopRef, orderBy("name")),
+      (snap) => {
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setShoppingList(items);
+      },
+      (err) => console.error("Hiba a bevásárlólista olvasásakor", err),
+    );
+
+    const unsubFridge = onSnapshot(
+      query(fridgeRef, orderBy("name")),
+      (snap) => {
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setFridge(items);
+      },
+      (err) => console.error("Hiba a hűtő olvasásakor", err),
+    );
+
+    return () => {
+      unsubShop();
+      unsubFridge();
     };
+  }, [user?.uid]);
 
-    fetchLists();
-  }, []);
+  const createRecipe = async (data) => {
+    const recipesRef = collection(db, "users", user.uid, "recipes");
+    return addDoc(recipesRef, data);
+  };
+
+  const updateRecipe = async (id, data) => {
+    return updateDoc(doc(db, "users", user.uid, "recipes", id), data);
+  };
+
+  const deleteRecipe = async (id) => {
+    return deleteDoc(doc(db, "users", user.uid, "recipes", id));
+  };
+
+  const deleteTagGlobally = async (tag) => {
+    const affected = recipes.filter((r) => r.tags?.includes(tag));
+    if (affected.length === 0) return;
+
+    const batch = writeBatch(db);
+    affected.forEach((r) => {
+      const nextTags = (r.tags || []).filter((t) => t !== tag);
+      batch.update(doc(db, "users", user.uid, "recipes", r.id), {
+        tags: nextTags,
+      });
+    });
+    await batch.commit();
+  };
 
   const addToShoppingList = async (ingredients) => {
     if (
@@ -59,61 +113,82 @@ export default function Home() {
     )
       return;
 
-    const res = await fetch("/api/shopping-list", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(ingredients),
-    });
+    try {
+      const shopRef = collection(db, "users", user.uid, "shoppingList");
 
-    if (res.ok) {
-      const payload = await res.json();
-      const updated = await fetch("/api/shopping-list");
-      const data = await updated.json();
-      setShoppingList(data);
-      if (payload?.warnings?.length) {
-        alert(payload.warnings.join("\n"));
+      for (const ing of ingredients) {
+        const name = (ing?.name || "").toString().trim();
+        if (!name) continue;
+        const unit = (ing?.unit || "").toString().trim();
+        const amount = Number(ing?.amount || 0);
+        if (!amount || amount <= 0) continue;
+
+        const existing = shoppingList.find(
+          (i) =>
+            i.name?.toString().trim() === name &&
+            i.unit?.toString().trim() === unit,
+        );
+
+        if (existing) {
+          const nextAmount = Number(existing.amount || 0) + amount;
+          await updateDoc(
+            doc(db, "users", user.uid, "shoppingList", existing.id),
+            { amount: nextAmount },
+          );
+        } else {
+          await addDoc(shopRef, { name, amount, unit });
+        }
       }
-      alert("✅ Sikeresen hozzáadva a bevásárlólistához");
-    } else {
-      alert("❌ Hiba történt");
+
+      alert("? Sikeresen hozzáadva a bevásárlólistához");
+    } catch (err) {
+      console.error(err);
+      alert("? Hiba történt");
     }
   };
 
-  const updateShoppingItem = async (item) => {
-    const res = await fetch("/api/shopping-list", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([item]),
-    });
+  const updateShoppingItem = async (item, delta) => {
+    try {
+      const current = Number(item.amount || 0);
+      const nextAmount = current + delta;
+      if (nextAmount <= 0) return;
 
-    if (res.ok) {
-      const payload = await res.json();
-      const updated = await fetch("/api/shopping-list").then((r) => r.json());
-      setShoppingList(updated);
-      if (payload?.warnings?.length) {
-        alert(payload.warnings.join("\n"));
-      }
-    } else {
-      alert("❌ Hiba történt");
+      await updateDoc(
+        doc(db, "users", user.uid, "shoppingList", item.id),
+        { amount: nextAmount },
+      );
+    } catch (err) {
+      console.error(err);
+      alert("? Hiba történt");
     }
   };
 
   const addSingleShoppingItem = async (item) => {
-    const res = await fetch("/api/shopping-list", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([item]),
-    });
+    try {
+      const name = (item?.name || "").toString().trim();
+      const unit = (item?.unit || "").toString().trim();
+      const amount = Number(item?.amount || 0);
+      if (!name || amount <= 0) return;
 
-    if (res.ok) {
-      const payload = await res.json();
-      const updated = await fetch("/api/shopping-list").then((r) => r.json());
-      setShoppingList(updated);
-      if (payload?.warnings?.length) {
-        alert(payload.warnings.join("\n"));
+      const existing = shoppingList.find(
+        (i) =>
+          i.name?.toString().trim() === name &&
+          i.unit?.toString().trim() === unit,
+      );
+
+      if (existing) {
+        const nextAmount = Number(existing.amount || 0) + amount;
+        await updateDoc(
+          doc(db, "users", user.uid, "shoppingList", existing.id),
+          { amount: nextAmount },
+        );
+      } else {
+        const shopRef = collection(db, "users", user.uid, "shoppingList");
+        await addDoc(shopRef, { name, amount, unit });
       }
-    } else {
-      alert("❌ Hiba történt");
+    } catch (err) {
+      console.error(err);
+      alert("? Hiba történt");
     }
   };
 
@@ -121,53 +196,90 @@ export default function Home() {
     if (shoppingList.length === 0) return;
     if (!window.confirm("Biztos, hogy megvetted a lista termékeit?")) return;
 
-    await Promise.all(
-      shoppingList.map((item) =>
-        fetch("/api/fridge", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: item.name,
-            amount: item.amount,
-            unit: item.unit,
-          }),
+    try {
+      const fridgeRef = collection(db, "users", user.uid, "fridge");
+
+      await Promise.all(
+        shoppingList.map(async (item) => {
+          const name = (item?.name || "").toString().trim();
+          const unit = (item?.unit || "").toString().trim();
+          const amount = Number(item?.amount || 0);
+          if (!name || amount <= 0) return;
+
+          const existing = fridge.find(
+            (i) =>
+              i.name?.toString().trim() === name &&
+              i.unit?.toString().trim() === unit,
+          );
+
+          if (existing) {
+            const nextAmount = Number(existing.amount || 0) + amount;
+            await updateDoc(
+              doc(db, "users", user.uid, "fridge", existing.id),
+              { amount: nextAmount },
+            );
+          } else {
+            await addDoc(fridgeRef, { name, amount, unit });
+          }
+
+          await deleteDoc(
+            doc(db, "users", user.uid, "shoppingList", item.id),
+          );
         }),
-      ),
-    );
-
-    await fetch("/api/shopping-list", { method: "DELETE" });
-
-    const updatedShop = await fetch("/api/shopping-list").then((r) => r.json());
-    const updatedFridge = await fetch("/api/fridge").then((r) => r.json());
-    setShoppingList(updatedShop);
-    setFridge(updatedFridge);
+      );
+    } catch (err) {
+      console.error(err);
+      alert("? Hiba történt");
+    }
   };
 
-  const addToFridge = async (item) => {
-    const res = await fetch("/api/fridge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(item),
-    });
+  const addToFridge = async (item, delta) => {
+    try {
+      const name = (item?.name || "").toString().trim();
+      const unit = (item?.unit || "").toString().trim();
+      const amount = Number(item?.amount || 0);
+      const change = Number(delta || 0);
+      if (!name) return;
 
-    if (res.ok) {
-      const payload = await res.json();
-      const updated = await fetch("/api/fridge").then((r) => r.json());
-      setFridge(updated);
-      if (payload?.warnings?.length) {
-        alert(payload.warnings.join("\n"));
+      const existing = fridge.find(
+        (i) =>
+          i.name?.toString().trim() === name &&
+          i.unit?.toString().trim() === unit,
+      );
+
+      if (existing) {
+        const nextAmount =
+          Number(existing.amount || 0) + (change !== 0 ? change : amount);
+        if (nextAmount <= 0) return;
+        await updateDoc(doc(db, "users", user.uid, "fridge", existing.id), {
+          amount: nextAmount,
+        });
+      } else {
+        if (amount <= 0) return;
+        const fridgeRef = collection(db, "users", user.uid, "fridge");
+        await addDoc(fridgeRef, { name, amount, unit });
       }
-    } else {
-      alert("❌ Hiba a hűtő frissítésekor");
+    } catch (err) {
+      console.error(err);
+      alert("? Hiba a hűtő frissítésekor");
     }
   };
 
   useEffect(() => {
-    fetch("/api/recipes")
-      .then((res) => res.json())
-      .then((data) => setRecipes(data))
-      .catch(console.error);
-  }, []);
+    if (!user?.uid) return;
+
+    const recipesRef = collection(db, "users", user.uid, "recipes");
+    const unsub = onSnapshot(
+      query(recipesRef, orderBy("name")),
+      (snap) => {
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setRecipes(items);
+      },
+      (err) => console.error("Hiba a receptek olvasásakor", err),
+    );
+
+    return () => unsub();
+  }, [user?.uid]);
 
   useEffect(() => {
     const tags = new Set();
@@ -210,7 +322,7 @@ export default function Home() {
 
       <div className="home-layout">
         <aside className="left-panel">
-          <h3>Szűrés tag szerint</h3>
+          <h3>Menü</h3>
           <select
             value={filterTag}
             onChange={(e) => setFilterTag(e.target.value)}
@@ -240,59 +352,53 @@ export default function Home() {
               editMode
               recipe={editingRecipe}
               existingTags={allTags}
+              onAddTag={(tag) =>
+                setAllTags((prev) =>
+                  prev.includes(tag) ? prev : [...prev, tag],
+                )
+              }
+              onDeleteTag={deleteTagGlobally}
               onSave={async (updated) => {
-                const res = await fetch(`/api/recipes/${updated.id}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(updated),
-                });
-                const saved = await res.json();
-                setRecipes((prev) =>
-                  prev.map((r) => (r.id === saved.id ? saved : r)),
-                );
+                const { id, ...data } = updated;
+                await updateRecipe(id, data);
                 setEditingRecipe(null);
-                setSelectedRecipe(saved);
+                setSelectedRecipe((prev) =>
+                  prev?.id === id ? { ...prev, ...data, id } : prev,
+                );
               }}
             />
           ) : selectedRecipe ? (
             <RecipeDetails
               recipe={selectedRecipe}
               onDelete={async (id) => {
-                await fetch(`/api/recipes/${id}`, { method: "DELETE" });
-                setRecipes((prev) => prev.filter((r) => r.id !== id));
+                await deleteRecipe(id);
                 setSelectedRecipe(null);
               }}
               onEdit={() => setEditingRecipe(selectedRecipe)}
               onAddToShoppingList={addToShoppingList}
             />
           ) : (
-            <div className="recipe-details">Kattints egy receptre.</div>
+            <div className="recipe-details">Kattints egy meglévő receptre, vagy adj hozzá újat a listához.</div>
           )}
 
           {/* <div className="lists-column"></div> */}
         </main>
 
         <div className="shopping-list">
-          <h3>🛒 Bevásárlólista</h3>
+          <h3>Bevásárlólista</h3>
           {shoppingList.length === 0 ? (
             <p>Üres</p>
           ) : (
             <ul>
               {shoppingList.map((item, i) => (
-                <li key={i}>
+                <li key={item.id}>
                   <span style={{ flex: 1 }}>
                     {item.name} - {item.amount} {item.unit}
                   </span>
                   <div className="item-actions">
                     <button
                       style={smallBtn}
-                      onClick={() =>
-                        updateShoppingItem({
-                          name: item.name,
-                          amount: 1,
-                          unit: item.unit,
-                        })
-                      }
+                      onClick={() => updateShoppingItem(item, 1)}
                     >
                       +
                     </button>
@@ -300,31 +406,21 @@ export default function Home() {
                     <button
                       style={smallBtn}
                       disabled={item.amount <= 1}
-                      onClick={() =>
-                        updateShoppingItem({
-                          name: item.name,
-                          amount: -1,
-                          unit: item.unit,
-                        })
-                      }
+                      onClick={() => updateShoppingItem(item, -1)}
                     >
                       -
                     </button>
 
                     <button
                       style={smallBtn}
-                      onClick={async () => {
+                       onClick={async () => {
                         if (!window.confirm("Biztosan törlöd?")) return;
-                        await fetch(`/api/shopping-list/${i}`, {
-                          method: "DELETE",
-                        });
-                        const updated = await fetch(
-                          "/api/shopping-list",
-                        ).then((r) => r.json());
-                        setShoppingList(updated);
+                        await deleteDoc(
+                          doc(db, "users", user.uid, "shoppingList", item.id),
+                        );
                       }}
                     >
-                      🗑
+                      Törlés
                     </button>
                   </div>
                 </li>
@@ -381,16 +477,21 @@ export default function Home() {
                 setNewShoppingItem({ name: "", amount: "", unit: "" });
               }}
             >
-            ➕
+            +
             </button>
           </div>
 
           <button
             className="shopping-clear"
-            onClick={async () => {
+             onClick={async () => {
               if (!window.confirm("Biztosan törlöd a teljes listát?")) return;
-              await fetch("/api/shopping-list", { method: "DELETE" });
-              setShoppingList([]);
+              await Promise.all(
+                shoppingList.map((item) =>
+                  deleteDoc(
+                    doc(db, "users", user.uid, "shoppingList", item.id),
+                  ),
+                ),
+              );
             }}
           >
             Lista törlése
@@ -401,7 +502,7 @@ export default function Home() {
         </div>
 
         <div className="fridge">
-          <h3>🧊 Hűtő</h3>
+          <h3>Hűtő</h3>
           {fridge.length === 0 ? (
             <p>Üres</p>
           ) : (
@@ -409,7 +510,7 @@ export default function Home() {
               <div></div>
               {fridge.map((item, i) => (
                 <li
-                  key={i}
+                  key={item.id}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -423,13 +524,7 @@ export default function Home() {
 <div className="item-actions">
                   <button
                     style={smallBtn}
-                    onClick={() =>
-                      addToFridge({
-                        name: item.name,
-                        amount: 1,
-                        unit: item.unit,
-                      })
-                    }
+                    onClick={() => addToFridge(item, 1)}
                   >
                     +
                   </button>
@@ -437,29 +532,21 @@ export default function Home() {
                   <button
                     style={smallBtn}
                     disabled={item.amount <= 1}
-                    onClick={() =>
-                      addToFridge({
-                        name: item.name,
-                        amount: -1,
-                        unit: item.unit,
-                      })
-                    }
+                    onClick={() => addToFridge(item, -1)}
                   >
                     -
                   </button>
 
                   <button
                     style={smallBtn}
-                    onClick={async () => {
+                     onClick={async () => {
                       if (!window.confirm("Biztosan törlöd?")) return;
-                      await fetch(`/api/fridge/${i}`, { method: "DELETE" });
-                      const updated = await fetch("/api/fridge").then((r) =>
-                        r.json(),
+                      await deleteDoc(
+                        doc(db, "users", user.uid, "fridge", item.id),
                       );
-                      setFridge(updated);
                     }}
                   >
-                    🗑
+                    Törlés
                   </button>
                   </div>
                 </li>
@@ -516,14 +603,14 @@ export default function Home() {
                 setNewFridgeItem({ name: "", amount: "", unit: "" });
               }}
             >
-              Tétel hozzáadása➕
+              Tétel hozzáadása+
             </button>
           </div>
         </div>
 
         <aside className="right-panel">
           <button onClick={() => setShowNewRecipeForm((prev) => !prev)}>
-            Új Recept hozzáadása
+            Új saját recept hozzáadása
           </button>
 
           {showNewRecipeForm && (
@@ -534,16 +621,35 @@ export default function Home() {
                   prev.includes(tag) ? prev : [...prev, tag],
                 )
               }
-              onRecipeCreated={async () => {
+              onDeleteTag={deleteTagGlobally}
+              onCreate={async (data) => {
                 try {
-                  const res = await fetch("/api/recipes");
-                  const updatedRecipes = await res.json();
-                  setRecipes(updatedRecipes);
+                  await createRecipe(data);
+                  setShowNewRecipeForm(false);
                 } catch (err) {
-                  console.error(
-                    "Hiba történt a receptlista frissítésekor",
-                    err,
-                  );
+                  console.error(err);
+                  alert("Recept mentése sikertelen");
+                }
+              }}
+            />
+          )}
+
+          <div><p>vagy</p></div>
+
+          <button onClick={() => setShowAiPanel((prev) => !prev)}>
+            AI-recept generálás
+          </button>
+
+          {showAiPanel && (
+            <AiRecipePanel
+              fridgeItems={fridge}
+              onSaveRecipe={async (data) => {
+                try {
+                  await createRecipe(data);
+                  setShowAiPanel(false);
+                } catch (err) {
+                  console.error(err);
+                  alert("Recept mentése sikertelen");
                 }
               }}
             />

@@ -1,0 +1,42 @@
+.auth-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 360px;
+  background: #1c1c1c;
+  border: 2px solid #ff3b3b;
+  border-radius: 12px;
+  padding: 16px;
+  color: #f5f5f5;
+}
+
+.auth-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.auth-form input {
+  padding: 8px;
+}
+
+.auth-google {
+  margin-top: 6px;
+  width: 100%;
+}
+
+.auth-error {
+  margin-top: 10px;
+  color: #ffb3b3;
+  font-weight: 600;
+}
+
+.auth-toggle {
+  margin-top: 12px;
+  width: 100%;
+}

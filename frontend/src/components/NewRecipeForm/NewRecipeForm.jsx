@@ -1,13 +1,15 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import "./NewRecipeForm.css";
 
 const UNITS = ["g", "dkg", "kg", "ml", "dl", "l", "db"];
 
 export default function NewRecipeForm({
   onRecipeCreated,
+  onCreate,
   onSave,
   existingTags,
   onAddTag,
+  onDeleteTag,
   editMode = false,
   recipe,
 }) {
@@ -49,15 +51,10 @@ export default function NewRecipeForm({
       await onSave({ ...data, id: recipe.id });
       return;
     }
-
-    const res = await fetch("/api/recipes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-
-    const saved = await res.json();
-    onRecipeCreated(saved);
+    if (onCreate) {
+      await onCreate(data);
+    }
+    await onRecipeCreated?.();
 
     setName("");
     setIngredients([{ name: "", amount: "", unit: "g" }]);
@@ -67,7 +64,7 @@ export default function NewRecipeForm({
   };
 
   return (
-    <div>
+    <div className={editMode ? "recipe-details" : ""}>
       <h3>{editMode ? "Recept szerkesztése" : "Új recept"}</h3>
 
       <input
@@ -187,6 +184,12 @@ export default function NewRecipeForm({
                 )
               )
                 return;
+
+              if (onDeleteTag) {
+                await onDeleteTag(tag);
+                await onRecipeCreated?.();
+                return;
+              }
 
               const res = await fetch(`/api/recipes/tags/${tag}`, {
                 method: "DELETE",
