@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const router = express.Router();
@@ -13,39 +13,148 @@ function writeFridge(data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
-// GET – teljes hűtő
+// unit groups for merging
+const UNIT_GROUPS = {
+  weight: ["g", "dkg", "kg"],
+  volume: ["ml", "dl", "l"],
+};
+
+const UNIT_FACTORS = {
+  g: { group: "weight", factor: 1, base: "g" },
+  dkg: { group: "weight", factor: 10, base: "g" },
+  kg: { group: "weight", factor: 1000, base: "g" },
+  ml: { group: "volume", factor: 1, base: "ml" },
+  dl: { group: "volume", factor: 100, base: "ml" },
+  l: { group: "volume", factor: 1000, base: "ml" },
+};
+
+function normalizeName(name) {
+  return name.trim().toLowerCase();
+}
+
+function normalizeUnit(unit) {
+  return (unit || "").toString().trim().toLowerCase();
+}
+
+function unitGroup(unit) {
+  const u = normalizeUnit(unit);
+  if (UNIT_GROUPS.weight.includes(u)) return "weight";
+  if (UNIT_GROUPS.volume.includes(u)) return "volume";
+  return u; // e.g. db
+}
+
+function toBaseAmount(amount, unit) {
+  const u = normalizeUnit(unit);
+  const meta = UNIT_FACTORS[u];
+  if (!meta) return { amount: Number(amount), unit: u };
+  return { amount: Number(amount) * meta.factor, unit: meta.base };
+}
+
+function roundAmount(value) {
+  return Number(Number(value).toFixed(2));
+}
+
+function chooseDisplayAmountUnit(baseAmount, group) {
+  const isInt = (v) => Math.abs(v - Math.round(v)) < 1e-9;
+  if (group === "weight") {
+    if (baseAmount >= 1000 && isInt(baseAmount / 1000)) {
+      return { amount: baseAmount / 1000, unit: "kg" };
+    }
+    if (baseAmount >= 10 && isInt(baseAmount / 10)) {
+      return { amount: baseAmount / 10, unit: "dkg" };
+    }
+    return { amount: baseAmount, unit: "g" };
+  }
+  if (group === "volume") {
+    if (baseAmount >= 1000 && isInt(baseAmount / 1000)) {
+      return { amount: baseAmount / 1000, unit: "l" };
+    }
+    if (baseAmount >= 100 && isInt(baseAmount / 100)) {
+      return { amount: baseAmount / 100, unit: "dl" };
+    }
+    return { amount: baseAmount, unit: "ml" };
+  }
+  return { amount: baseAmount, unit: group };
+}
+
+// GET - full fridge
 router.get("/", (req, res) => {
   res.json(readFridge());
 });
 
-// POST – tétel hozzáadás / összevonás
+// POST - add item(s) / merge
 router.post("/", (req, res) => {
-  const incoming = req.body; // { name, amount, unit }
-  const fridge = readFridge();
+  const incomingRaw = req.body; // { name, amount, unit } or array
+  const incoming = Array.isArray(incomingRaw) ? incomingRaw : [incomingRaw];
+  let fridge = readFridge();
+  const warnings = [];
 
-  const nameNorm = incoming.name.trim().toLowerCase();
+  incoming.forEach((item) => {
+    if (!item || !item.name || item.amount === undefined) return;
 
-  const existing = fridge.find(
-    i =>
-      i.name.trim().toLowerCase() === nameNorm &&
-      i.unit === incoming.unit
-  );
+    const nameNorm = normalizeName(item.name);
+    const unitNorm = normalizeUnit(item.unit);
+    const group = unitGroup(unitNorm);
 
-  if (existing) {
-    existing.amount += Number(incoming.amount);
-  } else {
-    fridge.push({
-      name: incoming.name.trim(),
-      amount: Number(incoming.amount),
-      unit: incoming.unit,
-    });
-  }
+    const sameNameDifferentGroup = fridge.find(
+      (i) =>
+        normalizeName(i.name) === nameNorm && unitGroup(i.unit) !== group,
+    );
+    if (sameNameDifferentGroup) {
+      warnings.push(
+        `A tétel már szerepel más mértékegységgel: ${item.name.trim()}`,
+      );
+    }
+
+    const existing = fridge.find(
+      (i) =>
+        normalizeName(i.name) === nameNorm &&
+        unitGroup(i.unit) === group,
+    );
+
+    const incomingBase = toBaseAmount(item.amount, unitNorm);
+
+    if (existing) {
+      const existingBase = toBaseAmount(existing.amount, existing.unit);
+      const newBaseAmount =
+        Number(existingBase.amount) + Number(incomingBase.amount);
+
+      if (newBaseAmount <= 0) {
+        fridge = fridge.filter((i) => i !== existing);
+        return;
+      }
+
+      if (group === "weight" || group === "volume") {
+        const display = chooseDisplayAmountUnit(newBaseAmount, group);
+        existing.amount = roundAmount(display.amount);
+        existing.unit = display.unit;
+      } else {
+        existing.amount = roundAmount(newBaseAmount);
+        existing.unit = incomingBase.unit || existing.unit;
+      }
+    } else if (Number(incomingBase.amount) > 0) {
+      if (group === "weight" || group === "volume") {
+        const display = chooseDisplayAmountUnit(incomingBase.amount, group);
+        fridge.push({
+          name: item.name.trim(),
+          amount: roundAmount(display.amount),
+          unit: display.unit,
+        });
+      } else {
+        fridge.push({
+          name: item.name.trim(),
+          amount: roundAmount(incomingBase.amount),
+          unit: incomingBase.unit || unitNorm,
+        });
+      }
+    }
+  });
 
   writeFridge(fridge);
-  res.json({ success: true });
+  res.json({ success: true, warnings });
 });
 
-// DELETE – tétel törlése
+// DELETE - remove item
 router.delete("/:index", (req, res) => {
   const fridge = readFridge();
   const idx = Number(req.params.index);

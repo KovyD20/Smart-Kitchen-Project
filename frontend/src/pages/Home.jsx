@@ -18,6 +18,11 @@ export default function Home() {
   const [showNewRecipeForm, setShowNewRecipeForm] = useState(false);
   const [shoppingList, setShoppingList] = useState([]);
   const [fridge, setFridge] = useState([]);
+  const [newShoppingItem, setNewShoppingItem] = useState({
+    name: "",
+    amount: "",
+    unit: "",
+  });
   const [newFridgeItem, setNewFridgeItem] = useState({
     name: "",
     amount: "",
@@ -61,13 +66,81 @@ export default function Home() {
     });
 
     if (res.ok) {
+      const payload = await res.json();
       const updated = await fetch("/api/shopping-list");
       const data = await updated.json();
       setShoppingList(data);
+      if (payload?.warnings?.length) {
+        alert(payload.warnings.join("\n"));
+      }
       alert("✅ Sikeresen hozzáadva a bevásárlólistához");
     } else {
       alert("❌ Hiba történt");
     }
+  };
+
+  const updateShoppingItem = async (item) => {
+    const res = await fetch("/api/shopping-list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([item]),
+    });
+
+    if (res.ok) {
+      const payload = await res.json();
+      const updated = await fetch("/api/shopping-list").then((r) => r.json());
+      setShoppingList(updated);
+      if (payload?.warnings?.length) {
+        alert(payload.warnings.join("\n"));
+      }
+    } else {
+      alert("❌ Hiba történt");
+    }
+  };
+
+  const addSingleShoppingItem = async (item) => {
+    const res = await fetch("/api/shopping-list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([item]),
+    });
+
+    if (res.ok) {
+      const payload = await res.json();
+      const updated = await fetch("/api/shopping-list").then((r) => r.json());
+      setShoppingList(updated);
+      if (payload?.warnings?.length) {
+        alert(payload.warnings.join("\n"));
+      }
+    } else {
+      alert("❌ Hiba történt");
+    }
+  };
+
+  const moveShoppingToFridge = async () => {
+    if (shoppingList.length === 0) return;
+    if (!window.confirm("Biztos, hogy megvetted a lista termékeit?")) return;
+
+    await Promise.all(
+      shoppingList.map((item) =>
+        fetch("/api/fridge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: item.name,
+            amount: item.amount,
+            unit: item.unit,
+          }),
+        }),
+      ),
+    );
+
+    await fetch("/api/shopping-list", { method: "DELETE" });
+
+    const updatedShop = await fetch("/api/shopping-list").then((r) => r.json());
+    const updatedFridge = await fetch("/api/fridge").then((r) => r.json());
+    setShoppingList(updatedShop);
+    setFridge(updatedFridge);
   };
 
   const addToFridge = async (item) => {
@@ -78,8 +151,12 @@ export default function Home() {
     });
 
     if (res.ok) {
+      const payload = await res.json();
       const updated = await fetch("/api/fridge").then((r) => r.json());
       setFridge(updated);
+      if (payload?.warnings?.length) {
+        alert(payload.warnings.join("\n"));
+      }
     } else {
       alert("❌ Hiba a hűtő frissítésekor");
     }
@@ -189,7 +266,7 @@ export default function Home() {
               onAddToShoppingList={addToShoppingList}
             />
           ) : (
-            <p>Kattints egy receptre.</p>
+            <div className="recipe-details">Kattints egy receptre.</div>
           )}
 
           {/* <div className="lists-column"></div> */}
@@ -203,11 +280,124 @@ export default function Home() {
             <ul>
               {shoppingList.map((item, i) => (
                 <li key={i}>
-                  {item.name} - {item.amount} {item.unit}
+                  <span style={{ flex: 1 }}>
+                    {item.name} - {item.amount} {item.unit}
+                  </span>
+                  <div className="item-actions">
+                    <button
+                      style={smallBtn}
+                      onClick={() =>
+                        updateShoppingItem({
+                          name: item.name,
+                          amount: 1,
+                          unit: item.unit,
+                        })
+                      }
+                    >
+                      +
+                    </button>
+
+                    <button
+                      style={smallBtn}
+                      disabled={item.amount <= 1}
+                      onClick={() =>
+                        updateShoppingItem({
+                          name: item.name,
+                          amount: -1,
+                          unit: item.unit,
+                        })
+                      }
+                    >
+                      -
+                    </button>
+
+                    <button
+                      style={smallBtn}
+                      onClick={async () => {
+                        if (!window.confirm("Biztosan törlöd?")) return;
+                        await fetch(`/api/shopping-list/${i}`, {
+                          method: "DELETE",
+                        });
+                        const updated = await fetch(
+                          "/api/shopping-list",
+                        ).then((r) => r.json());
+                        setShoppingList(updated);
+                      }}
+                    >
+                      🗑
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
+
+          <div className="shopping-add">
+            <input
+              style={{ width: "80px" }}
+              placeholder="név"
+              value={newShoppingItem.name}
+              onChange={(e) =>
+                setNewShoppingItem((p) => ({ ...p, name: e.target.value }))
+              }
+            />
+
+            <input
+              style={{ width: "50px" }}
+              type="number"
+              min="0"
+              step="1"
+              placeholder="menny."
+              value={newShoppingItem.amount}
+              onChange={(e) => {
+                const val = Math.max(0, Number(e.target.value));
+                setNewShoppingItem((p) => ({ ...p, amount: val }));
+              }}
+            />
+
+            <select
+              value={newShoppingItem.unit}
+              onChange={(e) =>
+                setNewShoppingItem((p) => ({ ...p, unit: e.target.value }))
+              }
+            >
+              {UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
+            <div></div>
+            <button
+              onClick={() => {
+                if (!newShoppingItem.name || !newShoppingItem.amount) return;
+
+                addSingleShoppingItem({
+                  name: newShoppingItem.name,
+                  amount: Number(newShoppingItem.amount),
+                  unit: newShoppingItem.unit || "db",
+                });
+
+                setNewShoppingItem({ name: "", amount: "", unit: "" });
+              }}
+            >
+            ➕
+            </button>
+          </div>
+
+          <button
+            className="shopping-clear"
+            onClick={async () => {
+              if (!window.confirm("Biztosan törlöd a teljes listát?")) return;
+              await fetch("/api/shopping-list", { method: "DELETE" });
+              setShoppingList([]);
+            }}
+          >
+            Lista törlése
+          </button>
+          <button className="shopping-move" onClick={moveShoppingToFridge}>
+            Hűtőbe rak
+          </button>
         </div>
 
         <div className="fridge">

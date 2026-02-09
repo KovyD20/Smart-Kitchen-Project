@@ -30,3 +30,28 @@ GET http://localhost:3000/api/shopping-list
 ###
 
 GET http://localhost:3000/api/fridge
+
+###
+
+POST http://localhost:3000/api/ai/recipe-by-name
+Content-Type: application/json
+
+{
+  "name": "rakott krumpli"
+}
+
+###
+
+POST http://localhost:3000/api/ai/suggest-from-fridge
+Content-Type: application/json
+
+{}
+
+###
+
+POST http://localhost:3000/api/ai/recipe-from-fridge
+Content-Type: application/json
+
+{
+  "name": "brokkolis csirke"
+}
