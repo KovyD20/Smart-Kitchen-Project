@@ -27,7 +27,9 @@ export default function RecipeDetails({
           <ul>
             {ingredients.map((ing, i) => (
               <li key={i}>
-                {ing.amount} {ing.unit} – {ing.name}
+                <span className="amount-highlight">
+                  {ing.amount} {ing.unit}
+                </span> – {ing.name}
               </li>
             ))}
           </ul>
@@ -66,3 +68,4 @@ export default function RecipeDetails({
     </div>
   );
 }
+

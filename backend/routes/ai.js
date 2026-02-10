@@ -90,6 +90,7 @@ router.post("/recipe-by-name", async (req, res) => {
   const prompt = [
     "Te egy profi séf asszisztens vagy.",
     "Csak magyarul válaszolj. összetevő, mennyiség és elkészítési lépéseket is kizárólag magyarul.",
+    "Hozzávalóknál először a magát a hpzzávalót írd, utána pedig a mennyiséget",
     "Kizárólag érvényes JSON-t adj vissza. Ne írj markdown-t, se extra szöveget.",
     "Készíts receptet az alábbi ételnév alapján:",
     `"${name}"`,
@@ -133,6 +134,7 @@ router.post("/suggest-from-fridge", async (req, res) => {
   const prompt = [
     "Te egy kreatív séf asszisztens vagy.",
     "Csak magyarul válaszolj. összetevő, mennyiség és elkészítési lépéseket is kizárólag magyarul.",
+    "Hozzávalóknál először a magát a hpzzávalót írd, utána pedig a mennyiséget",
     "Kizárólag érvényes JSON-t adj vissza. Ne írj markdown-t, se extra szöveget.",
     "Az alábbi elérhető hozzávalók alapján adj 5-8 lehetséges ételnevet.",
     "Magyar neveket használj.",
@@ -175,6 +177,7 @@ router.post("/recipe-from-fridge", async (req, res) => {
   const prompt = [
     "Te egy precíz séf asszisztens vagy.",
     "Csak magyarul válaszolj. összetevő, mennyiség és elkészítési lépéseket is kizárólag magyarul.",
+    "Hozzávalóknál először a magát a hpzzávalót írd, utána pedig a mennyiséget",
     "Kizárólag érvényes JSON-t adj vissza. Ne írj markdown-t, se extra szöveget.",
     "Készíts receptet a megadott ételnévhez KIZÁRÓLAG a listázott hozzávalókból.",
     "Ne adj hozzá olyan hozzávalót, ami nincs a listában.",

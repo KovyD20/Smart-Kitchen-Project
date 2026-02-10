@@ -39,6 +39,7 @@ export default function AuthPanel() {
 
   return (
     <div className="auth-wrap">
+      <h1 className="auth-title">Recept operációs rendszer</h1>
       <div className="auth-card">
         <h2>{isRegister ? "Regisztráció" : "Bejelentkezés"}</h2>
 

@@ -1,10 +1,11 @@
 ﻿import { useState, useEffect } from "react";
-import AnimatedList from "../components/AnimatedList/AnimatedList";
 import BubbleMenu from "../components/BubbleMenu/BubbleMenu";
-import RecipeDetails from "../components/RecipeDetails/RecipeDetails";
 import LightPillar from "../components/Background/LightPillar";
-import NewRecipeForm from "../components/NewRecipeForm/NewRecipeForm";
-import AiRecipePanel from "../components/AiRecipePanel/AiRecipePanel";
+import RecipeListPanel from "../components/Home/RecipeListPanel";
+import RecipeDisplayPanel from "../components/Home/RecipeDisplayPanel";
+import ShoppingListPanel from "../components/Home/ShoppingListPanel";
+import FridgePanel from "../components/Home/FridgePanel";
+import NewRecipePanel from "../components/Home/NewRecipePanel";
 import {
   collection,
   addDoc,
@@ -48,6 +49,68 @@ export default function Home({ user }) {
     padding: "3px 6px",
     fontSize: "15px",
     lineHeight: "1",
+  };
+  const normalizeName = (value) => {
+    const base = (value || "")
+      .toString()
+      .trim()
+      .toLocaleLowerCase("hu-HU");
+    const withoutNumbers = base
+      .replace(/(\d+)(\s*)(db|g|dkg|kg|ml|dl|l)\b/g, " ")
+      .replace(/\b\d+([.,]\d+)?\b/g, " ")
+      .replace(/[()\-_,.;:!+]/g, " ");
+    return withoutNumbers.replace(/\s+/g, " ").trim();
+  };
+  const normalizeUnit = (value) => {
+    const raw = (value || "").toString().trim().toLocaleLowerCase("hu-HU");
+    if (!raw) return "";
+    const ascii = raw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    const cleaned = ascii.replace(/\./g, "").trim();
+    const map = {
+      g: "g",
+      gramm: "g",
+      gram: "g",
+      kg: "kg",
+      dkg: "dkg",
+      ml: "ml",
+      dl: "dl",
+      l: "l",
+      db: "db",
+      darab: "db",
+      gerezd: "db",
+      "evokanal": "ek",
+      "ek": "ek",
+      "teaskanal": "tk",
+      "tk": "tk",
+    };
+    return map[cleaned] || cleaned;
+  };
+  const unitInfo = (unit) => {
+    const u = normalizeUnit(unit);
+    const table = {
+      g: { kind: "mass", factor: 1 },
+      dkg: { kind: "mass", factor: 10 },
+      kg: { kind: "mass", factor: 1000 },
+      ml: { kind: "volume", factor: 1 },
+      dl: { kind: "volume", factor: 100 },
+      l: { kind: "volume", factor: 1000 },
+      db: { kind: "count", factor: 1 },
+    };
+    return { unit: u, ...table[u] };
+  };
+  const areUnitsCompatible = (a, b) => {
+    if (!a || !b) return false;
+    if (a.unit === b.unit) return true;
+    if (!a.kind || !b.kind) return false;
+    return a.kind === b.kind && (a.kind === "mass" || a.kind === "volume");
+  };
+  const convertAmount = (amount, fromInfo, toInfo) => {
+    if (!fromInfo || !toInfo) return amount;
+    if (fromInfo.unit === toInfo.unit) return amount;
+    if (!areUnitsCompatible(fromInfo, toInfo)) return amount;
+    return (Number(amount) || 0) * (fromInfo.factor / toInfo.factor);
   };
 
   useEffect(() => {
@@ -117,26 +180,30 @@ export default function Home({ user }) {
       const shopRef = collection(db, "users", user.uid, "shoppingList");
 
       for (const ing of ingredients) {
-        const name = (ing?.name || "").toString().trim();
-        if (!name) continue;
-        const unit = (ing?.unit || "").toString().trim();
+        const rawName = (ing?.name || "").toString().trim();
+        if (!rawName) continue;
+        const nameKey = normalizeName(rawName);
+        const unit = normalizeUnit(ing?.unit);
+        const incomingUnitInfo = unitInfo(unit);
         const amount = Number(ing?.amount || 0);
         if (!amount || amount <= 0) continue;
 
-        const existing = shoppingList.find(
-          (i) =>
-            i.name?.toString().trim() === name &&
-            i.unit?.toString().trim() === unit,
-        );
+        const existing = shoppingList.find((i) => {
+          if (normalizeName(i.name) !== nameKey) return false;
+          const existingInfo = unitInfo(i.unit);
+          return areUnitsCompatible(existingInfo, incomingUnitInfo);
+        });
 
         if (existing) {
-          const nextAmount = Number(existing.amount || 0) + amount;
+          const existingInfo = unitInfo(existing.unit);
+          const converted = convertAmount(amount, incomingUnitInfo, existingInfo);
+          const nextAmount = Number(existing.amount || 0) + converted;
           await updateDoc(
             doc(db, "users", user.uid, "shoppingList", existing.id),
             { amount: nextAmount },
           );
         } else {
-          await addDoc(shopRef, { name, amount, unit });
+          await addDoc(shopRef, { name: rawName, amount, unit });
         }
       }
 
@@ -165,26 +232,30 @@ export default function Home({ user }) {
 
   const addSingleShoppingItem = async (item) => {
     try {
-      const name = (item?.name || "").toString().trim();
-      const unit = (item?.unit || "").toString().trim();
+      const rawName = (item?.name || "").toString().trim();
+      const unit = normalizeUnit(item?.unit);
+      const incomingUnitInfo = unitInfo(unit);
       const amount = Number(item?.amount || 0);
-      if (!name || amount <= 0) return;
+      if (!rawName || amount <= 0) return;
+      const nameKey = normalizeName(rawName);
 
-      const existing = shoppingList.find(
-        (i) =>
-          i.name?.toString().trim() === name &&
-          i.unit?.toString().trim() === unit,
-      );
+      const existing = shoppingList.find((i) => {
+        if (normalizeName(i.name) !== nameKey) return false;
+        const existingInfo = unitInfo(i.unit);
+        return areUnitsCompatible(existingInfo, incomingUnitInfo);
+      });
 
       if (existing) {
-        const nextAmount = Number(existing.amount || 0) + amount;
+        const existingInfo = unitInfo(existing.unit);
+        const converted = convertAmount(amount, incomingUnitInfo, existingInfo);
+        const nextAmount = Number(existing.amount || 0) + converted;
         await updateDoc(
           doc(db, "users", user.uid, "shoppingList", existing.id),
           { amount: nextAmount },
         );
       } else {
         const shopRef = collection(db, "users", user.uid, "shoppingList");
-        await addDoc(shopRef, { name, amount, unit });
+        await addDoc(shopRef, { name: rawName, amount, unit });
       }
     } catch (err) {
       console.error(err);
@@ -201,25 +272,29 @@ export default function Home({ user }) {
 
       await Promise.all(
         shoppingList.map(async (item) => {
-          const name = (item?.name || "").toString().trim();
-          const unit = (item?.unit || "").toString().trim();
+          const rawName = (item?.name || "").toString().trim();
+          const unit = normalizeUnit(item?.unit);
+          const incomingUnitInfo = unitInfo(unit);
           const amount = Number(item?.amount || 0);
-          if (!name || amount <= 0) return;
+          if (!rawName || amount <= 0) return;
+          const nameKey = normalizeName(rawName);
 
-          const existing = fridge.find(
-            (i) =>
-              i.name?.toString().trim() === name &&
-              i.unit?.toString().trim() === unit,
-          );
+          const existing = fridge.find((i) => {
+            if (normalizeName(i.name) !== nameKey) return false;
+            const existingInfo = unitInfo(i.unit);
+            return areUnitsCompatible(existingInfo, incomingUnitInfo);
+          });
 
           if (existing) {
-            const nextAmount = Number(existing.amount || 0) + amount;
+            const existingInfo = unitInfo(existing.unit);
+            const converted = convertAmount(amount, incomingUnitInfo, existingInfo);
+            const nextAmount = Number(existing.amount || 0) + converted;
             await updateDoc(
               doc(db, "users", user.uid, "fridge", existing.id),
               { amount: nextAmount },
             );
           } else {
-            await addDoc(fridgeRef, { name, amount, unit });
+            await addDoc(fridgeRef, { name: rawName, amount, unit });
           }
 
           await deleteDoc(
@@ -235,21 +310,29 @@ export default function Home({ user }) {
 
   const addToFridge = async (item, delta) => {
     try {
-      const name = (item?.name || "").toString().trim();
-      const unit = (item?.unit || "").toString().trim();
+      const rawName = (item?.name || "").toString().trim();
+      const unit = normalizeUnit(item?.unit);
+      const incomingUnitInfo = unitInfo(unit);
       const amount = Number(item?.amount || 0);
       const change = Number(delta || 0);
-      if (!name) return;
+      if (!rawName) return;
+      const nameKey = normalizeName(rawName);
 
-      const existing = fridge.find(
-        (i) =>
-          i.name?.toString().trim() === name &&
-          i.unit?.toString().trim() === unit,
-      );
+      const existing = fridge.find((i) => {
+        if (normalizeName(i.name) !== nameKey) return false;
+        const existingInfo = unitInfo(i.unit);
+        return areUnitsCompatible(existingInfo, incomingUnitInfo);
+      });
 
       if (existing) {
-        const nextAmount =
-          Number(existing.amount || 0) + (change !== 0 ? change : amount);
+        const existingInfo = unitInfo(existing.unit);
+        const incomingAmount = change !== 0 ? change : amount;
+        const converted = convertAmount(
+          incomingAmount,
+          incomingUnitInfo,
+          existingInfo,
+        );
+        const nextAmount = Number(existing.amount || 0) + converted;
         if (nextAmount <= 0) return;
         await updateDoc(doc(db, "users", user.uid, "fridge", existing.id), {
           amount: nextAmount,
@@ -257,7 +340,7 @@ export default function Home({ user }) {
       } else {
         if (amount <= 0) return;
         const fridgeRef = collection(db, "users", user.uid, "fridge");
-        await addDoc(fridgeRef, { name, amount, unit });
+        await addDoc(fridgeRef, { name: rawName, amount, unit });
       }
     } catch (err) {
       console.error(err);
@@ -318,343 +401,158 @@ export default function Home({ user }) {
         menuBg="#8a0f0f"
         menuContentColor="#000"
         useFixedPosition={false}
+        style={{ top: "var(--bubble-top, 95px)" }}
       />
 
-      <div className="home-layout">
-        <aside className="left-panel">
-          <h3>Menü</h3>
-          <select
-            value={filterTag}
-            onChange={(e) => setFilterTag(e.target.value)}
-          >
-            <option value="all">Mind</option>
-            {allTags.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag}
-              </option>
-            ))}
-          </select>
-
-          <AnimatedList
-            items={filteredRecipes.map((r) => ({
-              id: r.id,
-              label: r.name,
-            }))}
-            onItemSelect={(item) =>
-              setSelectedRecipe(recipes.find((r) => r.id === item.id))
-            }
-          />
-        </aside>
-
-        <main className="center-panel">
-          {editingRecipe ? (
-            <NewRecipeForm
-              editMode
-              recipe={editingRecipe}
-              existingTags={allTags}
-              onAddTag={(tag) =>
-                setAllTags((prev) =>
-                  prev.includes(tag) ? prev : [...prev, tag],
-                )
-              }
-              onDeleteTag={deleteTagGlobally}
-              onSave={async (updated) => {
-                const { id, ...data } = updated;
-                await updateRecipe(id, data);
-                setEditingRecipe(null);
-                setSelectedRecipe((prev) =>
-                  prev?.id === id ? { ...prev, ...data, id } : prev,
-                );
-              }}
-            />
-          ) : selectedRecipe ? (
-            <RecipeDetails
-              recipe={selectedRecipe}
-              onDelete={async (id) => {
-                await deleteRecipe(id);
-                setSelectedRecipe(null);
-              }}
-              onEdit={() => setEditingRecipe(selectedRecipe)}
-              onAddToShoppingList={addToShoppingList}
-            />
-          ) : (
-            <div className="recipe-details">Kattints egy meglévő receptre, vagy adj hozzá újat a listához.</div>
-          )}
-
-          {/* <div className="lists-column"></div> */}
-        </main>
-
-        <div className="shopping-list">
-          <h3>Bevásárlólista</h3>
-          {shoppingList.length === 0 ? (
-            <p>Üres</p>
-          ) : (
-            <ul>
-              {shoppingList.map((item, i) => (
-                <li key={item.id}>
-                  <span style={{ flex: 1 }}>
-                    {item.name} - {item.amount} {item.unit}
-                  </span>
-                  <div className="item-actions">
-                    <button
-                      style={smallBtn}
-                      onClick={() => updateShoppingItem(item, 1)}
-                    >
-                      +
-                    </button>
-
-                    <button
-                      style={smallBtn}
-                      disabled={item.amount <= 1}
-                      onClick={() => updateShoppingItem(item, -1)}
-                    >
-                      -
-                    </button>
-
-                    <button
-                      style={smallBtn}
-                       onClick={async () => {
-                        if (!window.confirm("Biztosan törlöd?")) return;
-                        await deleteDoc(
-                          doc(db, "users", user.uid, "shoppingList", item.id),
-                        );
-                      }}
-                    >
-                      Törlés
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="shopping-add">
-            <input
-              style={{ width: "80px" }}
-              placeholder="név"
-              value={newShoppingItem.name}
-              onChange={(e) =>
-                setNewShoppingItem((p) => ({ ...p, name: e.target.value }))
-              }
-            />
-
-            <input
-              style={{ width: "50px" }}
-              type="number"
-              min="0"
-              step="1"
-              placeholder="menny."
-              value={newShoppingItem.amount}
-              onChange={(e) => {
-                const val = Math.max(0, Number(e.target.value));
-                setNewShoppingItem((p) => ({ ...p, amount: val }));
-              }}
-            />
-
-            <select
-              value={newShoppingItem.unit}
-              onChange={(e) =>
-                setNewShoppingItem((p) => ({ ...p, unit: e.target.value }))
-              }
-            >
-              {UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
-            <div></div>
-            <button
-              onClick={() => {
-                if (!newShoppingItem.name || !newShoppingItem.amount) return;
-
-                addSingleShoppingItem({
-                  name: newShoppingItem.name,
-                  amount: Number(newShoppingItem.amount),
-                  unit: newShoppingItem.unit || "db",
-                });
-
-                setNewShoppingItem({ name: "", amount: "", unit: "" });
-              }}
-            >
-            +
-            </button>
-          </div>
-
+      <div className="home-header">
+        <div className="home-spacer" aria-hidden="true" />
+        <h1 className="home-title">Recept operációs rendszer</h1>
+        <div className="home-user">
+          <span className="home-email">
+            {user?.email || "Ismeretlen email"}
+          </span>
           <button
-            className="shopping-clear"
-             onClick={async () => {
-              if (!window.confirm("Biztosan törlöd a teljes listát?")) return;
-              await Promise.all(
-                shoppingList.map((item) =>
-                  deleteDoc(
-                    doc(db, "users", user.uid, "shoppingList", item.id),
-                  ),
-                ),
-              );
+            className="home-logout"
+            onClick={async () => {
+              try {
+                await signOut(auth);
+              } catch (err) {
+                console.error(err);
+                alert("Kijelentkezés sikertelen");
+              }
             }}
           >
-            Lista törlése
-          </button>
-          <button className="shopping-move" onClick={moveShoppingToFridge}>
-            Hűtőbe rak
+            Kijelentkezés
           </button>
         </div>
+      </div>
 
-        <div className="fridge">
-          <h3>Hűtő</h3>
-          {fridge.length === 0 ? (
-            <p>Üres</p>
-          ) : (
-            <ul>
-              <div></div>
-              {fridge.map((item, i) => (
-                <li
-                  key={item.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  <span style={{ flex: 1 }}>
-                   {item.name} - {item.amount} {item.unit} 
-                  </span>
-<div className="item-actions">
-                  <button
-                    style={smallBtn}
-                    onClick={() => addToFridge(item, 1)}
-                  >
-                    +
-                  </button>
+      <div className="home-layout">
+        <RecipeListPanel
+          filterTag={filterTag}
+          allTags={allTags}
+          filteredRecipes={filteredRecipes}
+          onFilterChange={setFilterTag}
+          onSelectRecipe={(item) =>
+            setSelectedRecipe(recipes.find((r) => r.id === item.id))
+          }
+        />
 
-                  <button
-                    style={smallBtn}
-                    disabled={item.amount <= 1}
-                    onClick={() => addToFridge(item, -1)}
-                  >
-                    -
-                  </button>
+        <RecipeDisplayPanel
+          editingRecipe={editingRecipe}
+          selectedRecipe={selectedRecipe}
+          allTags={allTags}
+          onAddTag={(tag) =>
+            setAllTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]))
+          }
+          onDeleteTag={deleteTagGlobally}
+          onSaveEdit={async (updated) => {
+            const { id, ...data } = updated;
+            await updateRecipe(id, data);
+            setEditingRecipe(null);
+            setSelectedRecipe((prev) =>
+              prev?.id === id ? { ...prev, ...data, id } : prev,
+            );
+          }}
+          onDeleteRecipe={async (id) => {
+            await deleteRecipe(id);
+            setSelectedRecipe(null);
+          }}
+          onEditRecipe={() => setEditingRecipe(selectedRecipe)}
+          onAddToShoppingList={addToShoppingList}
+        />
 
-                  <button
-                    style={smallBtn}
-                     onClick={async () => {
-                      if (!window.confirm("Biztosan törlöd?")) return;
-                      await deleteDoc(
-                        doc(db, "users", user.uid, "fridge", item.id),
-                      );
-                    }}
-                  >
-                    Törlés
-                  </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+        <ShoppingListPanel
+          shoppingList={shoppingList}
+          newShoppingItem={newShoppingItem}
+          units={UNITS}
+          onChangeNewItem={(field, value) =>
+            setNewShoppingItem((p) => ({ ...p, [field]: value }))
+          }
+          onAddNewItem={() => {
+            if (!newShoppingItem.name || !newShoppingItem.amount) return;
 
-          <div className="fridge-add">
-            <input
-              style={{ width: "80px" }}
-              placeholder="név"
-              value={newFridgeItem.name}
-              onChange={(e) =>
-                setNewFridgeItem((p) => ({ ...p, name: e.target.value }))
-              }
-            />
+            addSingleShoppingItem({
+              name: newShoppingItem.name,
+              amount: Number(newShoppingItem.amount),
+              unit: newShoppingItem.unit || "db",
+            });
 
-            <input
-              style={{ width: "50px" }}
-              type="number"
-              min="0"
-              step="1"
-              placeholder="menny."
-              value={newFridgeItem.amount}
-              onChange={(e) => {
-                const val = Math.max(0, Number(e.target.value));
-                setNewFridgeItem((p) => ({ ...p, amount: val }));
-              }}
-            />
+            setNewShoppingItem({ name: "", amount: "", unit: "" });
+          }}
+          onUpdateItem={updateShoppingItem}
+          onDeleteItem={async (item) => {
+            if (!window.confirm("Biztosan törlöd?")) return;
+            await deleteDoc(doc(db, "users", user.uid, "shoppingList", item.id));
+          }}
+          onClearList={async () => {
+            if (!window.confirm("Biztosan törlöd a teljes listát?")) return;
+            await Promise.all(
+              shoppingList.map((item) =>
+                deleteDoc(doc(db, "users", user.uid, "shoppingList", item.id)),
+              ),
+            );
+          }}
+          onMoveToFridge={moveShoppingToFridge}
+          smallBtn={smallBtn}
+        />
 
-            <select
-              value={newFridgeItem.unit}
-              onChange={(e) =>
-                setNewFridgeItem((p) => ({ ...p, unit: e.target.value }))
-              }
-            >
-              {UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
-            <div></div>
-            <button
-              onClick={() => {
-                if (!newFridgeItem.name || !newFridgeItem.amount) return;
+        <FridgePanel
+          fridge={fridge}
+          newFridgeItem={newFridgeItem}
+          units={UNITS}
+          onChangeNewItem={(field, value) =>
+            setNewFridgeItem((p) => ({ ...p, [field]: value }))
+          }
+          onAddNewItem={() => {
+            if (!newFridgeItem.name || !newFridgeItem.amount) return;
 
-                addToFridge({
-                  name: newFridgeItem.name,
-                  amount: Number(newFridgeItem.amount),
-                  unit: newFridgeItem.unit || "db",
-                });
+            addToFridge({
+              name: newFridgeItem.name,
+              amount: Number(newFridgeItem.amount),
+              unit: newFridgeItem.unit || "db",
+            });
 
-                setNewFridgeItem({ name: "", amount: "", unit: "" });
-              }}
-            >
-              Tétel hozzáadása+
-            </button>
-          </div>
-        </div>
+            setNewFridgeItem({ name: "", amount: "", unit: "" });
+          }}
+          onUpdateItem={addToFridge}
+          onDeleteItem={async (item) => {
+            if (!window.confirm("Biztosan törlöd?")) return;
+            await deleteDoc(doc(db, "users", user.uid, "fridge", item.id));
+          }}
+          smallBtn={smallBtn}
+        />
 
-        <aside className="right-panel">
-          <button onClick={() => setShowNewRecipeForm((prev) => !prev)}>
-            Új saját recept hozzáadása
-          </button>
-
-          {showNewRecipeForm && (
-            <NewRecipeForm
-              existingTags={allTags}
-              onAddTag={(tag) =>
-                setAllTags((prev) =>
-                  prev.includes(tag) ? prev : [...prev, tag],
-                )
-              }
-              onDeleteTag={deleteTagGlobally}
-              onCreate={async (data) => {
-                try {
-                  await createRecipe(data);
-                  setShowNewRecipeForm(false);
-                } catch (err) {
-                  console.error(err);
-                  alert("Recept mentése sikertelen");
-                }
-              }}
-            />
-          )}
-
-          <div><p>vagy</p></div>
-
-          <button onClick={() => setShowAiPanel((prev) => !prev)}>
-            AI-recept generálás
-          </button>
-
-          {showAiPanel && (
-            <AiRecipePanel
-              fridgeItems={fridge}
-              onSaveRecipe={async (data) => {
-                try {
-                  await createRecipe(data);
-                  setShowAiPanel(false);
-                } catch (err) {
-                  console.error(err);
-                  alert("Recept mentése sikertelen");
-                }
-              }}
-            />
-          )}
-        </aside>
+        <NewRecipePanel
+          showNewRecipeForm={showNewRecipeForm}
+          showAiPanel={showAiPanel}
+          allTags={allTags}
+          fridge={fridge}
+          onToggleNewRecipeForm={() => setShowNewRecipeForm((prev) => !prev)}
+          onToggleAiPanel={() => setShowAiPanel((prev) => !prev)}
+          onAddTag={(tag) =>
+            setAllTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]))
+          }
+          onDeleteTag={deleteTagGlobally}
+          onCreateRecipe={async (data) => {
+            try {
+              await createRecipe(data);
+              setShowNewRecipeForm(false);
+            } catch (err) {
+              console.error(err);
+              alert("Recept mentése sikertelen");
+            }
+          }}
+          onSaveAiRecipe={async (data) => {
+            try {
+              await createRecipe(data);
+              setShowAiPanel(false);
+            } catch (err) {
+              console.error(err);
+              alert("Recept mentése sikertelen");
+            }
+          }}
+        />
       </div>
     </div>
   );

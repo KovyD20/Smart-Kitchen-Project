@@ -214,7 +214,10 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
             <ul>
               {(recipe.ingredients || []).map((ing, i) => (
                 <li key={i}>
-                  {ing.amount} {ing.unit} - {ing.name}
+                  <span className="amount-highlight">
+                    {ing.amount} {ing.unit}
+                  </span>{" "}
+                  - {ing.name}
                 </li>
               ))}
             </ul>

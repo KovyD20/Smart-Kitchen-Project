@@ -1,7 +1,7 @@
 .home-layout {
   position: relative;
   z-index: 1;
-  margin-top: 150px;
+  margin-top: 140px;
 
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -9,20 +9,113 @@
   align-items: start;
 
   padding: 0 20px;
+
+  --panel-min: 240px;
+  --panel-max: 320px;
+  --panel-radius: 16px;
+  --panel-pad: 16px;
+  --panel-min-height: clamp(280px, 45vh, 520px);
 }
 
-.left-panel {
-  min-width: 240px;
+.home-page {
+  --bubble-top: 95px;
 }
 
-.center-panel {
-  min-width: 320px;
+.home-layout > * {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--panel-min-height);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.panel-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.panel-toggle:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.panel-collapsed {
+  min-height: auto;
+  padding-bottom: 12px;
+}
+
+.panel-collapsed .panel-header {
+  margin-bottom: 0;
+}
+
+.left-panel,
+.center-panel,
 .shopping-list,
 .fridge,
 .right-panel {
-  min-width: 240px;
+  max-width: var(--panel-max);
+}
+
+.home-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.home-header {
+  position: relative;
+  z-index: 1;
+  margin: 20px 20px 0;
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  background: rgba(28, 28, 28, 0.85);
+  border: 2px solid rgba(255, 59, 59, 0.75);
+  border-radius: 10px;
+  color: #f5f5f5;
+}
+
+.home-spacer {
+  width: 100%;
+  height: 1px;
+}
+
+.home-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  justify-self: end;
+}
+
+.home-email {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.home-logout {
+  padding: 6px 10px;
 }
 
 .left-panel {
@@ -32,16 +125,19 @@
 .center-panel {
   position: relative;
   min-width: 0;
+  background: #333232;
+  border: 1px solid #000000;
+  border-radius: var(--panel-radius);
+  padding: var(--panel-pad);
+  color: #eee;
 }
 
 .shopping-list {
   background: rgb(160, 137, 10);
   border: 2px solid rgb(46, 42, 42);
-  border-radius: 20px;
-  padding: 16px;
+  border-radius: var(--panel-radius);
+  padding: var(--panel-pad);
   color: #eee;
-  min-width: 100px;
-  max-width: 300px;
 }
 
 .shopping-list ul {
@@ -56,6 +152,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
+}
+
+.shopping-list li span,
+.fridge li span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .shopping-add {
@@ -78,11 +181,9 @@
 .fridge {
   background: #2d86ec;
   border: 2px solid #9cc9ff;
-  border-radius: 20px;
-  padding: 16px;
+  border-radius: var(--panel-radius);
+  padding: var(--panel-pad);
   color: #eee;
-  min-width: 300px;
-  max-width: 350px;
 }
 
 .fridge ul {
@@ -95,10 +196,7 @@
   border-radius: 6px;
   padding: 8px;
   margin-bottom: 8px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  min-height: 44px;
 }
 
 .item-actions {
@@ -108,17 +206,24 @@
 }
 
 .right-panel {
-  position: sticky; 
-  top: 150px;
-
   align-self: start;
 
   background: #3b0000;
   border: 2px solid #ff3b3b;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: var(--panel-radius);
+  padding: var(--panel-pad);
 
   box-shadow: 0 0 20px rgba(255, 0, 0, 0.25);
+}
+
+@media (min-width: 721px) {
+  .left-panel,
+  .center-panel,
+  .shopping-list,
+  .fridge,
+  .right-panel {
+    min-width: var(--panel-min);
+  }
 }
 
 @media (max-width: 1400px) {
@@ -134,6 +239,23 @@
 }
 
 @media (max-width: 720px) {
+  .home-page {
+    --bubble-top: 140px;
+  }
+
+  .home-header {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .home-spacer {
+    display: none;
+  }
+
+  .home-user {
+    justify-self: start;
+  }
+
   .home-layout {
     grid-template-columns: 1fr;
   }

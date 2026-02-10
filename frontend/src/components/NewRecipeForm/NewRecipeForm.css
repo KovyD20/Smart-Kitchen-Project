@@ -3,27 +3,16 @@
 }
 
 .step-textarea {
-  width: 350px;
+  width: 100%;
   min-height: 80px;
   resize: vertical;
   overflow-y: auto;
-}
-
-
-.step-textarea {
   height: auto;
+  max-width: 100%;
+  box-sizing: border-box;
 }
+
 .step-textarea:focus {
   height: auto;
-}
-
-.recipe-details {
-  background: #333232;
-  border: 1px solid #000000;
-  border-radius: 20px;
-  padding: 16px;
-  color: #eee;
-  min-width: 250px;
-  max-width: 300px;
 }
 

@@ -1,12 +1,17 @@
 .scroll-list-container {
   position: relative;
   width: 100%;
+  min-width: 0;
 }
 
 .scroll-list {
   max-height: 400px;
   overflow-y: auto;
   padding: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.35);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
 }
 
 .scroll-list::-webkit-scrollbar {
@@ -36,6 +41,9 @@
   background-color: #740404;
   border-radius: 8px;
   margin-bottom: 1rem;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
 }
 
 .item.selected {
@@ -45,6 +53,9 @@
 .item-text {
   color: white;
   margin: 0;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .top-gradient {
