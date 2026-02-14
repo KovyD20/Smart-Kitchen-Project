@@ -44,17 +44,14 @@ export default function Home({ user }) {
     amount: "",
     unit: "",
   });
-  const UNITS = ["db","g", "dkg", "kg", "ml", "dl", "l"];
+  const UNITS = ["db", "g", "dkg", "kg", "ml", "dl", "l"];
   const smallBtn = {
     padding: "3px 6px",
     fontSize: "15px",
     lineHeight: "1",
   };
   const normalizeName = (value) => {
-    const base = (value || "")
-      .toString()
-      .trim()
-      .toLocaleLowerCase("hu-HU");
+    const base = (value || "").toString().trim().toLocaleLowerCase("hu-HU");
     const withoutNumbers = base
       .replace(/(\d+)(\s*)(db|g|dkg|kg|ml|dl|l)\b/g, " ")
       .replace(/\b\d+([.,]\d+)?\b/g, " ")
@@ -64,9 +61,7 @@ export default function Home({ user }) {
   const normalizeUnit = (value) => {
     const raw = (value || "").toString().trim().toLocaleLowerCase("hu-HU");
     if (!raw) return "";
-    const ascii = raw
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+    const ascii = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const cleaned = ascii.replace(/\./g, "").trim();
     const map = {
       g: "g",
@@ -80,10 +75,10 @@ export default function Home({ user }) {
       db: "db",
       darab: "db",
       gerezd: "db",
-      "evokanal": "ek",
-      "ek": "ek",
-      "teaskanal": "tk",
-      "tk": "tk",
+      evokanal: "ek",
+      ek: "ek",
+      teaskanal: "tk",
+      tk: "tk",
     };
     return map[cleaned] || cleaned;
   };
@@ -196,7 +191,11 @@ export default function Home({ user }) {
 
         if (existing) {
           const existingInfo = unitInfo(existing.unit);
-          const converted = convertAmount(amount, incomingUnitInfo, existingInfo);
+          const converted = convertAmount(
+            amount,
+            incomingUnitInfo,
+            existingInfo,
+          );
           const nextAmount = Number(existing.amount || 0) + converted;
           await updateDoc(
             doc(db, "users", user.uid, "shoppingList", existing.id),
@@ -220,10 +219,9 @@ export default function Home({ user }) {
       const nextAmount = current + delta;
       if (nextAmount <= 0) return;
 
-      await updateDoc(
-        doc(db, "users", user.uid, "shoppingList", item.id),
-        { amount: nextAmount },
-      );
+      await updateDoc(doc(db, "users", user.uid, "shoppingList", item.id), {
+        amount: nextAmount,
+      });
     } catch (err) {
       console.error(err);
       alert("? Hiba történt");
@@ -287,19 +285,20 @@ export default function Home({ user }) {
 
           if (existing) {
             const existingInfo = unitInfo(existing.unit);
-            const converted = convertAmount(amount, incomingUnitInfo, existingInfo);
-            const nextAmount = Number(existing.amount || 0) + converted;
-            await updateDoc(
-              doc(db, "users", user.uid, "fridge", existing.id),
-              { amount: nextAmount },
+            const converted = convertAmount(
+              amount,
+              incomingUnitInfo,
+              existingInfo,
             );
+            const nextAmount = Number(existing.amount || 0) + converted;
+            await updateDoc(doc(db, "users", user.uid, "fridge", existing.id), {
+              amount: nextAmount,
+            });
           } else {
             await addDoc(fridgeRef, { name: rawName, amount, unit });
           }
 
-          await deleteDoc(
-            doc(db, "users", user.uid, "shoppingList", item.id),
-          );
+          await deleteDoc(doc(db, "users", user.uid, "shoppingList", item.id));
         }),
       );
     } catch (err) {
@@ -483,7 +482,9 @@ export default function Home({ user }) {
           onUpdateItem={updateShoppingItem}
           onDeleteItem={async (item) => {
             if (!window.confirm("Biztosan törlöd?")) return;
-            await deleteDoc(doc(db, "users", user.uid, "shoppingList", item.id));
+            await deleteDoc(
+              doc(db, "users", user.uid, "shoppingList", item.id),
+            );
           }}
           onClearList={async () => {
             if (!window.confirm("Biztosan törlöd a teljes listát?")) return;
