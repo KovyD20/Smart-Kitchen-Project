@@ -17,7 +17,6 @@ export default function RecipeDetails({
       <button onClick={() => onAddToShoppingList(ingredients)}>
         Bevásárlólistához ad 🛒
       </button>
-      <button onClick={onEdit}>Recept szerkesztése ✏️</button>
 
       <section>
         <h3>Hozzávalók</h3>
@@ -29,7 +28,8 @@ export default function RecipeDetails({
               <li key={i}>
                 <span className="amount-highlight">
                   {ing.amount} {ing.unit}
-                </span> – {ing.name}
+                </span>{" "}
+                – {ing.name}
               </li>
             ))}
           </ul>
@@ -56,6 +56,8 @@ export default function RecipeDetails({
         </section>
       )}
 
+      <button onClick={onEdit}>Recept szerkesztése ✏️</button>
+
       <button
         onClick={() => {
           if (confirm("Biztosan törlöd ezt a receptet?")) {
@@ -68,4 +70,3 @@ export default function RecipeDetails({
     </div>
   );
 }
-

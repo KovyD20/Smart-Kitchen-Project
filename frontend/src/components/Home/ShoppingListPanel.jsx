@@ -39,9 +39,10 @@ export default function ShoppingListPanel({
               {shoppingList.map((item) => (
                 <li key={item.id}>
                   <span style={{ flex: 1 }}>
-                    {item.name} -{" "}
-                    <span className="amount-highlight">
-                      {item.amount} {item.unit}
+                    <span className="item-name">{item.name}</span> -{" "}
+                    <span className="item-quantity">
+                      <span className="item-amount">{item.amount}</span>{" "}
+                      <span className="item-unit">{item.unit}</span>
                     </span>
                   </span>
                   <ItemActions

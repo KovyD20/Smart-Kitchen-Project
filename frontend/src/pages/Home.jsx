@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import BubbleMenu from "../components/BubbleMenu/BubbleMenu";
 import LightPillar from "../components/Background/LightPillar";
 import RecipeListPanel from "../components/Home/RecipeListPanel";
@@ -23,6 +23,7 @@ import { auth, db } from "../firebase";
 import "../components/AnimatedList/AnimatedList.css";
 import "../components/BubbleMenu/BubbleMenu.css";
 import "./Home.css";
+import { SYSTEM_UNITS, UNIT_ALIASES } from "../constants/units";
 
 export default function Home({ user }) {
   const [recipes, setRecipes] = useState([]);
@@ -44,43 +45,46 @@ export default function Home({ user }) {
     amount: "",
     unit: "",
   });
-  const UNITS = ["db", "g", "dkg", "kg", "ml", "dl", "l"];
   const smallBtn = {
     padding: "3px 6px",
     fontSize: "15px",
     lineHeight: "1",
   };
+  const UNITS = SYSTEM_UNITS;
+
+  const escapeRegex = (value) =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const UNIT_TOKENS = Array.from(
+    new Set([...SYSTEM_UNITS, ...Object.keys(UNIT_ALIASES)]),
+  ).sort((a, b) => b.length - a.length);
+
+  const UNIT_TOKEN_PATTERN = UNIT_TOKENS.map(escapeRegex).join("|");
+
   const normalizeName = (value) => {
     const base = (value || "").toString().trim().toLocaleLowerCase("hu-HU");
-    const withoutNumbers = base
-      .replace(/(\d+)(\s*)(db|g|dkg|kg|ml|dl|l)\b/g, " ")
+    const ascii = base.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const unitRegex = UNIT_TOKEN_PATTERN
+      ? new RegExp(
+          `(\\d+([.,]\\d+)?)(\\s*)(${UNIT_TOKEN_PATTERN})\\b`,
+          "g",
+        )
+      : null;
+
+    const withoutNumbers = ascii
+      .replace(unitRegex || /$^/, " ")
       .replace(/\b\d+([.,]\d+)?\b/g, " ")
       .replace(/[()\-_,.;:!+]/g, " ");
+
     return withoutNumbers.replace(/\s+/g, " ").trim();
   };
+
   const normalizeUnit = (value) => {
     const raw = (value || "").toString().trim().toLocaleLowerCase("hu-HU");
     if (!raw) return "";
     const ascii = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const cleaned = ascii.replace(/\./g, "").trim();
-    const map = {
-      g: "g",
-      gramm: "g",
-      gram: "g",
-      kg: "kg",
-      dkg: "dkg",
-      ml: "ml",
-      dl: "dl",
-      l: "l",
-      db: "db",
-      darab: "db",
-      gerezd: "db",
-      evokanal: "ek",
-      ek: "ek",
-      teaskanal: "tk",
-      tk: "tk",
-    };
-    return map[cleaned] || cleaned;
+    const cleaned = ascii.replace(/\./g, "").replace(/[\s-]+/g, "").trim();
+    return UNIT_ALIASES[cleaned] || cleaned;
   };
   const unitInfo = (unit) => {
     const u = normalizeUnit(unit);
@@ -206,10 +210,10 @@ export default function Home({ user }) {
         }
       }
 
-      alert("? Sikeresen hozzáadva a bevásárlólistához");
+      alert("✅ Sikeresen hozzáadva a bevásárlólistához");
     } catch (err) {
       console.error(err);
-      alert("? Hiba történt");
+      alert("❌ Hiba történt");
     }
   };
 
@@ -224,7 +228,7 @@ export default function Home({ user }) {
       });
     } catch (err) {
       console.error(err);
-      alert("? Hiba történt");
+      alert("❌ Hiba történt");
     }
   };
 
@@ -257,7 +261,7 @@ export default function Home({ user }) {
       }
     } catch (err) {
       console.error(err);
-      alert("? Hiba történt");
+      alert("❌ Hiba történt");
     }
   };
 
@@ -303,7 +307,7 @@ export default function Home({ user }) {
       );
     } catch (err) {
       console.error(err);
-      alert("? Hiba történt");
+      alert("❌ Hiba történt");
     }
   };
 
@@ -343,7 +347,7 @@ export default function Home({ user }) {
       }
     } catch (err) {
       console.error(err);
-      alert("? Hiba a hűtő frissítésekor");
+      alert("❌ Hiba a hűtő frissítésekor");
     }
   };
 
@@ -394,18 +398,18 @@ export default function Home({ user }) {
         <LightPillar />
       </div>
 
-      <BubbleMenu
-        logo={<span style={{ fontWeight: 700 }}>RECEPTOR</span>}
-        items={menuItems}
-        menuBg="#8a0f0f"
-        menuContentColor="#000"
-        useFixedPosition={false}
-        style={{ top: "var(--bubble-top, 95px)" }}
-      />
-
       <div className="home-header">
-        <div className="home-spacer" aria-hidden="true" />
-        <h1 className="home-title">Recept operációs rendszer</h1>
+        <div className="home-nav" aria-label="Fő menü">
+          <BubbleMenu
+            className="home-bubble-menu"
+            logo={<span style={{ fontWeight: 700 }}>RECEPTOR</span>}
+            items={menuItems}
+            menuBg="#8a0f0f"
+            menuContentColor="#000"
+            useFixedPosition={false}
+          />
+        </div>
+        <h1 className="home-title">Recept Operációs Rendszer</h1>
         <div className="home-user">
           <span className="home-email">
             {user?.email || "Ismeretlen email"}
@@ -558,3 +562,4 @@ export default function Home({ user }) {
     </div>
   );
 }
+

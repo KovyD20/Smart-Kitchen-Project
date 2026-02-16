@@ -1,7 +1,8 @@
 ﻿import { useState } from "react";
 import "./NewRecipeForm.css";
+import { SYSTEM_UNITS } from "../../constants/units";
 
-const UNITS = ["g", "dkg", "kg", "ml", "dl", "l", "db"];
+const UNITS = SYSTEM_UNITS;
 
 export default function NewRecipeForm({
   onRecipeCreated,

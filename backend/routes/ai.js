@@ -5,6 +5,35 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const router = express.Router();
 
+const AI_ALLOWED_UNITS = [
+  "db",
+  "g",
+  "dkg",
+  "kg",
+  "ml",
+  "dl",
+  "l",
+  "tk",
+  "ek",
+  "csipet",
+  "csokor",
+  "gerezd",
+  "szelet",
+  "bogre",
+  "pohar",
+  "csomag",
+  "konzerv",
+  "fej",
+  "szal",
+  "marek",
+];
+
+const AI_UNIT_RULES = [
+  `A hozzavalok "unit" mezojeben csak ezeket hasznald: ${AI_ALLOWED_UNITS.join(", ")}.`,
+  "Szinonimak normalizalasa: teaskanal/kiskanal -> tk, evokanal -> ek, darab -> db.",
+  "Hosszu forma helyett roviditeseket hasznalj (pl. teaskanal helyett tk).",
+].join(" ");
+
 const filePath = path.join(__dirname, "../data/fridge.json");
 
 function readFridge() {
@@ -102,6 +131,7 @@ router.post("/recipe-by-name", async (req, res) => {
     '  "ingredients": [ { "name": "string", "amount": number, "unit": "string" } ],',
     '  "steps": [ "string" ]',
     "}",
+    AI_UNIT_RULES,
     "Minden szöveges mezőt magyarul írj.",
   ].join("\n");
 
@@ -122,7 +152,7 @@ router.post("/recipe-by-name", async (req, res) => {
 
 router.post("/suggest-from-fridge", async (req, res) => {
   const fromBody = Array.isArray(req.body?.items) ? req.body.items : null;
-  const fridge = fromBody ?? readFridge();
+  const fridge = fromBody || readFridge();
   if (!Array.isArray(fridge) || fridge.length === 0) {
     return res.status(400).json({ error: "Fridge is empty" });
   }
@@ -165,7 +195,7 @@ router.post("/recipe-from-fridge", async (req, res) => {
   }
 
   const fromBody = Array.isArray(req.body?.items) ? req.body.items : null;
-  const fridge = fromBody ?? readFridge();
+  const fridge = fromBody || readFridge();
   if (!Array.isArray(fridge) || fridge.length === 0) {
     return res.status(400).json({ error: "Fridge is empty" });
   }
@@ -192,6 +222,7 @@ router.post("/recipe-from-fridge", async (req, res) => {
     '  "ingredients": [ { "name": "string", "amount": number, "unit": "string" } ],',
     '  "steps": [ "string" ]',
     "}",
+    AI_UNIT_RULES,
     "Minden szöveges mezőt magyarul írj.",
   ].join("\n");
 
@@ -214,3 +245,5 @@ router.post("/recipe-from-fridge", async (req, res) => {
 });
 
 module.exports = router;
+
+

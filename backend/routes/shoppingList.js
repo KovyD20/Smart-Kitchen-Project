@@ -28,12 +28,24 @@ const UNIT_FACTORS = {
   l: { group: "volume", factor: 1000, base: "ml" },
 };
 
+const UNIT_ALIASES = {
+  darab: "db",
+  gramm: "g",
+  gram: "g",
+  teaskanal: "tk",
+  kiskanal: "tk",
+  evokanal: "ek",
+};
+
 function normalizeName(name) {
   return name.trim().toLowerCase();
 }
 
 function normalizeUnit(unit) {
-  return (unit || "").toString().trim().toLowerCase();
+  const raw = (unit || "").toString().trim().toLowerCase();
+  const ascii = raw.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const cleaned = ascii.replace(/\./g, "").replace(/[\s-]+/g, "");
+  return UNIT_ALIASES[cleaned] || cleaned;
 }
 
 function unitGroup(unit) {

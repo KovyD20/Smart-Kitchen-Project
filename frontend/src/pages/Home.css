@@ -1,7 +1,7 @@
 .home-layout {
   position: relative;
   z-index: 1;
-  margin-top: 140px;
+  margin-top: 24px;
 
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -21,7 +21,7 @@
   --bubble-top: 95px;
 }
 
-.home-layout > * {
+.home-layout>* {
   box-sizing: border-box;
   width: 100%;
   min-height: var(--panel-min-height);
@@ -78,26 +78,27 @@
   font-weight: 700;
   letter-spacing: 0.5px;
   margin: 0;
+  text-align: center;
 }
 
 .home-header {
   position: relative;
-  z-index: 1;
+  z-index: 30;
   margin: 20px 20px 0;
   padding: 10px 14px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: auto minmax(320px, 1fr) auto;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   background: rgba(28, 28, 28, 0.85);
   border: 2px solid rgba(255, 59, 59, 0.75);
   border-radius: 10px;
   color: #f5f5f5;
 }
 
-.home-spacer {
-  width: 100%;
-  height: 1px;
+.home-nav {
+  justify-self: start;
+  min-width: 0;
 }
 
 .home-user {
@@ -107,19 +108,80 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   justify-self: end;
+  min-width: 0;
 }
 
 .home-email {
   font-size: 14px;
   opacity: 0.9;
+  white-space: nowrap;
 }
 
 .home-logout {
   padding: 6px 10px;
 }
 
+.home-bubble-menu.bubble-menu,
+.home-bubble-menu.bubble-menu.absolute {
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+  width: auto;
+  padding: 0;
+  gap: 10px;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.home-bubble-menu .bubble {
+  --bubble-size: 44px;
+}
+
+.home-bubble-menu .logo-bubble {
+  min-height: 44px;
+  height: 44px;
+  padding: 0 14px;
+}
+
+.home-bubble-menu .logo-content {
+  width: auto;
+  font-size: 14px;
+}
+
+.home-header .bubble-menu-items.absolute {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+}
+
 .left-panel {
   flex-shrink: 0;
+  background: #262626;
+  border: 1px solid #0f0f0f;
+  border-radius: var(--panel-radius);
+  padding: var(--panel-pad);
+  color: #eee;
+}
+
+.left-panel h3 {
+  margin: 0 0 10px;
+}
+
+.left-panel select {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.left-panel .scroll-list {
+  max-height: clamp(260px, 38vh, 430px);
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.left-panel .scroll-list-container {
+  margin-top: 4px;
 }
 
 .center-panel {
@@ -133,11 +195,11 @@
 }
 
 .shopping-list {
-  background: rgb(160, 137, 10);
-  border: 2px solid rgb(46, 42, 42);
+  background: #918306;
+  border: 1px solid #d3b24a;
   border-radius: var(--panel-radius);
   padding: var(--panel-pad);
-  color: #eee;
+  color: #2a2207;
 }
 
 .shopping-list ul {
@@ -146,19 +208,53 @@
 }
 
 .shopping-list li {
+  border: 1px solid #726103;
+  background: rgba(65, 47, 0, 0.384);
+  border-radius: 24px;
   padding: 8px;
   margin-bottom: 8px;
-
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 44px;
 }
 
+/* 
+  border: 1px solid #7fb0ea;
+  background: rgba(52, 231, 255, 0.384);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+  min-height: 44px; */
+
 .shopping-list li span,
 .fridge li span {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.shopping-list .item-name,
+.fridge .item-name {
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.shopping-list .item-quantity,
+.fridge .item-quantity {
+  color: #fff;
+  font: inherit;
+}
+
+.shopping-list .item-amount,
+.fridge .item-amount {
+  font-weight: 600;
+}
+
+.shopping-list .item-unit,
+.fridge .item-unit {
+  font-weight: 400;
+  opacity: 0.95;
 }
 
 .shopping-add {
@@ -179,11 +275,11 @@
 }
 
 .fridge {
-  background: #2d86ec;
-  border: 2px solid #9cc9ff;
+  background: #167bff;
+  border: 1px solid #fdfeff;
   border-radius: var(--panel-radius);
   padding: var(--panel-pad);
-  color: #eee;
+  color: #041931;
 }
 
 .fridge ul {
@@ -192,8 +288,9 @@
 }
 
 .fridge li {
-  border: 1px solid #fff;
-  border-radius: 6px;
+  border: 1px solid #7fb0ea;
+  background: rgba(52, 231, 255, 0.384);
+  border-radius: 24px;
   padding: 8px;
   margin-bottom: 8px;
   min-height: 44px;
@@ -209,7 +306,7 @@
   align-self: start;
 
   background: #3b0000;
-  border: 2px solid #ff3b3b;
+  border: 2px solid #0a0000b9;
   border-radius: var(--panel-radius);
   padding: var(--panel-pad);
 
@@ -217,6 +314,7 @@
 }
 
 @media (min-width: 721px) {
+
   .left-panel,
   .center-panel,
   .shopping-list,
@@ -245,15 +343,22 @@
 
   .home-header {
     grid-template-columns: 1fr;
-    justify-items: start;
+    justify-items: stretch;
+    gap: 12px;
   }
 
-  .home-spacer {
-    display: none;
+  .home-title {
+    text-align: left;
   }
 
   .home-user {
     justify-self: start;
+  }
+
+  .home-bubble-menu.bubble-menu,
+  .home-bubble-menu.bubble-menu.absolute {
+    justify-content: space-between;
+    width: 100%;
   }
 
   .home-layout {
@@ -264,3 +369,5 @@
     position: static;
   }
 }
+
+
