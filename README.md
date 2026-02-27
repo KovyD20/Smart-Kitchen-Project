@@ -5,7 +5,7 @@
 - Node.js installed (for frontend build)
 
 ## 2. Environment files (clear naming)
-- `compose.env` -> Docker Compose + backend-in-container variables
+- `compose.env` -> backend/postgres container variables (auto-loaded by `docker-compose.yml`)
 - `frontend/.env.local` -> frontend (Vite) Firebase variables
 
 Create from examples:
@@ -32,12 +32,12 @@ cd ..
 
 ## 4. Start infrastructure
 ```powershell
-docker compose --env-file compose.env up --build -d
+docker compose up --build -d
 ```
 
 Check containers:
 ```powershell
-docker compose --env-file compose.env ps
+docker compose ps
 ```
 
 ## 5. Quick API tests (through Nginx)
@@ -66,29 +66,29 @@ Run health multiple times and watch instance change (`backend1` / `backend2`):
 ## 7. Enter containers and check processes
 Backend container:
 ```powershell
-docker compose --env-file compose.env exec backend1 sh
+docker compose exec backend1 sh
 ps aux | head -n 10
 exit
 ```
 
 Nginx container:
 ```powershell
-docker compose --env-file compose.env exec nginx sh
+docker compose exec nginx sh
 ps aux | head -n 10
 exit
 ```
 
 Postgres query:
 ```powershell
-docker compose --env-file compose.env exec postgres psql -U smart_user -d smart_kitchen -c "SELECT id, name, created_at FROM demo_items ORDER BY id DESC;"
+docker compose exec postgres psql -U smart_user -d smart_kitchen -c "SELECT id, name, created_at FROM demo_items ORDER BY id DESC;"
 ```
 
 ## 8. Stop infrastructure
 ```powershell
-docker compose --env-file compose.env down
+docker compose down
 ```
 
 Full reset:
 ```powershell
-docker compose --env-file compose.env down -v
+docker compose down -v
 ```
