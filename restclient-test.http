@@ -55,3 +55,20 @@ Content-Type: application/json
 {
   "name": "brokkolis csirke"
 }
+
+###
+
+GET http://localhost/api/db/health
+
+###
+
+POST http://localhost/api/db/items
+Content-Type: application/json
+
+{
+  "name": "item"
+}
+
+###
+
+GET http://localhost/api/db/items
