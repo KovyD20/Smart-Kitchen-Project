@@ -16,6 +16,60 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
   const clearError = () => setError("");
   const clearSuccess = () => setSuccess("");
 
+  const formatAmount = (value) => {
+    if (!Number.isFinite(value)) return value;
+    return Number(value.toFixed(2)).toString();
+  };
+
+  const normalizeRecipe = (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+
+    const baseServings =
+      Number.isFinite(Number(raw.servings)) && Number(raw.servings) > 0
+        ? Number(raw.servings)
+        : 1;
+
+    const normalizedIngredients = Array.isArray(raw.ingredients)
+      ? raw.ingredients.map((ingredient) => {
+          const amount = Number(ingredient?.amount);
+          return {
+            ...ingredient,
+            _baseAmount: Number.isFinite(amount) ? amount : ingredient?.amount,
+          };
+        })
+      : [];
+
+    return {
+      ...raw,
+      servings: baseServings,
+      _baseServings: baseServings,
+      ingredients: normalizedIngredients,
+      time: raw.time ?? raw.time_minutes ?? "",
+    };
+  };
+
+  const scaleRecipe = (newServings) => {
+    setRecipe((prev) => {
+      if (!prev) return prev;
+      const baseServings = Number(prev._baseServings) || 1;
+      const targetServings = Math.max(1, Number(newServings) || baseServings);
+      const nextIngredients = (prev.ingredients || []).map((ingredient) => {
+        const baseAmount = Number(ingredient._baseAmount);
+        if (!Number.isFinite(baseAmount)) return ingredient;
+        return {
+          ...ingredient,
+          amount: formatAmount((baseAmount * targetServings) / baseServings),
+        };
+      });
+
+      return {
+        ...prev,
+        servings: targetServings,
+        ingredients: nextIngredients,
+      };
+    });
+  };
+
   const handleRecipeByName = async () => {
     const name = nameInput.trim();
     if (!name) return;
@@ -38,7 +92,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
         return;
       }
 
-      setRecipe(data.recipe || null);
+      setRecipe(normalizeRecipe(data.recipe));
     } catch (err) {
       setError("AI kérés sikertelen");
     } finally {
@@ -107,7 +161,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
         return;
       }
 
-      setRecipe(data.recipe || null);
+      setRecipe(normalizeRecipe(data.recipe));
     } catch (err) {
       setError("AI kérés sikertelen");
     } finally {
@@ -122,11 +176,20 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
     clearSuccess();
     setSavingRecipe(true);
 
+    const parsedServings = Number(recipe.servings);
+    const parsedTime = Number(recipe.time ?? recipe.time_minutes);
+
     const payload = {
       name: recipe.name,
-      ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
+      ingredients: Array.isArray(recipe.ingredients)
+        ? recipe.ingredients.map(({ _baseAmount, ...ingredient }) => ingredient)
+        : [],
       steps: Array.isArray(recipe.steps) ? recipe.steps : [],
       tags: Array.isArray(recipe.tags) ? recipe.tags : [],
+      ...(Number.isFinite(parsedServings) && parsedServings > 0
+        ? { servings: parsedServings }
+        : {}),
+      ...(Number.isFinite(parsedTime) && parsedTime > 0 ? { time: parsedTime } : {}),
     };
 
     try {
@@ -197,15 +260,11 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
       {success && <div className="ai-success">{success}</div>}
 
       {recipe && (
-        <div className="ai-recipe">
-          <h4>{recipe.name || "AI recept"}</h4>
-
+        <div>
           <div className="ai-meta">
-            {typeof recipe.servings === "number" && (
-              <span>Adag: {recipe.servings}</span>
-            )}
-            {typeof recipe.time_minutes === "number" && (
-              <span>Idő: {recipe.time_minutes} perc</span>
+            {typeof recipe.servings === "number" && <span>Adag: {recipe.servings}</span>}
+            {recipe.time !== undefined && recipe.time !== null && recipe.time !== "" && (
+              <span>Idő: {recipe.time} perc</span>
             )}
           </div>
 
@@ -232,11 +291,15 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
             </ol>
           </div>
 
-          <button onClick={handleSaveRecipe} disabled={savingRecipe}>
-            {savingRecipe
-              ? "Mentés..."
-              : "AI-recept hozzáadás a saját receptjeim közé"}
-          </button>
+          <div>
+            <button onClick={() => scaleRecipe(Math.max(1, (recipe.servings || 1) - 1))}>
+              -
+            </button>
+            <button onClick={() => scaleRecipe((recipe.servings || 1) + 1)}>+</button>
+            <button onClick={handleSaveRecipe} disabled={savingRecipe}>
+              {savingRecipe ? "Mentés..." : "AI-recept hozzáadás a saját receptjeim közé"}
+            </button>
+          </div>
         </div>
       )}
     </div>

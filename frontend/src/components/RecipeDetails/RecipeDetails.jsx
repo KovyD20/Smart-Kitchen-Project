@@ -1,3 +1,4 @@
+﻿import { useEffect, useMemo, useState } from "react";
 import "./RecipeDetails.css";
 
 export default function RecipeDetails({
@@ -6,30 +7,66 @@ export default function RecipeDetails({
   onEdit,
   onAddToShoppingList,
 }) {
-  if (!recipe) return null;
+  const {
+    id,
+    name,
+    ingredients = [],
+    steps = [],
+    tags = [],
+    servings,
+    time,
+    time_minutes,
+  } = recipe || {};
 
-  const { id, name, ingredients = [], steps = [], tags = [] } = recipe;
+  const baseServings = useMemo(() => {
+    const parsed = Number(servings);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  }, [servings]);
+
+  const [currentServings, setCurrentServings] = useState(baseServings);
+
+  useEffect(() => {
+    setCurrentServings(baseServings);
+  }, [id, baseServings]);
+
+  const formatAmount = (value) => {
+    if (!Number.isFinite(value)) return value;
+    return Number(value.toFixed(2)).toString();
+  };
+
+  const scaledIngredients = useMemo(() => {
+    return ingredients.map((ingredient) => {
+      const amount = Number(ingredient.amount);
+      if (!Number.isFinite(amount)) return ingredient;
+      const scaled = (amount * currentServings) / baseServings;
+      return { ...ingredient, amount: formatAmount(scaled) };
+    });
+  }, [ingredients, currentServings, baseServings]);
+
+  const displayedTime = time ?? time_minutes;
+
+  if (!recipe) return null;
 
   return (
     <div className="recipe-details">
       <h2>{name}</h2>
 
-      <button onClick={() => onAddToShoppingList(ingredients)}>
-        Bevásárlólistához ad 🛒
+      <button onClick={() => onAddToShoppingList(scaledIngredients)}>
+        Bevásárlólistához ad
       </button>
 
       <section>
         <h3>Hozzávalók</h3>
-        {ingredients.length === 0 ? (
+        {scaledIngredients.length === 0 ? (
           <p>Nincs megadva hozzávaló.</p>
         ) : (
           <ul>
-            {ingredients.map((ing, i) => (
+            {scaledIngredients.map((ing, i) => (
               <li key={i}>
                 <span className="amount-highlight">
                   {ing.amount} {ing.unit}
                 </span>{" "}
-                – {ing.name}
+                - {ing.name}
               </li>
             ))}
           </ul>
@@ -56,7 +93,18 @@ export default function RecipeDetails({
         </section>
       )}
 
-      <button onClick={onEdit}>Recept szerkesztése ✏️</button>
+      <div>
+        <h4>Adag: {currentServings}</h4>
+        {displayedTime !== undefined &&
+          displayedTime !== null &&
+          displayedTime !== "" && <h4>Idő: {displayedTime} perc</h4>}
+        <button onClick={() => setCurrentServings((prev) => Math.max(1, prev - 1))}>
+          -
+        </button>
+        <button onClick={() => setCurrentServings((prev) => prev + 1)}>+</button>
+      </div>
+
+      <button onClick={onEdit}>Recept szerkesztése</button>
 
       <button
         onClick={() => {
@@ -65,7 +113,7 @@ export default function RecipeDetails({
           }
         }}
       >
-        Recept törlése ❌
+        Recept törlése
       </button>
     </div>
   );

@@ -207,6 +207,24 @@
   padding: 0;
 }
 
+.item-groups {
+  display: grid;
+  gap: 10px;
+}
+
+.item-group {
+  border: 1px solid rgba(0, 0, 0, 0.28);
+  border-radius: 14px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.item-group-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .shopping-list li {
   border: 1px solid #726103;
   background: rgba(65, 47, 0, 0.384);
@@ -272,6 +290,75 @@
 .shopping-move {
   margin-top: 8px;
   width: 100%;
+}
+
+.shopping-recommendations {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.45);
+  color: #000;
+}
+
+.shopping-rec-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #000;
+}
+
+.shopping-rec-empty {
+  margin: 6px 0 10px;
+  color: #000;
+}
+
+.shopping-rec-list {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.shopping-rec-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.2);
+  background: transparent;
+  border-radius: 0;
+  min-height: auto;
+}
+
+.shopping-essential-item {
+  color: #b30000;
+  border-bottom-color: rgba(179, 0, 0, 0.35);
+}
+
+.shopping-essential-name {
+  font-weight: 700;
+  color: #b30000;
+}
+
+.shopping-essential-add {
+  color: #fff;
+  background: #b30000;
+  border: 1px solid #7f0000;
+}
+
+.shopping-rec-category {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.shopping-recommended-toggle {
+  width: 100%;
+  margin: 6px 0 8px;
+}
+
+.shopping-rec-groups h5 {
+  margin: 8px 0 6px;
+  color: #000;
 }
 
 .fridge {

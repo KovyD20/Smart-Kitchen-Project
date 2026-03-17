@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import BubbleMenu from "../components/BubbleMenu/BubbleMenu";
 import LightPillar from "../components/Background/LightPillar";
 import RecipeListPanel from "../components/Home/RecipeListPanel";
@@ -24,6 +24,12 @@ import "../components/AnimatedList/AnimatedList.css";
 import "../components/BubbleMenu/BubbleMenu.css";
 import "./Home.css";
 import { SYSTEM_UNITS, UNIT_ALIASES } from "../constants/units";
+import {
+  getMissingCatalogRecommendations,
+  groupItemsByCatalog,
+  resolveCanonicalCatalogName,
+  resolveCatalogKey,
+} from "../constants/pantryCatalog";
 
 export default function Home({ user }) {
   const [recipes, setRecipes] = useState([]);
@@ -76,7 +82,15 @@ export default function Home({ user }) {
       .replace(/\b\d+([.,]\d+)?\b/g, " ")
       .replace(/[()\-_,.;:!+]/g, " ");
 
-    return withoutNumbers.replace(/\s+/g, " ").trim();
+    const cleaned = withoutNumbers.replace(/\s+/g, " ").trim();
+    return resolveCatalogKey(cleaned);
+  };
+
+  const canonicalizeName = (value) => {
+    const raw = (value || "").toString().trim();
+    if (!raw) return "";
+    const key = normalizeName(raw);
+    return resolveCanonicalCatalogName(key || raw);
   };
 
   const normalizeUnit = (value) => {
@@ -111,6 +125,18 @@ export default function Home({ user }) {
     if (!areUnitsCompatible(fromInfo, toInfo)) return amount;
     return (Number(amount) || 0) * (fromInfo.factor / toInfo.factor);
   };
+
+  const groupedShoppingList = useMemo(
+    () => groupItemsByCatalog(shoppingList),
+    [shoppingList],
+  );
+
+  const groupedFridge = useMemo(() => groupItemsByCatalog(fridge), [fridge]);
+
+  const missingRecommendations = useMemo(
+    () => getMissingCatalogRecommendations(fridge, shoppingList),
+    [fridge, shoppingList],
+  );
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -181,7 +207,8 @@ export default function Home({ user }) {
       for (const ing of ingredients) {
         const rawName = (ing?.name || "").toString().trim();
         if (!rawName) continue;
-        const nameKey = normalizeName(rawName);
+        const canonicalName = canonicalizeName(rawName);
+        const nameKey = normalizeName(canonicalName);
         const unit = normalizeUnit(ing?.unit);
         const incomingUnitInfo = unitInfo(unit);
         const amount = Number(ing?.amount || 0);
@@ -203,10 +230,10 @@ export default function Home({ user }) {
           const nextAmount = Number(existing.amount || 0) + converted;
           await updateDoc(
             doc(db, "users", user.uid, "shoppingList", existing.id),
-            { amount: nextAmount },
+            { amount: nextAmount, name: canonicalName },
           );
         } else {
-          await addDoc(shopRef, { name: rawName, amount, unit });
+          await addDoc(shopRef, { name: canonicalName, amount, unit });
         }
       }
 
@@ -222,9 +249,11 @@ export default function Home({ user }) {
       const current = Number(item.amount || 0);
       const nextAmount = current + delta;
       if (nextAmount <= 0) return;
+      const canonicalName = canonicalizeName(item?.name);
 
       await updateDoc(doc(db, "users", user.uid, "shoppingList", item.id), {
         amount: nextAmount,
+        name: canonicalName || item?.name,
       });
     } catch (err) {
       console.error(err);
@@ -235,11 +264,12 @@ export default function Home({ user }) {
   const addSingleShoppingItem = async (item) => {
     try {
       const rawName = (item?.name || "").toString().trim();
+      const canonicalName = canonicalizeName(rawName);
       const unit = normalizeUnit(item?.unit);
       const incomingUnitInfo = unitInfo(unit);
       const amount = Number(item?.amount || 0);
       if (!rawName || amount <= 0) return;
-      const nameKey = normalizeName(rawName);
+      const nameKey = normalizeName(canonicalName);
 
       const existing = shoppingList.find((i) => {
         if (normalizeName(i.name) !== nameKey) return false;
@@ -253,11 +283,11 @@ export default function Home({ user }) {
         const nextAmount = Number(existing.amount || 0) + converted;
         await updateDoc(
           doc(db, "users", user.uid, "shoppingList", existing.id),
-          { amount: nextAmount },
+          { amount: nextAmount, name: canonicalName },
         );
       } else {
         const shopRef = collection(db, "users", user.uid, "shoppingList");
-        await addDoc(shopRef, { name: rawName, amount, unit });
+        await addDoc(shopRef, { name: canonicalName, amount, unit });
       }
     } catch (err) {
       console.error(err);
@@ -275,11 +305,12 @@ export default function Home({ user }) {
       await Promise.all(
         shoppingList.map(async (item) => {
           const rawName = (item?.name || "").toString().trim();
+          const canonicalName = canonicalizeName(rawName);
           const unit = normalizeUnit(item?.unit);
           const incomingUnitInfo = unitInfo(unit);
           const amount = Number(item?.amount || 0);
           if (!rawName || amount <= 0) return;
-          const nameKey = normalizeName(rawName);
+          const nameKey = normalizeName(canonicalName);
 
           const existing = fridge.find((i) => {
             if (normalizeName(i.name) !== nameKey) return false;
@@ -297,9 +328,10 @@ export default function Home({ user }) {
             const nextAmount = Number(existing.amount || 0) + converted;
             await updateDoc(doc(db, "users", user.uid, "fridge", existing.id), {
               amount: nextAmount,
+              name: canonicalName,
             });
           } else {
-            await addDoc(fridgeRef, { name: rawName, amount, unit });
+            await addDoc(fridgeRef, { name: canonicalName, amount, unit });
           }
 
           await deleteDoc(doc(db, "users", user.uid, "shoppingList", item.id));
@@ -314,12 +346,13 @@ export default function Home({ user }) {
   const addToFridge = async (item, delta) => {
     try {
       const rawName = (item?.name || "").toString().trim();
+      const canonicalName = canonicalizeName(rawName);
       const unit = normalizeUnit(item?.unit);
       const incomingUnitInfo = unitInfo(unit);
       const amount = Number(item?.amount || 0);
       const change = Number(delta || 0);
       if (!rawName) return;
-      const nameKey = normalizeName(rawName);
+      const nameKey = normalizeName(canonicalName);
 
       const existing = fridge.find((i) => {
         if (normalizeName(i.name) !== nameKey) return false;
@@ -339,11 +372,12 @@ export default function Home({ user }) {
         if (nextAmount <= 0) return;
         await updateDoc(doc(db, "users", user.uid, "fridge", existing.id), {
           amount: nextAmount,
+          name: canonicalName,
         });
       } else {
         if (amount <= 0) return;
         const fridgeRef = collection(db, "users", user.uid, "fridge");
-        await addDoc(fridgeRef, { name: rawName, amount, unit });
+        await addDoc(fridgeRef, { name: canonicalName, amount, unit });
       }
     } catch (err) {
       console.error(err);
@@ -360,18 +394,15 @@ export default function Home({ user }) {
       (snap) => {
         const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setRecipes(items);
+        const tags = new Set();
+        items.forEach((item) => item.tags?.forEach((tag) => tags.add(tag)));
+        setAllTags([...tags]);
       },
       (err) => console.error("Hiba a receptek olvasásakor", err),
     );
 
     return () => unsub();
   }, [user?.uid]);
-
-  useEffect(() => {
-    const tags = new Set();
-    recipes.forEach((r) => r.tags?.forEach((t) => tags.add(t)));
-    setAllTags([...tags]);
-  }, [recipes]);
 
   const filteredRecipes = recipes.filter(
     (r) => filterTag === "all" || r.tags?.includes(filterTag),
@@ -467,8 +498,19 @@ export default function Home({ user }) {
 
         <ShoppingListPanel
           shoppingList={shoppingList}
+          groupedShoppingList={groupedShoppingList}
           newShoppingItem={newShoppingItem}
           units={UNITS}
+          missingEssentialItems={missingRecommendations.essential}
+          recommendedGoodToHaveItems={missingRecommendations.goodToHave}
+          recommendedExtraItems={missingRecommendations.extra}
+          onAddRecommendedEssentialItem={(item) =>
+            addSingleShoppingItem({
+              name: item?.name || "",
+              amount: 1,
+              unit: "db",
+            })
+          }
           onChangeNewItem={(field, value) =>
             setNewShoppingItem((p) => ({ ...p, [field]: value }))
           }
@@ -504,6 +546,7 @@ export default function Home({ user }) {
 
         <FridgePanel
           fridge={fridge}
+          groupedFridge={groupedFridge}
           newFridgeItem={newFridgeItem}
           units={UNITS}
           onChangeNewItem={(field, value) =>

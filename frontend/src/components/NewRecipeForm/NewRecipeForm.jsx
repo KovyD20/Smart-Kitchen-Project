@@ -22,6 +22,9 @@ export default function NewRecipeForm({
   const [selectedTags, setSelectedTags] = useState(recipe?.tags || []);
   const [newTag, setNewTag] = useState("");
 
+  const [servings, setServings] = useState(recipe?.servings ?? "");
+  const [time, setTime] = useState(recipe?.time ?? recipe?.time_minutes ?? "");
+
   const addIngredient = () =>
     setIngredients([...ingredients, { name: "", amount: "", unit: "g" }]);
 
@@ -41,11 +44,20 @@ export default function NewRecipeForm({
       return alert("Lépések hiányosak");
     }
 
+    const parsedServings = Number(servings);
+    const parsedTime = Number(time);
+
     const data = {
       name,
       ingredients,
       steps,
       tags: selectedTags,
+      ...(Number.isFinite(parsedServings) && parsedServings > 0
+        ? { servings: parsedServings }
+        : {}),
+      ...(Number.isFinite(parsedTime) && parsedTime > 0
+        ? { time: parsedTime }
+        : {}),
     };
 
     if (editMode) {
@@ -62,6 +74,8 @@ export default function NewRecipeForm({
     setSteps([""]);
     setSelectedTags([]);
     setNewTag("");
+    setServings("");
+    setTime("");
   };
 
   return (
@@ -116,13 +130,13 @@ export default function NewRecipeForm({
             ))}
           </select>
 
-                    <button
+          <button
             type="button"
             onClick={() =>
               setIngredients((prev) => prev.filter((_, index) => index !== i))
             }
           >
-          ❌
+            ❌
           </button>
         </div>
       ))}
@@ -142,7 +156,7 @@ export default function NewRecipeForm({
               setSteps(copy);
             }}
           />
-                      <div></div>
+          <div></div>
 
           <button
             type="button"
@@ -231,6 +245,24 @@ export default function NewRecipeForm({
         ➕ címke
       </button>
       <div></div>
+
+      <input
+        tabIndex={6}
+        type="number"
+        placeholder="Adagok száma (opcionális)"
+        value={servings}
+        min="1"
+        onChange={(e) => setServings(e.target.value)}
+      />
+
+      <input
+        tabIndex={7}
+        type="number"
+        placeholder="Elkészítési idő (perc, opcionális)"
+        value={time}
+        min="1"
+        onChange={(e) => setTime(e.target.value)}
+      />
 
       <button onClick={submit}>Recept mentése💾</button>
     </div>

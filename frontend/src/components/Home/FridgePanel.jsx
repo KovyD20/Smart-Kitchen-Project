@@ -4,6 +4,7 @@ import ItemAddForm from "./ItemAddForm";
 
 export default function FridgePanel({
   fridge,
+  groupedFridge,
   newFridgeItem,
   units,
   onChangeNewItem,
@@ -13,6 +14,8 @@ export default function FridgePanel({
   smallBtn,
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const hasItems = fridge.length > 0;
+  const groups = groupedFridge || [];
 
   return (
     <div className={`fridge${collapsed ? " panel-collapsed" : ""}`}>
@@ -30,38 +33,39 @@ export default function FridgePanel({
 
       {!collapsed && (
         <>
-          {fridge.length === 0 ? (
+          {!hasItems ? (
             <p>Üres</p>
           ) : (
-            <ul>
-              <div></div>
-              {fridge.map((item) => (
-                <li
-                  key={item.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  <span style={{ flex: 1 }}>
-                    <span className="item-name">{item.name}</span> -{" "}
-                    <span className="item-quantity">
-                      <span className="item-amount">{item.amount}</span>{" "}
-                      <span className="item-unit">{item.unit}</span>
-                    </span>
-                  </span>
-                  <ItemActions
-                    smallBtn={smallBtn}
-                    onIncrement={() => onUpdateItem(item, 1)}
-                    onDecrement={() => onUpdateItem(item, -1)}
-                    disableDecrement={item.amount <= 1}
-                    onDelete={() => onDeleteItem(item)}
-                  />
-                </li>
+            <div className="item-groups">
+              {groups.map((group) => (
+                <div key={group.category} className="item-group">
+                  <h4 className="item-group-title">{group.category}</h4>
+                  <ul>
+                    {group.items.map((item) => (
+                      <li key={item.id}>
+                        <span style={{ flex: 1 }}>
+                          <span className="item-name">
+                            {item.displayName || item.name}
+                          </span>{" "}
+                          -{" "}
+                          <span className="item-quantity">
+                            <span className="item-amount">{item.amount}</span>{" "}
+                            <span className="item-unit">{item.unit}</span>
+                          </span>
+                        </span>
+                        <ItemActions
+                          smallBtn={smallBtn}
+                          onIncrement={() => onUpdateItem(item, 1)}
+                          onDecrement={() => onUpdateItem(item, -1)}
+                          disableDecrement={item.amount <= 1}
+                          onDelete={() => onDeleteItem(item)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
 
           <ItemAddForm
@@ -70,7 +74,7 @@ export default function FridgePanel({
             units={units}
             onChange={onChangeNewItem}
             onSubmit={onAddNewItem}
-            submitLabel="Tétel hozzáadása+"
+            submitLabel="Tétel hozzáadása +"
           />
         </>
       )}
