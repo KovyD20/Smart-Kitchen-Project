@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import "./AiRecipePanel.css";
 
 export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {

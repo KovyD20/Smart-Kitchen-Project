@@ -1,6 +1,4 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const router = express.Router();
@@ -33,12 +31,6 @@ const AI_UNIT_RULES = [
   "Szinonimak normalizalasa: teaskanal/kiskanal -> tk, evokanal -> ek, darab -> db.",
   "Hosszu forma helyett roviditeseket hasznalj (pl. teaskanal helyett tk).",
 ].join(" ");
-
-const filePath = path.join(__dirname, "../data/fridge.json");
-
-function readFridge() {
-  return JSON.parse(fs.readFileSync(filePath));
-}
 
 function getModel() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -119,7 +111,7 @@ router.post("/recipe-by-name", async (req, res) => {
   const prompt = [
     "Te egy profi séf asszisztens vagy.",
     "Csak magyarul válaszolj. összetevő, mennyiség és elkészítési lépéseket is kizárólag magyarul.",
-    "Hozzávalóknál először a magát a hpzzávalót írd, utána pedig a mennyiséget",
+    "Hozzávalóknál először magát a hozzávalót írd, utána pedig a mennyiséget",
     "Kizárólag érvényes JSON-t adj vissza. Ne írj markdown-t, se extra szöveget.",
     "Készíts receptet az alábbi ételnév alapján:",
     `"${name}"`,
@@ -151,8 +143,7 @@ router.post("/recipe-by-name", async (req, res) => {
 });
 
 router.post("/suggest-from-fridge", async (req, res) => {
-  const fromBody = Array.isArray(req.body?.items) ? req.body.items : null;
-  const fridge = fromBody || readFridge();
+  const fridge = Array.isArray(req.body?.items) ? req.body.items : null;
   if (!Array.isArray(fridge) || fridge.length === 0) {
     return res.status(400).json({ error: "Fridge is empty" });
   }
@@ -164,7 +155,7 @@ router.post("/suggest-from-fridge", async (req, res) => {
   const prompt = [
     "Te egy kreatív séf asszisztens vagy.",
     "Csak magyarul válaszolj. összetevő, mennyiség és elkészítési lépéseket is kizárólag magyarul.",
-    "Hozzávalóknál először a magát a hpzzávalót írd, utána pedig a mennyiséget",
+    "Hozzávalóknál először magát a hozzávalót írd, utána pedig a mennyiséget",
     "Kizárólag érvényes JSON-t adj vissza. Ne írj markdown-t, se extra szöveget.",
     "Az alábbi elérhető hozzávalók alapján adj 5-8 lehetséges ételnevet.",
     "Magyar neveket használj.",
@@ -194,8 +185,7 @@ router.post("/recipe-from-fridge", async (req, res) => {
     return res.status(400).json({ error: "Missing recipe name" });
   }
 
-  const fromBody = Array.isArray(req.body?.items) ? req.body.items : null;
-  const fridge = fromBody || readFridge();
+  const fridge = Array.isArray(req.body?.items) ? req.body.items : null;
   if (!Array.isArray(fridge) || fridge.length === 0) {
     return res.status(400).json({ error: "Fridge is empty" });
   }
@@ -207,7 +197,7 @@ router.post("/recipe-from-fridge", async (req, res) => {
   const prompt = [
     "Te egy precíz séf asszisztens vagy.",
     "Csak magyarul válaszolj. összetevő, mennyiség és elkészítési lépéseket is kizárólag magyarul.",
-    "Hozzávalóknál először a magát a hpzzávalót írd, utána pedig a mennyiséget",
+    "Hozzávalóknál először magát a hozzávalót írd, utána pedig a mennyiséget",
     "Kizárólag érvényes JSON-t adj vissza. Ne írj markdown-t, se extra szöveget.",
     "Készíts receptet a megadott ételnévhez KIZÁRÓLAG a listázott hozzávalókból.",
     "Ne adj hozzá olyan hozzávalót, ami nincs a listában.",

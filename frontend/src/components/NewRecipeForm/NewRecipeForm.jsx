@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import "./NewRecipeForm.css";
 import { SYSTEM_UNITS } from "../../constants/units";
 
@@ -203,17 +203,6 @@ export default function NewRecipeForm({
               if (onDeleteTag) {
                 await onDeleteTag(tag);
                 await onRecipeCreated?.();
-                return;
-              }
-
-              const res = await fetch(`/api/recipes/tags/${tag}`, {
-                method: "DELETE",
-              });
-
-              if (res.ok) {
-                await onRecipeCreated?.();
-              } else {
-                alert("Hiba történt a címke törlésekor");
               }
             }}
           >
