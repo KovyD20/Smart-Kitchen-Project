@@ -70,7 +70,7 @@ services:
     image: postgres:16-alpine
     container_name: smart-kitchen-postgres
     env_file:
-      - ./compose.env
+      - ./.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro

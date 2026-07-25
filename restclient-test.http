@@ -23,17 +23,8 @@ Content-Type: application/json
 
 ###
 
-GET http://localhost/api/db/health
+GET http://localhost:3000/api/db/health
 
 ###
 
-POST http://localhost/api/db/items
-Content-Type: application/json
-
-{
-  "name": "item"
-}
-
-###
-
-GET http://localhost/api/db/items
+GET http://localhost:3000/api/pantry/catalog

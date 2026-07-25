@@ -24,14 +24,15 @@ import "../components/AnimatedList/AnimatedList.css";
 import "../components/BubbleMenu/BubbleMenu.css";
 import "./Home.css";
 import { SYSTEM_UNITS, UNIT_ALIASES } from "../constants/units";
-import {
-  getMissingCatalogRecommendations,
-  groupItemsByCatalog,
-  resolveCanonicalCatalogName,
-  resolveCatalogKey,
-} from "../constants/pantryCatalog";
+import { useCatalog } from "../context/CatalogContext";
 
 export default function Home({ user }) {
+  const {
+    getMissingCatalogRecommendations,
+    groupItemsByCatalog,
+    resolveCanonicalCatalogName,
+    resolveCatalogKey,
+  } = useCatalog();
   const [recipes, setRecipes] = useState([]);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
@@ -128,14 +129,17 @@ export default function Home({ user }) {
 
   const groupedShoppingList = useMemo(
     () => groupItemsByCatalog(shoppingList),
-    [shoppingList],
+    [shoppingList, groupItemsByCatalog],
   );
 
-  const groupedFridge = useMemo(() => groupItemsByCatalog(fridge), [fridge]);
+  const groupedFridge = useMemo(
+    () => groupItemsByCatalog(fridge),
+    [fridge, groupItemsByCatalog],
+  );
 
   const missingRecommendations = useMemo(
     () => getMissingCatalogRecommendations(fridge, shoppingList),
-    [fridge, shoppingList],
+    [fridge, shoppingList, getMissingCatalogRecommendations],
   );
 
   useEffect(() => {
