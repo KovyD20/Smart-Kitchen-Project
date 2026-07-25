@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { authedFetch } from "../../lib/api";
 import "./AiRecipePanel.css";
 
 export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
@@ -80,7 +81,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
     setLoadingName(true);
 
     try {
-      const res = await fetch("/api/ai/recipe-by-name", {
+      const res = await authedFetch("/api/ai/recipe-by-name", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -109,7 +110,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
     setLoadingOptions(true);
 
     try {
-      const res = await fetch("/api/ai/suggest-from-fridge", {
+      const res = await authedFetch("/api/ai/suggest-from-fridge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items: fridgeItems }),
@@ -145,7 +146,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
     setLoadingFridgeRecipe(true);
 
     try {
-      const res = await fetch("/api/ai/recipe-from-fridge", {
+      const res = await authedFetch("/api/ai/recipe-from-fridge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, items: fridgeItems }),

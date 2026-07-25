@@ -1,7 +1,34 @@
 const express = require("express");
+const { z } = require("zod");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { requireAuth } = require("../middleware/auth");
+const { aiLimiter } = require("../middleware/rateLimit");
+const { validate } = require("../middleware/validate");
 
 const router = express.Router();
+
+// All AI endpoints require an authenticated user, then are rate-limited per user.
+router.use(requireAuth);
+router.use(aiLimiter);
+
+const itemSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  amount: z.union([z.number(), z.string()]).optional(),
+  unit: z.string().max(40).optional(),
+});
+
+const recipeByNameSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+
+const suggestFromFridgeSchema = z.object({
+  items: z.array(itemSchema).min(1),
+});
+
+const recipeFromFridgeSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  items: z.array(itemSchema).min(1),
+});
 
 const AI_ALLOWED_UNITS = [
   "db",
@@ -17,19 +44,19 @@ const AI_ALLOWED_UNITS = [
   "csokor",
   "gerezd",
   "szelet",
-  "bogre",
-  "pohar",
+  "bögre",
+  "pohár",
   "csomag",
   "konzerv",
   "fej",
-  "szal",
-  "marek",
+  "szál",
+  "marék",
 ];
 
 const AI_UNIT_RULES = [
-  `A hozzavalok "unit" mezojeben csak ezeket hasznald: ${AI_ALLOWED_UNITS.join(", ")}.`,
-  "Szinonimak normalizalasa: teaskanal/kiskanal -> tk, evokanal -> ek, darab -> db.",
-  "Hosszu forma helyett roviditeseket hasznalj (pl. teaskanal helyett tk).",
+  `A hozzávalók "unit" mezőjében csak ezeket használd: ${AI_ALLOWED_UNITS.join(", ")}.`,
+  "Szinonimák normalizálása: teáskanál/kiskanál -> tk, evőkanál -> ek, darab -> db.",
+  "Hosszú forma helyett rövidítéseket használj (pl. teáskanál helyett tk).",
 ].join(" ");
 
 function getModel() {
@@ -102,11 +129,8 @@ async function generateJson(prompt) {
   }
 }
 
-router.post("/recipe-by-name", async (req, res) => {
-  const name = (req.body?.name || "").toString().trim();
-  if (!name) {
-    return res.status(400).json({ error: "Missing recipe name" });
-  }
+router.post("/recipe-by-name", validate(recipeByNameSchema), async (req, res) => {
+  const { name } = req.body;
 
   const prompt = [
     "Te egy profi séf asszisztens vagy.",
@@ -142,11 +166,8 @@ router.post("/recipe-by-name", async (req, res) => {
   }
 });
 
-router.post("/suggest-from-fridge", async (req, res) => {
-  const fridge = Array.isArray(req.body?.items) ? req.body.items : null;
-  if (!Array.isArray(fridge) || fridge.length === 0) {
-    return res.status(400).json({ error: "Fridge is empty" });
-  }
+router.post("/suggest-from-fridge", validate(suggestFromFridgeSchema), async (req, res) => {
+  const fridge = req.body.items;
 
   const items = fridge
     .map((i) => `${i.name} (${i.amount ?? ""} ${i.unit ?? ""})`.trim())
@@ -179,16 +200,9 @@ router.post("/suggest-from-fridge", async (req, res) => {
   }
 });
 
-router.post("/recipe-from-fridge", async (req, res) => {
-  const name = (req.body?.name || "").toString().trim();
-  if (!name) {
-    return res.status(400).json({ error: "Missing recipe name" });
-  }
-
-  const fridge = Array.isArray(req.body?.items) ? req.body.items : null;
-  if (!Array.isArray(fridge) || fridge.length === 0) {
-    return res.status(400).json({ error: "Fridge is empty" });
-  }
+router.post("/recipe-from-fridge", validate(recipeFromFridgeSchema), async (req, res) => {
+  const { name } = req.body;
+  const fridge = req.body.items;
 
   const items = fridge
     .map((i) => `${i.name} (${i.amount ?? ""} ${i.unit ?? ""})`.trim())
