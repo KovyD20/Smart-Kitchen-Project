@@ -9,4 +9,10 @@ export default defineConfig({
     }
   },
   plugins: [react()],
+  test: {
+    // Unit tests here cover pure logic only, so the default Node environment is
+    // enough (no jsdom). Add environment: 'jsdom' when component tests are introduced.
+    environment: 'node',
+    include: ['src/**/*.test.{js,jsx}'],
+  },
 })
