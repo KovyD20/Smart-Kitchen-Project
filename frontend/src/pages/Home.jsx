@@ -15,6 +15,8 @@ import "./Home.css";
 import { SYSTEM_UNITS } from "../constants/units";
 import { useRecipes } from "../hooks/useRecipes";
 import { useInventory } from "../hooks/useInventory";
+import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 
 export default function Home({ user }) {
   const {
@@ -43,6 +45,9 @@ export default function Home({ user }) {
     deleteFridgeItem,
   } = useInventory(user.uid);
 
+  const { showToast } = useToast();
+  const confirm = useConfirm();
+
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
   const [filterTag, setFilterTag] = useState("all");
@@ -66,9 +71,9 @@ export default function Home({ user }) {
   };
   const UNITS = SYSTEM_UNITS;
 
-  const notifyError = (err, msg = "❌ Hiba történt") => {
+  const notifyError = (err, msg = "Hiba történt") => {
     console.error(err);
-    alert(msg);
+    showToast(msg, "error");
   };
 
   const filteredRecipes = recipes.filter(
@@ -77,12 +82,12 @@ export default function Home({ user }) {
 
   const handleAddToShoppingList = async (ingredients) => {
     if (
-      !window.confirm("Biztosan hozzáadod a hozzávalókat a bevásárlólistához?")
+      !(await confirm("Biztosan hozzáadod a hozzávalókat a bevásárlólistához?"))
     )
       return;
     try {
       await addToShoppingList(ingredients);
-      alert("✅ Sikeresen hozzáadva a bevásárlólistához");
+      showToast("Sikeresen hozzáadva a bevásárlólistához", "success");
     } catch (err) {
       notifyError(err);
     }
@@ -90,7 +95,7 @@ export default function Home({ user }) {
 
   const handleMoveToFridge = async () => {
     if (shoppingList.length === 0) return;
-    if (!window.confirm("Biztos, hogy megvetted a lista termékeit?")) return;
+    if (!(await confirm("Biztos, hogy megvetted a lista termékeit?"))) return;
     try {
       await moveShoppingToFridge();
     } catch (err) {
@@ -214,11 +219,11 @@ export default function Home({ user }) {
             updateShoppingItem(item, delta).catch(notifyError)
           }
           onDeleteItem={async (item) => {
-            if (!window.confirm("Biztosan törlöd?")) return;
+            if (!(await confirm("Biztosan törlöd?"))) return;
             await deleteShoppingItem(item).catch(notifyError);
           }}
           onClearList={async () => {
-            if (!window.confirm("Biztosan törlöd a teljes listát?")) return;
+            if (!(await confirm("Biztosan törlöd a teljes listát?"))) return;
             await clearShoppingList().catch(notifyError);
           }}
           onMoveToFridge={handleMoveToFridge}
@@ -239,16 +244,16 @@ export default function Home({ user }) {
               name: newFridgeItem.name,
               amount: Number(newFridgeItem.amount),
               unit: newFridgeItem.unit || "db",
-            }).catch((err) => notifyError(err, "❌ Hiba a hűtő frissítésekor"));
+            }).catch((err) => notifyError(err, "Hiba a hűtő frissítésekor"));
             setNewFridgeItem({ name: "", amount: "", unit: "" });
           }}
           onUpdateItem={(item, delta) =>
             addToFridge(item, delta).catch((err) =>
-              notifyError(err, "❌ Hiba a hűtő frissítésekor"),
+              notifyError(err, "Hiba a hűtő frissítésekor"),
             )
           }
           onDeleteItem={async (item) => {
-            if (!window.confirm("Biztosan törlöd?")) return;
+            if (!(await confirm("Biztosan törlöd?"))) return;
             await deleteFridgeItem(item).catch(notifyError);
           }}
           smallBtn={smallBtn}

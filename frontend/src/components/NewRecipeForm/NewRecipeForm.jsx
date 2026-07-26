@@ -1,6 +1,8 @@
 import { useState } from "react";
 import "./NewRecipeForm.css";
 import { SYSTEM_UNITS } from "../../constants/units";
+import { useToast } from "../../context/ToastContext";
+import { useConfirm } from "../../context/ConfirmContext";
 
 const UNITS = SYSTEM_UNITS;
 
@@ -25,23 +27,31 @@ export default function NewRecipeForm({
   const [servings, setServings] = useState(recipe?.servings ?? "");
   const [time, setTime] = useState(recipe?.time ?? recipe?.time_minutes ?? "");
 
+  const { showToast } = useToast();
+  const confirm = useConfirm();
+
   const addIngredient = () =>
     setIngredients([...ingredients, { name: "", amount: "", unit: "g" }]);
 
   const addStep = () => setSteps([...steps, ""]);
 
   const submit = async () => {
-    if (!name.trim()) return alert("A recept neve kötelező");
+    if (!name.trim()) {
+      showToast("A recept neve kötelező", "error");
+      return;
+    }
 
     if (
       ingredients.length === 0 ||
       ingredients.some((i) => !i.name.trim() || Number(i.amount) <= 0)
     ) {
-      return alert("Hozzávalók hibásak");
+      showToast("Hozzávalók hibásak", "error");
+      return;
     }
 
     if (steps.length === 0 || steps.some((s) => !s.trim())) {
-      return alert("Lépések hiányosak");
+      showToast("Lépések hiányosak", "error");
+      return;
     }
 
     const parsedServings = Number(servings);
@@ -194,9 +204,9 @@ export default function NewRecipeForm({
             style={{ marginLeft: "auto" }}
             onClick={async () => {
               if (
-                !window.confirm(
+                !(await confirm(
                   `Biztosan törlöd a "${tag}" címkét minden receptből?`,
-                )
+                ))
               )
                 return;
 
