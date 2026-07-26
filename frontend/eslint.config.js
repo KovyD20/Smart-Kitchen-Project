@@ -23,7 +23,21 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^[A-Z_]', ignoreRestSiblings: true },
+      ],
+      // New, strict React-19 rule; flags legitimate patterns (feature detection,
+      // prop->state sync) in a few presentational components. Keep as a warning.
+      'react-hooks/set-state-in-effect': 'warn',
+    },
+  },
+  {
+    // Context files intentionally export a provider component AND its hook; the
+    // fast-refresh-only rule doesn't apply to this idiomatic pattern.
+    files: ['**/context/**/*.{js,jsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

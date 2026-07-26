@@ -94,7 +94,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
       }
 
       setRecipe(normalizeRecipe(data.recipe));
-    } catch (err) {
+    } catch {
       setError("AI kérés sikertelen");
     } finally {
       setLoadingName(false);
@@ -129,7 +129,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
       const nextOptions = Array.isArray(data.options) ? data.options : [];
       setOptions(nextOptions);
       setSelectedOption(nextOptions[0] || "");
-    } catch (err) {
+    } catch {
       setError("AI kérés sikertelen");
     } finally {
       setLoadingOptions(false);
@@ -163,7 +163,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
       }
 
       setRecipe(normalizeRecipe(data.recipe));
-    } catch (err) {
+    } catch {
       setError("AI kérés sikertelen");
     } finally {
       setLoadingFridgeRecipe(false);
@@ -202,7 +202,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
       await onSaveRecipe(payload);
       setSuccess("AI-recept elmentve a saját receptjeid közé");
       setRecipe(null);
-    } catch (err) {
+    } catch {
       setError("Mentés sikertelen");
     } finally {
       setSavingRecipe(false);

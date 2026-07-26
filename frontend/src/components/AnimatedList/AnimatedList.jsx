@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+// eslint-disable-next-line no-unused-vars -- `motion` is used as <motion.div> (JSX member expression, not detected by core no-unused-vars)
 import { motion, useInView } from "motion/react";
 import "./AnimatedList.css";
 
