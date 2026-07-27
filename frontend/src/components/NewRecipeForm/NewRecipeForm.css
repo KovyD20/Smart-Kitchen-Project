@@ -1,18 +1,209 @@
-.amount-input {
-  width: 80px;
+/* Create / edit recipe form, rendered inside .form-shell. */
+
+.rform {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
 }
 
-.step-textarea {
-  width: 100%;
-  min-height: 80px;
+.rform-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rform-label {
+  font-family: var(--font-display);
+  font-variant: all-small-caps;
+  letter-spacing: 1.2px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #cfcfcf;
+}
+
+.rform-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rform-section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rform-section-head .rform-label {
+  flex: 1;
+}
+
+.rform-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px dashed var(--line-dashed);
+  background: #1f1f1f;
+  color: #b8b8b8;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rform-add:hover {
+  background: #2a2a2a;
+  color: var(--text-body);
+}
+
+.rform-ing {
+  display: grid;
+  grid-template-columns: 1fr 100px 110px 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.rform-step {
+  display: grid;
+  grid-template-columns: 30px 1fr 34px;
+  gap: 10px;
+  align-items: start;
+}
+.rform-step .step-n {
+  margin-top: 7px;
+}
+
+.rform-textarea {
+  min-height: 84px;
+  padding: 11px 14px;
+  line-height: 1.6;
   resize: vertical;
-  overflow-y: auto;
-  height: auto;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.step-textarea:focus {
   height: auto;
 }
 
+.rform-remove {
+  width: 34px;
+  height: 34px;
+}
+
+.rform-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+.rform-row .rform-add {
+  height: 44px;
+}
+
+.rform-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rform-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #3d3d3d;
+  background: var(--chip);
+  overflow: hidden;
+}
+.rform-tag.is-active {
+  background: #332226;
+  border-color: var(--brand-bright);
+}
+
+.rform-tag-toggle {
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b0b0b0;
+  cursor: pointer;
+}
+.rform-tag.is-active .rform-tag-toggle {
+  color: #e88b8f;
+}
+
+.rform-tag-del {
+  border: 0;
+  background: transparent;
+  color: #7a5a5a;
+  padding: 6px 10px 6px 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.rform-tag-del:hover {
+  color: #e07070;
+}
+
+.rform-submit {
+  align-self: flex-start;
+  height: 46px;
+}
+
+@media (max-width: 767px) {
+  .rform {
+    gap: 16px;
+    padding: 14px;
+  }
+
+  .rform-ing {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "name name"
+      "amount unit"
+      "remove remove";
+  }
+  .rform-ing-name {
+    grid-area: name;
+  }
+  .rform-ing-amount {
+    grid-area: amount;
+  }
+  .rform-ing-unit {
+    grid-area: unit;
+  }
+  .rform-ing .rform-remove {
+    grid-area: remove;
+    width: 100%;
+    border-radius: 10px;
+    background: #2a2020;
+  }
+
+  .rform-step {
+    grid-template-columns: 30px 1fr;
+    grid-template-areas:
+      "num text"
+      "remove remove";
+  }
+  .rform-step .step-n {
+    grid-area: num;
+  }
+  .rform-step .rform-textarea {
+    grid-area: text;
+  }
+  .rform-step .rform-remove {
+    grid-area: remove;
+    width: 100%;
+    border-radius: 10px;
+    background: #2a2020;
+  }
+
+  .rform-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rform-submit {
+    align-self: stretch;
+  }
+}

@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { authedFetch } from "../../lib/api";
+import Icon from "../Icon/Icon";
+import { formatAmount } from "../../lib/recipes";
 import "./AiRecipePanel.css";
 
-export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
+export default function AiRecipePanel({
+  onSaveRecipe,
+  fridgeItems = [],
+  isMobile,
+}) {
   const [nameInput, setNameInput] = useState("");
   const [options, setOptions] = useState([]);
   const [selectedOption, setSelectedOption] = useState("");
@@ -16,11 +22,6 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
 
   const clearError = () => setError("");
   const clearSuccess = () => setSuccess("");
-
-  const formatAmount = (value) => {
-    if (!Number.isFinite(value)) return value;
-    return Number(value.toFixed(2)).toString();
-  };
 
   const normalizeRecipe = (raw) => {
     if (!raw || typeof raw !== "object") return null;
@@ -118,11 +119,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
 
       const data = await res.json();
       if (!res.ok) {
-        if (data?.error === "Fridge is empty") {
-          setError("A hűtő üres");
-        } else {
-          setError(data?.error || "AI hiba");
-        }
+        setError(data?.error === "Fridge is empty" ? "A hűtő üres" : data?.error || "AI hiba");
         return;
       }
 
@@ -154,11 +151,7 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
 
       const data = await res.json();
       if (!res.ok) {
-        if (data?.error === "Fridge is empty") {
-          setError("A hűtő üres");
-        } else {
-          setError(data?.error || "AI hiba");
-        }
+        setError(data?.error === "Fridge is empty" ? "A hűtő üres" : data?.error || "AI hiba");
         return;
       }
 
@@ -210,99 +203,154 @@ export default function AiRecipePanel({ onSaveRecipe, fridgeItems = [] }) {
   };
 
   return (
-    <div className="ai-panel">
-      <h3>AI-recept generálás</h3>
-
-      <div className="ai-block">
-        <div className="ai-row">
-          <input
-            placeholder="Recept neve (pl. gulyásleves)"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-          />
-          <button onClick={handleRecipeByName} disabled={loadingName}>
-            {loadingName ? "Generálás..." : "Recept generálás név alapján"}
-          </button>
+    <>
+      <div className="new-card new-card-ai" style={{ "--accent": "var(--orange)", "--accent-fg": "#231404" }}>
+        <div className="new-card-ai-head">
+          <Icon name="wand" size={14} color="var(--orange)" />
+          <span className="panel-title">AI-recept generálás</span>
         </div>
-      </div>
 
-      <div className="ai-block">
-        <button onClick={handleSuggestFromFridge} disabled={loadingOptions}>
-          {loadingOptions ? "Keresés..." : "Ötletek a hűtőből"}
+        <span className="new-card-icon">
+          <Icon name="wand" size={17} />
+        </span>
+        <span className="new-card-title">AI-recept generálás</span>
+
+        <input
+          className="field"
+          placeholder="Recept neve (pl. gulyásleves)"
+          value={nameInput}
+          onChange={(e) => setNameInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleRecipeByName()}
+        />
+
+        <button
+          type="button"
+          className="btn-pill btn-solid"
+          disabled={loadingName || !nameInput.trim()}
+          onClick={handleRecipeByName}
+        >
+          {loadingName ? "Generálás…" : "Generálás név alapján"}
         </button>
+
+        <button
+          type="button"
+          className="btn-pill btn-outline"
+          style={{ "--accent": "var(--blue)" }}
+          disabled={loadingOptions}
+          onClick={handleSuggestFromFridge}
+        >
+          <Icon name="snowflake" size={13} />
+          {loadingOptions
+            ? "Keresés…"
+            : `Ötletek a hűtőből (${fridgeItems.length} tétel)`}
+        </button>
+
+        {isMobile && (
+          <div className="ai-hint">
+            A hűtőben most {fridgeItems.length} tétel van — ezekből állít össze
+            recepteket.
+          </div>
+        )}
 
         {options.length > 0 && (
           <div className="ai-options">
             <div className="ai-options-title">AI választásai</div>
-            {options.map((opt) => (
-              <label key={opt} className="ai-option">
+            {options.map((option) => (
+              <label key={option} className="ai-option">
                 <input
                   type="radio"
                   name="ai-option"
-                  value={opt}
-                  checked={selectedOption === opt}
-                  onChange={() => setSelectedOption(opt)}
+                  value={option}
+                  checked={selectedOption === option}
+                  onChange={() => setSelectedOption(option)}
                 />
-                <span>{opt}</span>
+                <span>{option}</span>
               </label>
             ))}
-
             <button
-              onClick={handleRecipeFromFridge}
+              type="button"
+              className="btn-pill btn-solid"
               disabled={loadingFridgeRecipe || !selectedOption}
+              onClick={handleRecipeFromFridge}
             >
-              {loadingFridgeRecipe ? "Generálás..." : "Recept a hűtőből"}
+              {loadingFridgeRecipe ? "Generálás…" : "Recept a hűtőből"}
             </button>
           </div>
         )}
+
+        {error && <div className="ai-error">{error}</div>}
+        {success && <div className="ai-success">{success}</div>}
       </div>
 
-      {error && <div className="ai-error">{error}</div>}
-      {success && <div className="ai-success">{success}</div>}
-
       {recipe && (
-        <div>
-          <div className="ai-meta">
-            {typeof recipe.servings === "number" && <span>Adag: {recipe.servings}</span>}
-            {recipe.time !== undefined && recipe.time !== null && recipe.time !== "" && (
-              <span>Idő: {recipe.time} perc</span>
-            )}
-          </div>
+        <section className="ai-result panel" style={{ "--accent": "var(--orange)" }}>
+          <header className="panel-head">
+            <Icon name="wand" size={14} color="var(--orange)" />
+            <span className="panel-title">{recipe.name}</span>
+            <span className="ai-result-meta">
+              {recipe.servings} adag
+              {recipe.time ? ` · ${recipe.time} perc` : ""}
+            </span>
+          </header>
 
-          <div className="ai-section">
-            <strong>Hozzávalók</strong>
-            <ul>
-              {(recipe.ingredients || []).map((ing, i) => (
-                <li key={i}>
-                  <span className="amount-highlight">
-                    {ing.amount} {ing.unit}
-                  </span>{" "}
-                  - {ing.name}
-                </li>
+          <div className="ai-result-body">
+            <div className="ai-result-col">
+              <div className="ai-result-label">Hozzávalók</div>
+              {(recipe.ingredients || []).map((ingredient, i) => (
+                <div key={i} className="ing-row">
+                  <span className="ing-qty">
+                    {ingredient.amount} {ingredient.unit}
+                  </span>
+                  <span className="ing-name">{ingredient.name}</span>
+                </div>
               ))}
-            </ul>
-          </div>
+            </div>
 
-          <div className="ai-section">
-            <strong>Elkészítés</strong>
-            <ol>
+            <div className="ai-result-col">
+              <div className="ai-result-label">Elkészítés</div>
               {(recipe.steps || []).map((step, i) => (
-                <li key={i}>{step}</li>
+                <div key={i} className="step-row">
+                  <span className="step-n">{i + 1}</span>
+                  <span className="step-text">{step}</span>
+                </div>
               ))}
-            </ol>
+            </div>
           </div>
 
-          <div>
-            <button onClick={() => scaleRecipe(Math.max(1, (recipe.servings || 1) - 1))}>
-              -
+          <footer className="ai-result-foot">
+            <div className="servings">
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Kevesebb adag"
+                disabled={recipe.servings <= 1}
+                onClick={() => scaleRecipe((recipe.servings || 1) - 1)}
+              >
+                <Icon name="minus" size={11} />
+              </button>
+              <span className="servings-value">{recipe.servings} adag</span>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Több adag"
+                onClick={() => scaleRecipe((recipe.servings || 1) + 1)}
+              >
+                <Icon name="plus" size={11} />
+              </button>
+            </div>
+            <div className="view-spacer" />
+            <button
+              type="button"
+              className="btn-pill btn-solid"
+              disabled={savingRecipe}
+              onClick={handleSaveRecipe}
+            >
+              <Icon name="save" size={13} />
+              {savingRecipe ? "Mentés…" : "Mentés a receptjeim közé"}
             </button>
-            <button onClick={() => scaleRecipe((recipe.servings || 1) + 1)}>+</button>
-            <button onClick={handleSaveRecipe} disabled={savingRecipe}>
-              {savingRecipe ? "Mentés..." : "AI-recept hozzáadás a saját receptjeim közé"}
-            </button>
-          </div>
-        </div>
+          </footer>
+        </section>
       )}
-    </div>
+    </>
   );
 }

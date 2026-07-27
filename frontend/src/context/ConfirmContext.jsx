@@ -39,14 +39,14 @@ export function ConfirmProvider({ children }) {
             <div className="confirm-actions">
               <button
                 type="button"
-                className="confirm-cancel"
+                className="btn-pill btn-outline"
                 onClick={() => settle(false)}
               >
                 Mégse
               </button>
               <button
                 type="button"
-                className="confirm-ok"
+                className="btn-pill btn-solid"
                 onClick={() => settle(true)}
               >
                 Rendben

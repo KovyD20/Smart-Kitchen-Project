@@ -1,70 +1,239 @@
+/* Design tokens for the Receptor redesign (desktop = top tab bar, mobile = bottom
+   tab bar). Every surface color below is taken straight from the design mock. */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Surfaces */
+  --bg: #0b0806;
+  --bar: rgba(18, 15, 14, 0.94);
+  --bar-bottom: rgba(16, 14, 13, 0.95);
+  --card: rgba(38, 38, 38, 0.96);
+  --card-solid: #262626;
+  --card-inset: #242424;
+  --card-inset-2: #2b2b2b;
+  --field: #1e1c1b;
+  --pill: #1c1c1c;
+  --chip: #2b2b2b;
+
+  /* Lines */
+  --line: #3a3a3a;
+  --line-soft: #363636;
+  --line-bar: #2b2523;
+  --line-dashed: #4a4a4a;
+
+  /* Accents */
+  --brand: #c1121f;
+  --brand-hover: #a00f1a;
+  --brand-bright: #e5383b;
+  --orange: #ff9d2e;
+  --yellow: #d9c516;
+  --blue: #3fa0ff;
+  --green: #6ee7a0;
+
+  /* Text */
+  --text: #ffffff;
+  --text-strong: #f2f2f2;
+  --text-body: #eaeaea;
+  --text-step: #dcdcdc;
+  --text-dim: #8f8f8f;
+  --text-mute: #7a7a7a;
+
+  /* Type */
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-body: "Source Sans 3", system-ui, -apple-system, sans-serif;
+
+  color-scheme: dark;
+  font-family: var(--font-body);
   line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  color: var(--text-body);
+  background-color: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+* {
+  box-sizing: border-box;
 }
-a:hover {
-  color: #535bf2;
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
 }
 
 body {
-  margin: 0;
-  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-body);
+  overflow: hidden;
 }
 
-.amount-highlight {
-  color: #b7f7a2;
-  font-weight: 600;
+a {
+  color: var(--orange);
+  text-decoration: none;
 }
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+a:hover {
+  color: #ffc06b;
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  color: inherit;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* The mock's uppercase pill buttons use Archivo with wide tracking. */
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    filter 0.15s ease;
+}
+.btn-pill:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-solid {
+  background: var(--brand);
+  color: #fff;
+  padding: 11px 24px;
+}
+.btn-solid:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+
+.btn-yellow {
+  background: var(--yellow);
+  color: #1b1b1b;
+  padding: 11px 24px;
+}
+.btn-yellow:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+/* Outline variants; the accent is passed in via --accent. */
+.btn-outline {
+  background: transparent;
+  border: 2px solid var(--accent, var(--line-dashed));
+  color: var(--accent, #a8a8a8);
+  padding: 9px 18px;
+  font-size: 12px;
+}
+.btn-outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent, #4a4a4a) 12%, transparent);
+}
+
+/* Opts out of the surrounding view's inherited --accent for a neutral button. */
+.btn-outline-neutral {
+  border-color: var(--line-dashed);
+  color: #a8a8a8;
+}
+.btn-outline-neutral:hover:not(:disabled) {
+  background: var(--card-inset);
+}
+
+/* Small-caps Archivo headings used on every panel header in the mock. */
+.panel-title {
+  font-family: var(--font-display);
+  font-variant: all-small-caps;
+  letter-spacing: 1.4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Inline text action, styled like a link. */
+.link-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--orange);
+  cursor: pointer;
+}
+.link-btn:hover {
+  color: #ffc06b;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--pill);
+  color: #c9c9c9;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.icon-btn:hover:not(:disabled) {
+  background: #3a3a3a;
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.icon-btn.danger {
+  background: transparent;
+  color: #7a5a5a;
+}
+.icon-btn.danger:hover {
+  background: #3a2020;
+  color: #e07070;
+}
+
+/* Text inputs / selects share one look across every form in the app. */
+.field {
+  height: 44px;
+  border-radius: 10px;
+  background: #151212;
+  border: 1px solid #4a3030;
+  color: var(--text-body);
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 15px;
+  width: 100%;
+}
+.field::placeholder {
+  color: #7a6a6a;
+}
+.field:focus {
+  outline: none;
+  border-color: var(--brand-bright);
+}
+
+.field-neutral {
+  background: var(--field);
+  border-color: #3a3432;
+}
+.field-neutral::placeholder {
+  color: var(--text-mute);
+}
+.field-neutral:focus {
+  border-color: #6a5f5c;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }

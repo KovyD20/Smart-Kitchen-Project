@@ -1,75 +1,113 @@
-.ai-panel {
-  margin-top: 16px;
-  background: #1c1c1c;
-  border: 2px solid #ff3b3b;
-  border-radius: 12px;
-  padding: 12px;
-  color: #f5f5f5;
-}
+/* AI generation card (inside the "Új recept" view) and its result panel. */
 
-.ai-panel h3 {
-  margin-top: 0;
-}
-
-.ai-block {
-  margin-top: 12px;
-  display: grid;
-  gap: 8px;
-}
-
-.ai-row {
-  display: grid;
-  gap: 8px;
-}
-
-.ai-row input {
-  width: 100%;
+.ai-hint {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #8a7a7a;
 }
 
 .ai-options {
-  display: grid;
-  gap: 6px;
-  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #151212;
+  border: 1px solid #4a3030;
 }
 
 .ai-options-title {
+  font-family: var(--font-display);
+  font-variant: all-small-caps;
+  letter-spacing: 1.2px;
+  font-size: 15px;
   font-weight: 600;
+  color: #e6e6e6;
 }
 
 .ai-option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
+  font-size: 15px;
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+.ai-option input {
+  accent-color: var(--orange);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.ai-error,
+.ai-success {
+  padding: 10px 13px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .ai-error {
-  margin-top: 10px;
-  color: #ffb3b3;
-  font-weight: 600;
+  background: rgba(229, 56, 59, 0.12);
+  border: 1px solid rgba(229, 56, 59, 0.5);
+  color: #ff9c9e;
 }
 
 .ai-success {
-  margin-top: 10px;
-  color: #b9ffb3;
-  font-weight: 600;
+  background: rgba(110, 231, 160, 0.1);
+  border: 1px solid #2f5a3c;
+  color: var(--green);
 }
 
-.ai-recipe {
-  margin-top: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 10px;
+/* The generated recipe spans the full width under the two choice cards. */
+.ai-result {
+  grid-column: 1 / -1;
 }
 
-.ai-meta {
+.ai-result-meta {
+  flex: none;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.ai-result-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  padding: 18px;
+}
+
+.ai-result-col {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-  opacity: 0.9;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
 }
 
-.ai-section ul,
-.ai-section ol {
-  margin-top: 6px;
+.ai-result-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--orange);
+}
+
+.ai-result-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid #333;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 767px) {
+  .ai-result-body {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .ai-result-foot .btn-pill {
+    flex: 1;
+  }
 }

@@ -1,0 +1,90 @@
+import Icon from "../Icon/Icon";
+import { AddItemRow, GroupCard, ItemRow } from "./GroupedItems";
+import { useCollapsedGroups } from "../../hooks/useCollapsedGroups";
+
+const ACCENT = "var(--blue)";
+
+// "Hűtő" — the same grouped-card layout as the shopping list, without the
+// bought-checkbox, plus a shortcut to the fridge-based AI suggestions.
+export default function FridgeView({
+  groups,
+  itemCount,
+  units,
+  isMobile,
+  onUpdateItem,
+  onDeleteItem,
+  onAddItem,
+  onGoToNew,
+}) {
+  const { isOpen, toggle } = useCollapsedGroups();
+  const summary = `${itemCount} tétel a hűtőben`;
+
+  return (
+    <div className="view" style={{ "--accent": ACCENT }}>
+      {isMobile ? (
+        <div className="view-banner">
+          <Icon name="snowflake" size={15} color={ACCENT} />
+          <span className="view-banner-text">{summary}</span>
+          <button
+            type="button"
+            className="view-banner-action"
+            onClick={onGoToNew}
+          >
+            Ötletek →
+          </button>
+        </div>
+      ) : (
+        <div className="view-head">
+          <Icon name="snowflake" size={19} color={ACCENT} />
+          <span className="view-title">Hűtő</span>
+          <span className="view-pill">{summary}</span>
+          <div className="view-spacer" />
+          <AddItemRow units={units} onAdd={onAddItem} />
+          <button
+            type="button"
+            className="btn-pill btn-outline"
+            style={{ "--accent": ACCENT }}
+            onClick={onGoToNew}
+          >
+            Ötletek a hűtőből
+          </button>
+        </div>
+      )}
+
+      <div className="view-scroll">
+        <div className="grid grid-3">
+          {groups.length === 0 && (
+            <div className="empty-state">
+              A hűtő üres. Vegyél fel tételt, vagy tedd át a bevásárlólistát.
+            </div>
+          )}
+
+          {groups.map((group) => (
+            <GroupCard
+              key={group.category}
+              accent={ACCENT}
+              category={group.category}
+              meta={`${group.items.length} tétel`}
+              open={isOpen(group.category)}
+              onToggle={() => toggle(group.category)}
+            >
+              {group.items.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  name={item.displayName || item.name}
+                  qtyLabel={`${item.amount} ${item.unit}`}
+                  onIncrement={() => onUpdateItem(item, 1)}
+                  onDecrement={() => onUpdateItem(item, -1)}
+                  disableDecrement={item.amount <= 1}
+                  onDelete={() => onDeleteItem(item)}
+                />
+              ))}
+            </GroupCard>
+          ))}
+        </div>
+      </div>
+
+      {isMobile && <AddItemRow units={units} onAdd={onAddItem} />}
+    </div>
+  );
+}

@@ -1,22 +1,91 @@
-import { useState } from "react";
-import BubbleMenu from "../components/BubbleMenu/BubbleMenu";
-import LightPillar from "../components/Background/LightPillar";
-import RecipeListPanel from "../components/Home/RecipeListPanel";
-import RecipeDisplayPanel from "../components/Home/RecipeDisplayPanel";
-import ShoppingListPanel from "../components/Home/ShoppingListPanel";
-import FridgePanel from "../components/Home/FridgePanel";
-import NewRecipePanel from "../components/Home/NewRecipePanel";
+import { useMemo, useRef, useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
 
-import "../components/AnimatedList/AnimatedList.css";
-import "../components/BubbleMenu/BubbleMenu.css";
+import LightPillar from "../components/Background/LightPillar";
+import Icon from "../components/Icon/Icon";
+import RecipesView from "../components/views/RecipesView";
+import RecipeView from "../components/views/RecipeView";
+import ShoppingView from "../components/views/ShoppingView";
+import FridgeView from "../components/views/FridgeView";
+import NewRecipeView from "../components/views/NewRecipeView";
+import CookMode from "../components/views/CookMode";
+import NewRecipeForm from "../components/NewRecipeForm/NewRecipeForm";
+
 import "./Home.css";
 import { SYSTEM_UNITS } from "../constants/units";
 import { useRecipes } from "../hooks/useRecipes";
 import { useInventory } from "../hooks/useInventory";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { useCatalog } from "../context/CatalogContext";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
+import {
+  itemMatchesSearch,
+  recipeMatchesSearch,
+  recipeServings,
+  scaleIngredients,
+} from "../lib/recipes";
+
+// The five destinations of the redesign. Order and accent color are shared by the
+// desktop top bar and the mobile bottom bar.
+const TABS = [
+  {
+    id: "receptek",
+    label: "Receptek",
+    shortLabel: "Receptek",
+    icon: "book",
+    accent: "var(--brand-bright)",
+  },
+  {
+    id: "recept",
+    label: "Recept",
+    shortLabel: "Recept",
+    icon: "utensils",
+    accent: "var(--orange)",
+  },
+  {
+    id: "lista",
+    label: "Bevásárlólista",
+    shortLabel: "Lista",
+    icon: "cart",
+    accent: "var(--yellow)",
+  },
+  {
+    id: "huto",
+    label: "Hűtő",
+    shortLabel: "Hűtő",
+    icon: "snowflake",
+    accent: "var(--blue)",
+  },
+  {
+    id: "uj",
+    label: "Új recept",
+    shortLabel: "Új",
+    icon: "wand",
+    accent: "var(--brand-bright)",
+  },
+];
+
+// The header search narrows the inventory views too, so one field covers
+// "receptek, hozzávalók, hűtő" as the design's placeholder promises.
+function filterGroups(groups, search) {
+  if (!search) return groups;
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => itemMatchesSearch(item, search)),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+const SCREEN_TITLES = {
+  receptek: "Receptek",
+  recept: "Recept",
+  lista: "Bevásárlólista",
+  huto: "Hűtő",
+  uj: "Új recept",
+};
 
 export default function Home({ user }) {
   const {
@@ -38,58 +107,111 @@ export default function Home({ user }) {
     addToShoppingList,
     addSingleShoppingItem,
     updateShoppingItem,
+    toggleShoppingItemDone,
     deleteShoppingItem,
-    clearShoppingList,
+    clearDoneShoppingItems,
     moveShoppingToFridge,
     addToFridge,
     deleteFridgeItem,
   } = useInventory(user.uid);
 
+  const { resolveCatalogKey } = useCatalog();
   const { showToast } = useToast();
   const confirm = useConfirm();
+  const isMobile = useIsMobile();
 
-  const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [tab, setTab] = useState("receptek");
+  const [selectedId, setSelectedId] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
+  const [showManualForm, setShowManualForm] = useState(false);
   const [filterTag, setFilterTag] = useState("all");
-  const [showNewRecipeForm, setShowNewRecipeForm] = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(false);
-  const [newShoppingItem, setNewShoppingItem] = useState({
-    name: "",
-    amount: "",
-    unit: "",
-  });
-  const [newFridgeItem, setNewFridgeItem] = useState({
-    name: "",
-    amount: "",
-    unit: "",
-  });
-
-  const smallBtn = {
-    padding: "3px 6px",
-    fontSize: "15px",
-    lineHeight: "1",
-  };
-  const UNITS = SYSTEM_UNITS;
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [servingsFor, setServingsFor] = useState({});
+  const [cooking, setCooking] = useState(false);
+  const [cookStep, setCookStep] = useState(0);
+  const searchInputRef = useRef(null);
 
   const notifyError = (err, msg = "Hiba történt") => {
     console.error(err);
     showToast(msg, "error");
   };
 
-  const filteredRecipes = recipes.filter(
-    (r) => filterTag === "all" || r.tags?.includes(filterTag),
+  const selectedRecipe = useMemo(
+    () => recipes.find((r) => r.id === selectedId) || null,
+    [recipes, selectedId],
   );
 
-  const handleAddToShoppingList = async (ingredients) => {
-    if (
-      !(await confirm("Biztosan hozzáadod a hozzávalókat a bevásárlólistához?"))
-    )
-      return;
+  // A recipe's own serving count is the baseline its ingredient amounts refer to;
+  // a per-recipe override keeps each recipe's chosen scale while browsing.
+  const baseServings = recipeServings(selectedRecipe);
+  const servings = servingsFor[selectedId] ?? baseServings;
+  const setServings = (next) =>
+    setServingsFor((prev) => ({ ...prev, [selectedId]: next }));
+
+  const scaledIngredients = useMemo(
+    () => scaleIngredients(selectedRecipe?.ingredients, servings, baseServings),
+    [selectedRecipe, servings, baseServings],
+  );
+
+  const steps = selectedRecipe?.steps || [];
+
+  const visibleRecipes = useMemo(
+    () =>
+      recipes.filter(
+        (r) =>
+          (filterTag === "all" || r.tags?.includes(filterTag)) &&
+          recipeMatchesSearch(r, search),
+      ),
+    [recipes, filterTag, search],
+  );
+
+  const visibleShoppingGroups = useMemo(
+    () => filterGroups(groupedShoppingList, search),
+    [groupedShoppingList, search],
+  );
+
+  const visibleFridgeGroups = useMemo(
+    () => filterGroups(groupedFridge, search),
+    [groupedFridge, search],
+  );
+
+  const doneCount = shoppingList.filter((item) => item.done).length;
+  const openCount = shoppingList.length - doneCount;
+
+  const goToTab = (next) => {
+    setTab(next);
+    setSearchOpen(false);
+  };
+
+  const openRecipe = (recipe) => {
+    setSelectedId(recipe.id);
+    setEditingRecipe(null);
+    setCookStep(0);
+    goToTab("recept");
+  };
+
+  const badgeFor = (id) => (id === "lista" && openCount > 0 ? openCount : null);
+
+  const handleAddIngredients = async (ingredients, message) => {
     try {
       await addToShoppingList(ingredients);
-      showToast("Sikeresen hozzáadva a bevásárlólistához", "success");
+      showToast(message, "success");
     } catch (err) {
       notifyError(err);
+    }
+  };
+
+  const handleDeleteRecipe = async () => {
+    if (!selectedRecipe) return;
+    if (!(await confirm(`Biztosan törlöd a "${selectedRecipe.name}" receptet?`)))
+      return;
+    try {
+      await deleteRecipe(selectedRecipe.id);
+      setSelectedId(null);
+      goToTab("receptek");
+    } catch (err) {
+      notifyError(err, "Recept törlése sikertelen");
     }
   };
 
@@ -98,123 +220,134 @@ export default function Home({ user }) {
     if (!(await confirm("Biztos, hogy megvetted a lista termékeit?"))) return;
     try {
       await moveShoppingToFridge();
+      showToast("A lista átkerült a hűtőbe", "success");
     } catch (err) {
       notifyError(err);
     }
   };
 
-  const menuItems = [
-    { label: "Receptek", href: "#", rotation: -8 },
-    { label: "Bevásárlólista", href: "#", rotation: 8 },
-    { label: "Hűtő", href: "#", rotation: 8 },
-    { label: "AI-recept generálás", href: "#", rotation: 8 },
-    { label: "Kapcsolat ", href: "#", rotation: -8 },
-  ];
+  const handleClearDone = async () => {
+    if (doneCount === 0) return;
+    if (!(await confirm("Biztosan törlöd a kész tételeket?"))) return;
+    try {
+      await clearDoneShoppingItems();
+    } catch (err) {
+      notifyError(err);
+    }
+  };
 
-  return (
-    <div className="home-page">
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 0,
-          pointerEvents: "none",
-        }}
-      >
-        <LightPillar />
-      </div>
+  const focusSearch = () => {
+    if (tab === "receptek") {
+      searchInputRef.current?.focus();
+      return;
+    }
+    setSearchOpen((prev) => !prev);
+  };
 
-      <div className="home-header">
-        <div className="home-nav" aria-label="Fő menü">
-          <BubbleMenu
-            className="home-bubble-menu"
-            logo={<span style={{ fontWeight: 700 }}>RECEPTOR</span>}
-            items={menuItems}
-            menuBg="#8a0f0f"
-            menuContentColor="#000"
-            useFixedPosition={false}
-          />
-        </div>
-        <h1 className="home-title">Recept Operációs Rendszer</h1>
-        <div className="home-user">
-          <span className="home-email">
-            {user?.email || "Ismeretlen email"}
-          </span>
-          <button
-            className="home-logout"
-            onClick={async () => {
-              try {
-                await signOut(auth);
-              } catch (err) {
-                notifyError(err, "Kijelentkezés sikertelen");
-              }
-            }}
-          >
-            Kijelentkezés
-          </button>
-        </div>
-      </div>
-
-      <div className="home-layout">
-        <RecipeListPanel
+  const renderTab = () => {
+    if (tab === "receptek") {
+      return (
+        <RecipesView
+          recipes={visibleRecipes}
+          totalCount={recipes.length}
+          selectedId={selectedId}
           filterTag={filterTag}
           allTags={allTags}
-          filteredRecipes={filteredRecipes}
+          search={search}
+          isMobile={isMobile}
+          searchInputRef={searchInputRef}
           onFilterChange={setFilterTag}
-          onSelectRecipe={(item) =>
-            setSelectedRecipe(recipes.find((r) => r.id === item.id))
-          }
+          onSearchChange={setSearch}
+          onSelectRecipe={openRecipe}
         />
+      );
+    }
 
-        <RecipeDisplayPanel
-          editingRecipe={editingRecipe}
-          selectedRecipe={selectedRecipe}
-          allTags={allTags}
-          onAddTag={addTag}
-          onDeleteTag={deleteTagGlobally}
-          onSaveEdit={async (updated) => {
-            const { id, ...data } = updated;
-            await updateRecipe(id, data);
-            setEditingRecipe(null);
-            setSelectedRecipe((prev) =>
-              prev?.id === id ? { ...prev, ...data, id } : prev,
-            );
+    if (tab === "recept") {
+      if (editingRecipe) {
+        return (
+          <div className="form-view">
+            <div className="form-shell" style={{ "--accent": "var(--orange)" }}>
+              <header className="form-shell-head">
+                <span className="panel-title">Recept szerkesztése</span>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label="Szerkesztés bezárása"
+                  onClick={() => setEditingRecipe(null)}
+                >
+                  <Icon name="xmark" size={14} />
+                </button>
+              </header>
+              <NewRecipeForm
+                editMode
+                recipe={editingRecipe}
+                existingTags={allTags}
+                onAddTag={addTag}
+                onDeleteTag={deleteTagGlobally}
+                onSave={async ({ id, ...data }) => {
+                  try {
+                    await updateRecipe(id, data);
+                    setEditingRecipe(null);
+                    showToast("Recept frissítve", "success");
+                  } catch (err) {
+                    notifyError(err, "Recept mentése sikertelen");
+                  }
+                }}
+              />
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <RecipeView
+          recipe={selectedRecipe}
+          ingredients={scaledIngredients}
+          steps={steps}
+          fridge={fridge}
+          resolveCatalogKey={resolveCatalogKey}
+          servings={servings}
+          isMobile={isMobile}
+          onServingsChange={setServings}
+          onStartCook={() => {
+            setCookStep(0);
+            setCooking(true);
           }}
-          onDeleteRecipe={async (id) => {
-            await deleteRecipe(id);
-            setSelectedRecipe(null);
-          }}
-          onEditRecipe={() => setEditingRecipe(selectedRecipe)}
-          onAddToShoppingList={handleAddToShoppingList}
+          onAddIngredient={(ingredient) =>
+            handleAddIngredients(
+              [ingredient],
+              `${ingredient.name} a bevásárlólistán`,
+            )
+          }
+          onAddAllToCart={() =>
+            handleAddIngredients(
+              scaledIngredients,
+              "A hozzávalók a bevásárlólistán",
+            )
+          }
+          onAddMissingToCart={(missing) =>
+            handleAddIngredients(missing, "A hiányzók a bevásárlólistán")
+          }
+          onEdit={() => setEditingRecipe(selectedRecipe)}
+          onDelete={handleDeleteRecipe}
+          onGoToRecipes={() => goToTab("receptek")}
         />
+      );
+    }
 
-        <ShoppingListPanel
-          shoppingList={shoppingList}
-          groupedShoppingList={groupedShoppingList}
-          newShoppingItem={newShoppingItem}
-          units={UNITS}
-          missingEssentialItems={missingRecommendations.essential}
-          recommendedGoodToHaveItems={missingRecommendations.goodToHave}
-          recommendedExtraItems={missingRecommendations.extra}
-          onAddRecommendedEssentialItem={(item) =>
-            addSingleShoppingItem({
-              name: item?.name || "",
-              amount: 1,
-              unit: "db",
-            }).catch(notifyError)
+    if (tab === "lista") {
+      return (
+        <ShoppingView
+          groups={visibleShoppingGroups}
+          openCount={openCount}
+          doneCount={doneCount}
+          units={SYSTEM_UNITS}
+          recommendations={missingRecommendations}
+          isMobile={isMobile}
+          onToggleDone={(item) =>
+            toggleShoppingItemDone(item).catch(notifyError)
           }
-          onChangeNewItem={(field, value) =>
-            setNewShoppingItem((p) => ({ ...p, [field]: value }))
-          }
-          onAddNewItem={() => {
-            if (!newShoppingItem.name || !newShoppingItem.amount) return;
-            addSingleShoppingItem({
-              name: newShoppingItem.name,
-              amount: Number(newShoppingItem.amount),
-              unit: newShoppingItem.unit || "db",
-            }).catch(notifyError);
-            setNewShoppingItem({ name: "", amount: "", unit: "" });
-          }}
           onUpdateItem={(item, delta) =>
             updateShoppingItem(item, delta).catch(notifyError)
           }
@@ -222,31 +355,20 @@ export default function Home({ user }) {
             if (!(await confirm("Biztosan törlöd?"))) return;
             await deleteShoppingItem(item).catch(notifyError);
           }}
-          onClearList={async () => {
-            if (!(await confirm("Biztosan törlöd a teljes listát?"))) return;
-            await clearShoppingList().catch(notifyError);
-          }}
+          onAddItem={(item) => addSingleShoppingItem(item).catch(notifyError)}
+          onClearDone={handleClearDone}
           onMoveToFridge={handleMoveToFridge}
-          smallBtn={smallBtn}
         />
+      );
+    }
 
-        <FridgePanel
-          fridge={fridge}
-          groupedFridge={groupedFridge}
-          newFridgeItem={newFridgeItem}
-          units={UNITS}
-          onChangeNewItem={(field, value) =>
-            setNewFridgeItem((p) => ({ ...p, [field]: value }))
-          }
-          onAddNewItem={() => {
-            if (!newFridgeItem.name || !newFridgeItem.amount) return;
-            addToFridge({
-              name: newFridgeItem.name,
-              amount: Number(newFridgeItem.amount),
-              unit: newFridgeItem.unit || "db",
-            }).catch((err) => notifyError(err, "Hiba a hűtő frissítésekor"));
-            setNewFridgeItem({ name: "", amount: "", unit: "" });
-          }}
+    if (tab === "huto") {
+      return (
+        <FridgeView
+          groups={visibleFridgeGroups}
+          itemCount={fridge.length}
+          units={SYSTEM_UNITS}
+          isMobile={isMobile}
           onUpdateItem={(item, delta) =>
             addToFridge(item, delta).catch((err) =>
               notifyError(err, "Hiba a hűtő frissítésekor"),
@@ -256,36 +378,216 @@ export default function Home({ user }) {
             if (!(await confirm("Biztosan törlöd?"))) return;
             await deleteFridgeItem(item).catch(notifyError);
           }}
-          smallBtn={smallBtn}
+          onAddItem={(item) =>
+            addToFridge(item).catch((err) =>
+              notifyError(err, "Hiba a hűtő frissítésekor"),
+            )
+          }
+          onGoToNew={() => goToTab("uj")}
         />
+      );
+    }
 
-        <NewRecipePanel
-          showNewRecipeForm={showNewRecipeForm}
-          showAiPanel={showAiPanel}
-          allTags={allTags}
-          fridge={fridge}
-          onToggleNewRecipeForm={() => setShowNewRecipeForm((prev) => !prev)}
-          onToggleAiPanel={() => setShowAiPanel((prev) => !prev)}
-          onAddTag={addTag}
-          onDeleteTag={deleteTagGlobally}
-          onCreateRecipe={async (data) => {
-            try {
-              await createRecipe(data);
-              setShowNewRecipeForm(false);
-            } catch (err) {
-              notifyError(err, "Recept mentése sikertelen");
-            }
-          }}
-          onSaveAiRecipe={async (data) => {
-            try {
-              await createRecipe(data);
-              setShowAiPanel(false);
-            } catch (err) {
-              notifyError(err, "Recept mentése sikertelen");
-            }
-          }}
-        />
+    if (showManualForm) {
+      return (
+        <div className="form-view">
+          <div className="form-shell" style={{ "--accent": "var(--brand)" }}>
+            <header className="form-shell-head">
+              <span className="panel-title">Új saját recept</span>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Űrlap bezárása"
+                onClick={() => setShowManualForm(false)}
+              >
+                <Icon name="xmark" size={14} />
+              </button>
+            </header>
+            <NewRecipeForm
+              existingTags={allTags}
+              onAddTag={addTag}
+              onDeleteTag={deleteTagGlobally}
+              onCreate={async (data) => {
+                try {
+                  await createRecipe(data);
+                  setShowManualForm(false);
+                  showToast("Recept elmentve", "success");
+                  goToTab("receptek");
+                } catch (err) {
+                  notifyError(err, "Recept mentése sikertelen");
+                }
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <NewRecipeView
+        fridge={fridge}
+        isMobile={isMobile}
+        onStartManual={() => setShowManualForm(true)}
+        onSaveAiRecipe={createRecipe}
+      />
+    );
+  };
+
+  return (
+    <div className="app">
+      <div className="app-bg">
+        <LightPillar />
       </div>
+
+      <header className="topbar">
+        <div className="topbar-main">
+          <div className="brand">
+            <div className="brand-mark">R</div>
+            <div className="brand-name">
+              {isMobile ? SCREEN_TITLES[tab] : "Recept Operációs Rendszer"}
+            </div>
+          </div>
+
+          {isMobile ? (
+            <>
+              <div className="view-spacer" />
+              <button
+                type="button"
+                className="icon-btn topbar-icon"
+                aria-label="Keresés"
+                onClick={focusSearch}
+              >
+                <Icon name="search" size={14} />
+              </button>
+              <button
+                type="button"
+                className="topbar-avatar"
+                title={`${user?.email || ""} — kijelentkezés`}
+                aria-label="Kijelentkezés"
+                onClick={async () => {
+                  if (!(await confirm("Kijelentkezel?"))) return;
+                  signOut(auth).catch((err) =>
+                    notifyError(err, "Kijelentkezés sikertelen"),
+                  );
+                }}
+              >
+                {(user?.email || "?").charAt(0).toUpperCase()}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="topbar-search">
+                <div className="search-box">
+                  <Icon name="search" size={13} color="#7a7a7a" />
+                  <input
+                    ref={searchInputRef}
+                    placeholder="Keresés receptek, hozzávalók, hűtő…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="topbar-user">
+                <span className="topbar-email">
+                  {user?.email || "Ismeretlen email"}
+                </span>
+                <button
+                  type="button"
+                  className="btn-pill btn-outline"
+                  style={{ "--accent": "var(--brand-bright)" }}
+                  onClick={() =>
+                    signOut(auth).catch((err) =>
+                      notifyError(err, "Kijelentkezés sikertelen"),
+                    )
+                  }
+                >
+                  Kijelentkezés
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Mobile: the magnifier reveals the same search field the other views
+            don't show inline. */}
+        {isMobile && searchOpen && (
+          <div className="topbar-search-mobile">
+            <div className="search-box">
+              <Icon name="search" size={13} color="#7a7a7a" />
+              <input
+                autoFocus
+                placeholder="Keresés receptek, hozzávalók, hűtő…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+
+        {!isMobile && (
+          <nav className="tabbar-top" aria-label="Fő menü">
+            <div className="tabbar-top-inner">
+              {TABS.map((t) => {
+                const badge = badgeFor(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`tab-top${tab === t.id ? " is-active" : ""}`}
+                    style={{ "--accent": t.accent }}
+                    aria-current={tab === t.id}
+                    onClick={() => goToTab(t.id)}
+                  >
+                    <Icon name={t.icon} size={14} />
+                    {t.label}
+                    {badge !== null && <span className="tab-badge">{badge}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        )}
+      </header>
+
+      <main className="app-main">{renderTab()}</main>
+
+      {isMobile && (
+        <nav className="tabbar-bottom" aria-label="Fő menü">
+          {TABS.map((t) => {
+            const badge = badgeFor(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                className={`tab-bottom${tab === t.id ? " is-active" : ""}`}
+                style={{ "--accent": t.accent }}
+                aria-current={tab === t.id}
+                onClick={() => goToTab(t.id)}
+              >
+                <span className="tab-bottom-icon">
+                  <Icon name={t.icon} size={19} />
+                  {badge !== null && <span className="tab-badge">{badge}</span>}
+                </span>
+                <span className="tab-bottom-label">{t.shortLabel}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
+      {cooking && selectedRecipe && steps.length > 0 && (
+        <CookMode
+          recipeName={selectedRecipe.name}
+          steps={steps}
+          ingredients={scaledIngredients}
+          step={cookStep}
+          isMobile={isMobile}
+          onStep={(next) =>
+            setCookStep(Math.max(0, Math.min(steps.length - 1, next)))
+          }
+          onClose={() => setCooking(false)}
+        />
+      )}
     </div>
   );
 }

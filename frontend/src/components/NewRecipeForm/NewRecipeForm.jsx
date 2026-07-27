@@ -1,16 +1,18 @@
 import { useState } from "react";
 import "./NewRecipeForm.css";
+import Icon from "../Icon/Icon";
 import { SYSTEM_UNITS } from "../../constants/units";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";
 
 const UNITS = SYSTEM_UNITS;
 
+const emptyIngredient = () => ({ name: "", amount: "", unit: "g" });
+
 export default function NewRecipeForm({
-  onRecipeCreated,
   onCreate,
   onSave,
-  existingTags,
+  existingTags = [],
   onAddTag,
   onDeleteTag,
   editMode = false,
@@ -18,22 +20,22 @@ export default function NewRecipeForm({
 }) {
   const [name, setName] = useState(recipe?.name || "");
   const [ingredients, setIngredients] = useState(
-    recipe?.ingredients || [{ name: "", amount: "", unit: "g" }],
+    recipe?.ingredients?.length ? recipe.ingredients : [emptyIngredient()],
   );
-  const [steps, setSteps] = useState(recipe?.steps || [""]);
+  const [steps, setSteps] = useState(recipe?.steps?.length ? recipe.steps : [""]);
   const [selectedTags, setSelectedTags] = useState(recipe?.tags || []);
   const [newTag, setNewTag] = useState("");
-
   const [servings, setServings] = useState(recipe?.servings ?? "");
   const [time, setTime] = useState(recipe?.time ?? recipe?.time_minutes ?? "");
+  const [saving, setSaving] = useState(false);
 
   const { showToast } = useToast();
   const confirm = useConfirm();
 
-  const addIngredient = () =>
-    setIngredients([...ingredients, { name: "", amount: "", unit: "g" }]);
-
-  const addStep = () => setSteps([...steps, ""]);
+  const patchIngredient = (index, field, value) =>
+    setIngredients((prev) =>
+      prev.map((ing, i) => (i === index ? { ...ing, [field]: value } : ing)),
+    );
 
   const submit = async () => {
     if (!name.trim()) {
@@ -65,205 +67,241 @@ export default function NewRecipeForm({
       ...(Number.isFinite(parsedServings) && parsedServings > 0
         ? { servings: parsedServings }
         : {}),
-      ...(Number.isFinite(parsedTime) && parsedTime > 0
-        ? { time: parsedTime }
-        : {}),
+      ...(Number.isFinite(parsedTime) && parsedTime > 0 ? { time: parsedTime } : {}),
     };
 
-    if (editMode) {
-      await onSave({ ...data, id: recipe.id });
-      return;
-    }
-    if (onCreate) {
-      await onCreate(data);
-    }
-    await onRecipeCreated?.();
+    setSaving(true);
+    try {
+      if (editMode) {
+        await onSave({ ...data, id: recipe.id });
+        return;
+      }
 
-    setName("");
-    setIngredients([{ name: "", amount: "", unit: "g" }]);
-    setSteps([""]);
-    setSelectedTags([]);
+      await onCreate?.(data);
+
+      setName("");
+      setIngredients([emptyIngredient()]);
+      setSteps([""]);
+      setSelectedTags([]);
+      setNewTag("");
+      setServings("");
+      setTime("");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addTag = () => {
+    const tag = newTag.trim();
+    if (!tag) return;
+    onAddTag?.(tag);
+    setSelectedTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]));
     setNewTag("");
-    setServings("");
-    setTime("");
   };
 
   return (
-    <div className={editMode ? "recipe-details" : ""}>
-      <h3>{editMode ? "Recept szerkesztése" : "Új recept"}</h3>
+    <div className="rform">
+      <label className="rform-field">
+        <span className="rform-label">Recept neve</span>
+        <input
+          className="field field-neutral"
+          placeholder="pl. Négysajtos gnocchi"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </label>
 
-      <input
-        tabIndex={1}
-        placeholder="Recept neve"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
+      <section className="rform-section">
+        <div className="rform-section-head">
+          <span className="rform-label">Hozzávalók</span>
+          <button
+            type="button"
+            className="rform-add"
+            onClick={() => setIngredients((prev) => [...prev, emptyIngredient()])}
+          >
+            <Icon name="plus" size={11} />
+            Hozzávaló
+          </button>
+        </div>
 
-      <h4>Hozzávalók</h4>
-      {ingredients.map((ing, i) => (
-        <div key={i}>
+        {ingredients.map((ing, i) => (
+          <div key={i} className="rform-ing">
+            <input
+              className="field field-neutral rform-ing-name"
+              placeholder="Név"
+              value={ing.name}
+              onChange={(e) => patchIngredient(i, "name", e.target.value)}
+            />
+            <input
+              className="field field-neutral rform-ing-amount"
+              type="number"
+              min="0"
+              placeholder="Menny."
+              value={ing.amount}
+              onChange={(e) => patchIngredient(i, "amount", e.target.value)}
+            />
+            <select
+              className="field field-neutral rform-ing-unit"
+              aria-label="Mértékegység"
+              value={ing.unit}
+              onChange={(e) => patchIngredient(i, "unit", e.target.value)}
+            >
+              {UNITS.map((unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="icon-btn danger rform-remove"
+              aria-label="Hozzávaló törlése"
+              onClick={() =>
+                setIngredients((prev) => prev.filter((_, index) => index !== i))
+              }
+            >
+              <Icon name="trash" size={12} />
+            </button>
+          </div>
+        ))}
+      </section>
+
+      <section className="rform-section">
+        <div className="rform-section-head">
+          <span className="rform-label">Lépések</span>
+          <button
+            type="button"
+            className="rform-add"
+            onClick={() => setSteps((prev) => [...prev, ""])}
+          >
+            <Icon name="plus" size={11} />
+            Lépés
+          </button>
+        </div>
+
+        {steps.map((step, i) => (
+          <div key={i} className="rform-step">
+            <span className="step-n">{i + 1}</span>
+            <textarea
+              className="field field-neutral rform-textarea"
+              placeholder={`${i + 1}. lépés`}
+              value={step}
+              onChange={(e) =>
+                setSteps((prev) =>
+                  prev.map((s, index) => (index === i ? e.target.value : s)),
+                )
+              }
+            />
+            <button
+              type="button"
+              className="icon-btn danger rform-remove"
+              aria-label="Lépés törlése"
+              onClick={() =>
+                setSteps((prev) => prev.filter((_, index) => index !== i))
+              }
+            >
+              <Icon name="trash" size={12} />
+            </button>
+          </div>
+        ))}
+      </section>
+
+      <section className="rform-section">
+        <span className="rform-label">Címkék</span>
+
+        <div className="rform-tags">
+          {existingTags.map((tag) => {
+            const active = selectedTags.includes(tag);
+            return (
+              <span key={tag} className={`rform-tag${active ? " is-active" : ""}`}>
+                <button
+                  type="button"
+                  className="rform-tag-toggle"
+                  aria-pressed={active}
+                  onClick={() =>
+                    setSelectedTags((prev) =>
+                      active ? prev.filter((t) => t !== tag) : [...prev, tag],
+                    )
+                  }
+                >
+                  {tag}
+                </button>
+                <button
+                  type="button"
+                  className="rform-tag-del"
+                  aria-label={`${tag} címke törlése minden receptből`}
+                  onClick={async () => {
+                    if (
+                      !(await confirm(
+                        `Biztosan törlöd a "${tag}" címkét minden receptből?`,
+                      ))
+                    )
+                      return;
+                    setSelectedTags((prev) => prev.filter((t) => t !== tag));
+                    await onDeleteTag?.(tag);
+                  }}
+                >
+                  <Icon name="xmark" size={9} />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+
+        <div className="rform-row">
           <input
-            tabIndex={2}
-            placeholder="Név"
-            value={ing.name}
-            onChange={(e) => {
-              const copy = [...ingredients];
-              copy[i].name = e.target.value;
-              setIngredients(copy);
+            className="field field-neutral"
+            placeholder="Új címke"
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addTag();
+              }
             }}
           />
+          <button type="button" className="rform-add" onClick={addTag}>
+            <Icon name="plus" size={11} />
+            Címke
+          </button>
+        </div>
+      </section>
 
+      <div className="rform-row">
+        <label className="rform-field">
+          <span className="rform-label">Adagok száma (opcionális)</span>
           <input
-            tabIndex={3}
+            className="field field-neutral"
             type="number"
-            className="amount-input"
-            placeholder="Mennyiség"
-            value={ing.amount}
-            min="0"
-            onChange={(e) => {
-              const copy = [...ingredients];
-              copy[i].amount = e.target.value;
-              setIngredients(copy);
-            }}
+            min="1"
+            placeholder="pl. 4"
+            value={servings}
+            onChange={(e) => setServings(e.target.value)}
           />
-          <select
-            tabIndex={4}
-            value={ing.unit}
-            onChange={(e) => {
-              const copy = [...ingredients];
-              copy[i].unit = e.target.value;
-              setIngredients(copy);
-            }}
-          >
-            {UNITS.map((u) => (
-              <option key={u}>{u}</option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            onClick={() =>
-              setIngredients((prev) => prev.filter((_, index) => index !== i))
-            }
-          >
-            ❌
-          </button>
-        </div>
-      ))}
-      <button onClick={addIngredient}>➕ hozzávaló</button>
-
-      <h4>Lépések</h4>
-      {steps.map((step, i) => (
-        <div key={i} style={{ position: "relative" }}>
-          <textarea
-            tabIndex={5 + i}
-            className="step-textarea"
-            placeholder={`${i + 1}. lépés`}
-            value={step}
-            onChange={(e) => {
-              const copy = [...steps];
-              copy[i] = e.target.value;
-              setSteps(copy);
-            }}
-          />
-          <div></div>
-
-          <button
-            type="button"
-            onClick={() =>
-              setSteps((prev) => prev.filter((_, index) => index !== i))
-            }
-          >
-            Lépés törlése❌
-          </button>
-        </div>
-      ))}
-      <button onClick={addStep}>➕ lépés</button>
-
-      <h4>Címkék</h4>
-
-      {existingTags.map((tag) => (
-        <label
-          key={tag}
-          style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-        >
-          <input
-            type="checkbox"
-            checked={selectedTags.includes(tag)}
-            onChange={(e) => {
-              if (e.target.checked) {
-                setSelectedTags([...selectedTags, tag]);
-              } else {
-                setSelectedTags(selectedTags.filter((t) => t !== tag));
-              }
-            }}
-          />
-          {tag}
-          <button
-            type="button"
-            style={{ marginLeft: "auto" }}
-            onClick={async () => {
-              if (
-                !(await confirm(
-                  `Biztosan törlöd a "${tag}" címkét minden receptből?`,
-                ))
-              )
-                return;
-
-              if (onDeleteTag) {
-                await onDeleteTag(tag);
-                await onRecipeCreated?.();
-              }
-            }}
-          >
-            ❌
-          </button>
         </label>
-      ))}
-
-      <input
-        placeholder="Új címke"
-        value={newTag}
-        onChange={(e) => setNewTag(e.target.value)}
-      />
+        <label className="rform-field">
+          <span className="rform-label">Elkészítési idő, perc (opcionális)</span>
+          <input
+            className="field field-neutral"
+            type="number"
+            min="1"
+            placeholder="pl. 25"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
+        </label>
+      </div>
 
       <button
-        onClick={() => {
-          const tag = newTag.trim();
-          if (!tag) return;
-
-          onAddTag(tag);
-
-          setSelectedTags((prev) =>
-            prev.includes(tag) ? prev : [...prev, tag],
-          );
-
-          setNewTag("");
-        }}
+        type="button"
+        className="btn-pill btn-solid rform-submit"
+        disabled={saving}
+        onClick={submit}
       >
-        ➕ címke
+        <Icon name="save" size={13} />
+        {saving ? "Mentés…" : editMode ? "Módosítások mentése" : "Recept mentése"}
       </button>
-      <div></div>
-
-      <input
-        tabIndex={6}
-        type="number"
-        placeholder="Adagok száma (opcionális)"
-        value={servings}
-        min="1"
-        onChange={(e) => setServings(e.target.value)}
-      />
-
-      <input
-        tabIndex={7}
-        type="number"
-        placeholder="Elkészítési idő (perc, opcionális)"
-        value={time}
-        min="1"
-        onChange={(e) => setTime(e.target.value)}
-      />
-
-      <button onClick={submit}>Recept mentése💾</button>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   signInWithPopup,
 } from "firebase/auth";
 import { auth, googleProvider } from "../../firebase";
+import LightPillar from "../Background/LightPillar";
 import "./AuthPanel.css";
 
 export default function AuthPanel() {
@@ -39,12 +40,21 @@ export default function AuthPanel() {
 
   return (
     <div className="auth-wrap">
-      <h1 className="auth-title">Recept operációs rendszer</h1>
+      <div className="auth-bg">
+        <LightPillar />
+      </div>
+
+      <div className="auth-brand">
+        <div className="auth-brand-mark">R</div>
+        <h1 className="auth-title">Recept Operációs Rendszer</h1>
+      </div>
+
       <div className="auth-card">
         <h2>{isRegister ? "Regisztráció" : "Bejelentkezés"}</h2>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <input
+            className="field field-neutral"
             type="email"
             placeholder="Email"
             value={email}
@@ -52,24 +62,31 @@ export default function AuthPanel() {
             required
           />
           <input
+            className="field field-neutral"
             type="password"
             placeholder="Jelszó"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <button type="submit">
+          <button type="submit" className="btn-pill btn-solid">
             {isRegister ? "Fiók létrehozása" : "Belépés"}
           </button>
         </form>
 
-        <button className="auth-google" onClick={handleGoogle}>
+        <button
+          type="button"
+          className="btn-pill btn-outline"
+          style={{ "--accent": "var(--blue)" }}
+          onClick={handleGoogle}
+        >
           Google bejelentkezés
         </button>
 
         {error && <div className="auth-error">{error}</div>}
 
         <button
+          type="button"
           className="auth-toggle"
           onClick={() => setIsRegister((p) => !p)}
         >
