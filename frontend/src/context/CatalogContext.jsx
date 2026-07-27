@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { createCatalog } from "../constants/pantryCatalog";
+import { apiUrl } from "../lib/api";
 
 const CatalogContext = createContext(null);
 
@@ -14,7 +15,7 @@ export function CatalogProvider({ children }) {
 
     async function load() {
       try {
-        const res = await fetch("/api/pantry/catalog");
+        const res = await fetch(apiUrl("/api/pantry/catalog"));
         if (!res.ok) throw new Error(`Catalog fetch failed (${res.status})`);
         const json = await res.json();
         if (!cancelled) setData(json);

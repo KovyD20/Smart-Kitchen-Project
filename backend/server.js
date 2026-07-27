@@ -14,6 +14,15 @@ const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// Managed hosts (Koyeb, Render, Railway, Fly) terminate TLS at their own proxy, so
+// the real client IP only arrives in X-Forwarded-For. Without this, req.ip is the
+// proxy's address — which would collapse the rate limiter's IP fallback into a
+// single bucket for every unauthenticated caller. Left off locally, where
+// trusting the header would let a client spoof its own IP.
+if (process.env.TRUST_PROXY === "true") {
+  app.set("trust proxy", 1);
+}
+
 app.use(helmet());
 app.use(
   cors({

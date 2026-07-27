@@ -1,6 +1,7 @@
 
 require("dotenv").config();
 const pool = require("../db/pool");
+const { migrate } = require("./migrate");
 const { normalizeCatalogText } = require("../lib/normalize");
 const {
   PRIORITY_RANK,
@@ -116,6 +117,11 @@ function buildCatalog() {
 
 async function run() {
   const { categoryOrder, catalogByKey, aliasToEntry } = buildCatalog();
+
+  // The TRUNCATE below needs the tables to exist. Applying the (idempotent)
+  // schema first makes seeding work against a fresh managed database too, not
+  // just one bootstrapped by the Docker entrypoint.
+  await migrate();
 
   const client = await pool.connect();
   try {

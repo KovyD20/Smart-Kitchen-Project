@@ -1,30 +1,68 @@
-POST http://localhost:3000/api/ai/recipe-by-name
+@host = http://localhost:3000
+
+# The /api/ai/* routes verify a Firebase ID token. Get one from the running app:
+# open devtools with a user signed in and evaluate
+#   await (await import('/src/firebase.js')).auth.currentUser.getIdToken()
+@token = PASTE_FIREBASE_ID_TOKEN_HERE
+
+### Liveness — no DB access
+GET {{host}}/health
+
+### Readiness — confirms PostgreSQL connectivity
+GET {{host}}/api/db/health
+
+### Pantry catalog (public)
+GET {{host}}/api/pantry/catalog
+
+### Generate a recipe by name
+POST {{host}}/api/ai/recipe-by-name
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "name": "rakott krumpli"
 }
 
-###
-
-POST http://localhost:3000/api/ai/suggest-from-fridge
+### Suggest dish ideas from fridge contents
+POST {{host}}/api/ai/suggest-from-fridge
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
-{}
+{
+  "items": [
+    { "name": "burgonya", "amount": 8, "unit": "db" },
+    { "name": "tojás", "amount": 6, "unit": "db" },
+    { "name": "tejföl", "amount": 3, "unit": "dl" }
+  ]
+}
 
-###
+### Generate a full recipe restricted to fridge contents
+POST {{host}}/api/ai/recipe-from-fridge
+Content-Type: application/json
+Authorization: Bearer {{token}}
 
-POST http://localhost:3000/api/ai/recipe-from-fridge
+{
+  "name": "brokkolis csirke",
+  "items": [
+    { "name": "brokkoli", "amount": 1, "unit": "db" },
+    { "name": "csirkemell", "amount": 500, "unit": "g" },
+    { "name": "tejszín", "amount": 2, "unit": "dl" }
+  ]
+}
+
+### No token — expect 401
+POST {{host}}/api/ai/recipe-by-name
 Content-Type: application/json
 
 {
-  "name": "brokkolis csirke"
+  "name": "gulyásleves"
 }
 
-###
+### Invalid body — expect 400
+POST {{host}}/api/ai/recipe-by-name
+Content-Type: application/json
+Authorization: Bearer {{token}}
 
-GET http://localhost:3000/api/db/health
-
-###
-
-GET http://localhost:3000/api/pantry/catalog
+{
+  "name": ""
+}
