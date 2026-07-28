@@ -268,19 +268,22 @@ to different hosts. All free tier, all auto-deploy on push:
 | Part | Host | Config in repo |
 |---|---|---|
 | Frontend (React build) | **Vercel** | [`frontend/vercel.json`](frontend/vercel.json) |
-| Backend (Express) | **Koyeb** | buildpack; work directory `backend` |
+| Backend (Express) | **Render** | [`render.yaml`](render.yaml) blueprint |
 | PostgreSQL (pantry catalog) | **Neon** | connection string → `DB_*` vars |
 | Auth + per-user data | **Firebase** | free tier |
 
 **➡️ [Full step-by-step guide: DEPLOY.md](DEPLOY.md)** — registration, every setting,
 every environment variable, and troubleshooting.
 
-Koyeb is chosen over Render for one reason: user-perceived latency. Render's free tier
-sleeps after 15 minutes and needs **30–50 s** to wake, which reads as a broken app.
-Koyeb's free tier idles at **1 hour** and wakes from deep sleep in **1–5 s**. (Koyeb's
-200 ms "light sleep" is a paid-plan feature, not free.) The cold start only ever affects
-the catalog fetch and the first AI call — Auth and Firestore are hit directly from the
-browser, so sign-in and your own data are always instant.
+The backend is described entirely by a committed blueprint: point Render at the repo and
+it creates the service from `render.yaml`, prompting once for the values marked
+`sync: false` so no secret is committed.
+
+**Free-tier caveat:** Render spins the service down after 15 minutes idle and takes
+30–60 s to wake. That only affects the catalog fetch and the first AI call — Auth and
+Firestore are hit directly from the browser, so sign-in and your own data are always
+instant — but a 10-minute keep-warm ping to `/health` removes it entirely. DEPLOY.md
+covers the setup.
 
 **What is NOT deployed:** the Docker Compose + Nginx load-balancer setup below. Managed
 hosts do their own routing and scaling; pushing a hand-rolled reverse proxy alongside

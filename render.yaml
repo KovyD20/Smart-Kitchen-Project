@@ -1,0 +1,73 @@
+# Render Blueprint for the Express backend (AI proxy + pantry catalog API).
+#
+# The frontend is NOT here - it is a static bundle on Vercel. Only the backend needs
+# a Node runtime.
+#
+# How this is used: Render Dashboard -> New -> Blueprint -> pick this repo. Render reads
+# this file, creates the service with the settings below, and prompts you once for every
+# variable marked `sync: false` (so no secret is ever committed).
+#
+# Note on database migrations: the pantry schema is applied from your dev machine with
+# `npm run db:setup` (see DEPLOY.md step 2), not on deploy. Render supports a
+# `preDeployCommand: npm run migrate` here if you would rather have it run on every
+# deploy - the migration is idempotent - but it adds a hard dependency on the database
+# being reachable at deploy time, and the schema rarely changes.
+
+services:
+  - type: web
+    name: smart-kitchen-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Render terminates TLS at its own proxy, so the real client IP only arrives in
+      # X-Forwarded-For. Without this the rate limiter's IP fallback would collapse
+      # into one bucket for every unauthenticated caller.
+      - key: TRUST_PROXY
+        value: "true"
+
+      - key: INSTANCE_NAME
+        value: render
+
+      # Managed Postgres (Neon) requires TLS.
+      - key: DB_SSL
+        value: "true"
+
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+
+      - key: DB_PORT
+        value: "5432"
+
+      # --- prompted at Blueprint creation, never committed --------------------
+      # Deployed frontend origin, e.g. https://smart-kitchen.vercel.app
+      - key: CORS_ORIGIN
+        sync: false
+
+      # Neon connection details.
+      - key: DB_HOST
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # Firebase service account, for verifying ID tokens.
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false

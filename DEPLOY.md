@@ -5,22 +5,19 @@ Step-by-step, from nothing to a live URL. Everything here is free tier.
 | Part | Host | Why |
 |---|---|---|
 | Frontend (React build) | **Vercel** | Static files on a CDN — never sleeps, no cold start |
-| Backend (Express) | **Koyeb** | Free tier sleeps only after **1 hour** idle and wakes in **1–5 s** |
+| Backend (Express) | **Render** | Declarative [`render.yaml`](render.yaml) blueprint; auto-deploys on push |
 | PostgreSQL (pantry catalog) | **Neon** | Managed, needs only a connection string |
 | Auth + per-user data | **Firebase** | Already used by the app |
 
-> **Why Koyeb and not Render:** Render's free tier sleeps after 15 minutes and takes
-> **30–50 s** to wake — long enough that a visitor assumes the app is broken. Koyeb's
-> free tier idles at 1 hour and wakes from deep sleep in 1–5 s.
+> **The free-tier tradeoff, stated plainly:** Render's free web service spins down after
+> **15 minutes** of inactivity and takes **30–60 s** to come back. That is long enough
+> for a first-time visitor to assume the app is broken, so read
+> [Cold start](#cold-start-what-your-users-will-actually-see) before sharing the link —
+> the keep-warm ping there removes the problem for free.
 >
-> One correction worth knowing: Koyeb's **200 ms "light sleep"** wake (memory
-> snapshots) is **not** on the free plan — it's Starter/Pro/Scale/Enterprise only. The
-> free instance uses **deep sleep, 1–5 s**. Still a 10× improvement, just not 200 ms.
->
-> Free-instance limits: **one per organization**, 512 MB RAM, 0.1 vCPU, 2 GB SSD,
-> **Frankfurt or Washington DC** only (pick Frankfurt from Hungary), web services only,
-> no volumes, and scale-to-zero **cannot be disabled**. On 0.1 vCPU expect the upper end
-> of that 1–5 s range.
+> The upside of Render is that the whole service is described by a committed blueprint:
+> you point Render at the repo, it reads `render.yaml`, and prompts you once for the
+> secrets. There is no per-setting clicking to get wrong.
 
 ---
 
@@ -91,98 +88,74 @@ The backend verifies ID tokens, which needs admin credentials:
 
 ---
 
-## Step 4 — Backend (Koyeb)
+## Step 4 — Backend (Render)
 
 ### 4.1 Register
 
-1. Go to **https://app.koyeb.com** and sign up **with GitHub** (simplest — it also sets
-   up repo access). No credit card normally; Koyeb may ask for one only if it can't
-   verify you're human.
-2. Authorise the Koyeb GitHub app for your `Smart-Kitchen-Project` repository.
+1. Sign up at **https://render.com** with GitHub. No credit card for the free plan.
+2. Authorise Render for your `Smart-Kitchen-Project` repository.
 
-### 4.2 Create the service
+### 4.2 Create the service from the blueprint
 
-**Create Web Service** → **GitHub** → pick the repo → branch **`master`**.
+**Dashboard → New → Blueprint** → pick the repo → branch **`master`**.
 
-Then set these — the two starred ones are the easy ones to get wrong:
+Render reads [`render.yaml`](render.yaml) and fills in everything that isn't a secret:
 
-| Setting | Value |
+| Setting | Comes from the blueprint |
 |---|---|
-| Builder | **Buildpack** (no Dockerfile needed) |
-| ⭐ **Work directory** | **`backend`** |
-| Build command | leave empty (buildpack runs `npm install`) |
-| Run command | leave empty (buildpack runs `npm start`) |
-| Region | **Frankfurt (fra)** |
-| Instance type | **Free** |
-| ⭐ **Exposed port** | leave the default **`8000`** |
-| Health check | HTTP, path **`/health`** |
-| Service name | `smart-kitchen-api` |
+| Runtime | `node` |
+| **Root directory** | **`backend`** — this is a monorepo; the repo root has no `package.json` |
+| Build command | `npm ci` |
+| Start command | `npm start` |
+| Plan / region | `free` / `frankfurt` |
+| Health check | `/health` |
+| `NODE_ENV`, `TRUST_PROXY`, `INSTANCE_NAME`, `DB_SSL`, `GEMINI_MODEL`, `DB_PORT` | fixed values |
 
-**Why work directory matters:** this is a monorepo. Without it Koyeb builds the repo
-root, finds no `package.json`, and the build fails. Setting it to `backend` also means
-the rest of the repo is *not* in the build environment — that's fine, `backend/` is
-self-contained (its own `package.json` and `package-lock.json`).
+Render then **prompts you once for the nine `sync: false` variables** — that is the only
+data entry in this step, and nothing sensitive is committed. Copy them straight out of
+your `backend/.env`:
 
-**Why leave the port at 8000:** Koyeb injects `PORT` automatically, and
-[`server.js`](backend/server.js) already reads `Number(process.env.PORT || 3000)`. You
-do **not** need to change any code or set `PORT` yourself.
+`CORS_ORIGIN` (leave blank for now — filled in at Step 6), `DB_HOST`, `DB_NAME`,
+`DB_USER`, `DB_PASSWORD`, `GEMINI_API_KEY`, `FIREBASE_PROJECT_ID`,
+`FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`.
 
-### 4.3 Environment variables
+Paste `FIREBASE_PRIVATE_KEY` as **one line, keeping the literal `\n` sequences** — the
+backend converts them back to real newlines.
 
-Add these under **Environment variables**. Mark the secrets as **Secret** type, not
-plain text.
+> Do **not** set `PORT`. Render injects it, and [`server.js`](backend/server.js) already
+> reads `Number(process.env.PORT || 3000)`.
 
-| Variable | Value | Secret? |
-|---|---|---|
-| `TRUST_PROXY` | `true` | no |
-| `INSTANCE_NAME` | `koyeb` | no |
-| `DB_SSL` | `true` | no |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | no |
-| `CORS_ORIGIN` | *fill in at Step 6* | no |
-| `DB_HOST` | from Step 1 | no |
-| `DB_PORT` | `5432` | no |
-| `DB_NAME` | from Step 1 | no |
-| `DB_USER` | from Step 1 | no |
-| `DB_PASSWORD` | from Step 1 | **yes** |
-| `GEMINI_API_KEY` | your Gemini key | **yes** |
-| `FIREBASE_PROJECT_ID` | from Step 3 | no |
-| `FIREBASE_CLIENT_EMAIL` | from Step 3 | no |
-| `FIREBASE_PRIVATE_KEY` | from Step 3, one line with `\n` | **yes** |
+If `plan: free` or `region: frankfurt` is ever rejected for your account, change those
+two lines in `render.yaml` (`oregon` is Render's default region) and re-sync the
+blueprint.
 
-`TRUST_PROXY=true` is required here: Koyeb terminates TLS at its own edge, so the real
-client IP only arrives in `X-Forwarded-For`. Without it every unauthenticated caller
-would share a single rate-limit bucket.
+### 4.3 Deploy and check
 
-Do **not** set `PORT`. Do **not** set `NODE_ENV` unless you want to — nothing branches
-on it.
-
-### 4.4 Deploy and check
-
-Click **Deploy**. First build takes a few minutes. Your URL will be something like:
+Render builds and deploys on its own. Your URL will look like:
 
 ```
-https://smart-kitchen-api-<your-org>.koyeb.app
+https://smart-kitchen-api.onrender.com
 ```
 
-Verify, in order:
+Verify in this order. The **first** call can take 30–60 s if the service has spun down —
+that is the free tier waking up, not a failure:
 
 ```bash
-curl https://smart-kitchen-api-<your-org>.koyeb.app/health
-# {"status":"ok","instance":"koyeb"}
+curl https://smart-kitchen-api.onrender.com/health
+# {"status":"ok","instance":"render"}
 
-curl https://smart-kitchen-api-<your-org>.koyeb.app/api/db/health
-# {"status":"ok","instance":"koyeb","db_time":"..."}   <- proves Neon + SSL work
+curl https://smart-kitchen-api.onrender.com/api/db/health
+# {"status":"ok","instance":"render","db_time":"..."}    <- proves Neon + SSL work
 
-curl https://smart-kitchen-api-<your-org>.koyeb.app/api/pantry/catalog
-# {"categories":[...]}                                 <- proves the seed worked
+curl https://smart-kitchen-api.onrender.com/api/pantry/catalog
+# {"categories":[...]}                                   <- proves the seed worked
 ```
 
-If `/health` works but `/api/db/health` returns an error, the problem is the `DB_*`
-variables or `DB_SSL`, nothing else.
+If `/health` works but `/api/db/health` errors, the problem is the `DB_*` variables or
+`DB_SSL`, nothing else.
 
-Push to `master` from now on and Koyeb rebuilds automatically.
-
----
+Push to `master` from now on and Render rebuilds automatically. Build and runtime logs
+are under **Logs** in the service dashboard.
 
 ## Step 5 — Frontend (Vercel)
 
@@ -209,7 +182,7 @@ Add all of these under **Settings → Environment Variables** (Production):
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | ” |
 | `VITE_FIREBASE_APP_ID` | ” |
 | `VITE_FIREBASE_MEASUREMENT_ID` | ” (optional) |
-| ⭐ `VITE_API_BASE_URL` | your Koyeb URL, **no trailing slash** |
+| ⭐ `VITE_API_BASE_URL` | your Render URL, **no trailing slash** |
 
 > `VITE_*` variables are baked into the bundle **at build time**. Changing one requires
 > a **redeploy** — editing it in the dashboard alone does nothing to the live site.
@@ -221,14 +194,13 @@ Add all of these under **Settings → Environment Variables** (Production):
 Click **Deploy**. You get a URL like `https://smart-kitchen.vercel.app`.
 
 ---
-
 ## Step 6 — Close the loop
 
 Two settings still point nowhere. Both will silently break login or every API call.
 
-1. **Koyeb → your service → Environment variables → `CORS_ORIGIN`** = your Vercel URL,
-   e.g. `https://smart-kitchen.vercel.app` (no trailing slash). Redeploy the service.
-   Without this the browser blocks every API response as a CORS error.
+1. **Render → your service → Environment → `CORS_ORIGIN`** = your Vercel URL, e.g.
+   `https://smart-kitchen.vercel.app` (no trailing slash). Saving it redeploys the
+   service. Without this the browser blocks every API response as a CORS error.
 2. **Firebase Console → Authentication → Settings → Authorized domains** → **Add
    domain** → `smart-kitchen.vercel.app`. Without this sign-in fails with
    `auth/unauthorized-domain`.
@@ -249,31 +221,38 @@ Open the Vercel URL and check:
 
 ## Cold start: what your users will actually see
 
-The backend sleeps after **1 hour** with no traffic and takes **1–5 s** to wake. That
-delay hits only the **first** request after sleeping, and only the two backend-backed
-things:
+This is the free tier's one real drawback, so plan for it rather than discover it.
 
-- the pantry catalog fetch on load (categories appear a beat late)
+Render's free web service **spins down after 15 minutes** of inactivity and takes
+**30–60 s** to come back. That delay hits only the **first** request after a spin-down,
+and only the two backend-backed things:
+
+- the pantry catalog fetch on load (categories appear late)
 - the first AI generation
 
 Firestore and Auth are unaffected — the browser talks to them directly, so sign-in and
-your recipes/fridge/list are instant regardless.
+your recipes/fridge/list are instant regardless. But 30–60 s is long enough that a
+first-time visitor will assume the app is broken.
 
-If even 1–5 s bothers you, ping the health endpoint every 10 minutes from a free
-scheduler such as **cron-job.org**:
+**Fix it with a keep-warm ping.** Point a free scheduler such as **cron-job.org** at the
+health endpoint every 10 minutes:
 
 ```
-https://smart-kitchen-api-<your-org>.koyeb.app/health
+https://smart-kitchen-api.onrender.com/health
 ```
 
-`/health` is deliberately DB-free, so keep-warm pings cost nothing on Neon. Note this
-keeps the instance awake permanently, which is against the spirit of a free tier — a
-15-minute interval is plenty and gentler.
+`/health` is deliberately DB-free, so the pings cost nothing on Neon and barely register
+on Render. With a 10-minute interval the service never idles long enough to spin down,
+and visitors never see a cold start.
 
-**If you want zero sleep at all:** move the Express routes into Vercel Serverless
-Functions next to the frontend. Same origin (no CORS), no sleeping instance. That's a
-real refactor — three route handlers rewritten as functions — and serverless has its own
-smaller cold start, so it's a trade, not a free win.
+> Render's free tier also has a monthly instance-hours allowance. A ping every 10 minutes
+> keeps one service awake continuously, which consumes those hours — fine for a single
+> demo service, worth knowing if you add more.
+
+**If you want zero sleep at all:** move the three Express route handlers into Vercel
+Serverless Functions next to the frontend. Same origin (no CORS, no `VITE_API_BASE_URL`),
+nothing to spin down. That's a real refactor, and serverless has its own — much smaller —
+cold start, so it's a trade rather than a free win.
 
 ---
 
@@ -281,12 +260,14 @@ smaller cold start, so it's a trade, not a free win.
 
 | Symptom | Cause |
 |---|---|
-| Koyeb build fails, "no package.json" | **Work directory** isn't set to `backend` |
-| App starts then Koyeb marks it unhealthy | Health check path isn't `/health`, or the exposed port was changed without setting `PORT` |
+| Build fails, "no package.json" | `rootDir: backend` missing — re-sync the blueprint |
+| Blueprint rejected `plan`/`region` | Change those two lines in `render.yaml` (`oregon` is the default region) |
+| Service builds then is marked unhealthy | `healthCheckPath` isn't `/health`, or `PORT` was set manually — don't set it |
+| First request takes 30–60 s | Normal free-tier spin-up; see [Cold start](#cold-start-what-your-users-will-actually-see) |
 | Every API call is a CORS error | `CORS_ORIGIN` doesn't exactly match the Vercel origin (scheme, no trailing slash) |
 | `auth/unauthorized-domain` on sign-in | Vercel domain not in Firebase authorized domains |
-| API calls hit the Vercel domain, not Koyeb | `VITE_API_BASE_URL` missing at build time — set it and **redeploy** |
-| `/api/ai/*` returns 503 | `FIREBASE_*` vars missing on Koyeb — the backend fails closed on purpose |
+| API calls hit the Vercel domain, not Render | `VITE_API_BASE_URL` missing at build time — set it and **redeploy** |
+| `/api/ai/*` returns 503 | `FIREBASE_*` vars missing on Render — the backend fails closed on purpose |
 | `/api/ai/*` returns 401 | ID token missing/expired; sign out and back in |
 | `/api/db/health` errors, `/health` fine | `DB_*` values or `DB_SSL=true` |
 | `/api/pantry/catalog` returns empty | Step 2 seed never ran against Neon |
@@ -296,10 +277,8 @@ smaller cold start, so it's a trade, not a free win.
 
 ## Sources
 
-Koyeb free-tier behaviour verified July 2026:
+Render free-tier behaviour and blueprint fields verified July 2026:
 
-- [Scale-to-Zero](https://www.koyeb.com/docs/run-and-scale/scale-to-zero) — 1 h idle, deep sleep 1–5 s, light sleep is paid-plan only
-- [Instances](https://www.koyeb.com/docs/reference/instances) — free instance specs and limits
-- [Monorepos](https://www.koyeb.com/docs/build-and-deploy/monorepo) — work directory
-- [Deploy an Express App](https://www.koyeb.com/docs/deploy/express) — buildpack, `npm start`, `PORT`
-- [Exposing your Service](https://www.koyeb.com/docs/build-and-deploy/exposing-your-service) — default port 8000, `PORT` injection
+- [Blueprint spec](https://render.com/docs/blueprint-spec) — `plan: free`, `region: frankfurt`, `rootDir`, `healthCheckPath`, `envVars` with `sync: false`
+- [Free instance types](https://render.com/docs/free) — 15-minute spin-down, 30–60 s cold start
+- [Deploy hooks & keep-warm](https://render.com/docs/deploys) — redeploy on push behaviour
