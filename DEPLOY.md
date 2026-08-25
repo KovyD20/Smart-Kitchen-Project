@@ -264,7 +264,8 @@ cold start, so it's a trade rather than a free win.
 | Blueprint rejected `plan`/`region` | Change those two lines in `render.yaml` (`oregon` is the default region) |
 | Service builds then is marked unhealthy | `healthCheckPath` isn't `/health`, or `PORT` was set manually — don't set it |
 | First request takes 30–60 s | Normal free-tier spin-up; see [Cold start](#cold-start-what-your-users-will-actually-see) |
-| Every API call is a CORS error | `CORS_ORIGIN` doesn't exactly match the Vercel origin (scheme, no trailing slash) |
+| Every API call is a CORS error | `CORS_ORIGIN` doesn't exactly match the Vercel origin. Most common: `http://` where the site is served over `https://`. Also check for a trailing slash. The backend logs its allowed origins at boot |
+| App renders empty (no categories, no fridge items), yet every endpoint works in the browser | Same CORS mismatch as above. Hitting the API in the address bar sends no `Origin` header, so it looks healthy; only the browser's cross-origin check fails |
 | `auth/unauthorized-domain` on sign-in | Vercel domain not in Firebase authorized domains |
 | API calls hit the Vercel domain, not Render | `VITE_API_BASE_URL` missing at build time — set it and **redeploy** |
 | `/api/ai/*` returns 503 | `FIREBASE_*` vars missing on Render — the backend fails closed on purpose |

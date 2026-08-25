@@ -41,13 +41,16 @@ services:
         value: "true"
 
       - key: GEMINI_MODEL
-        value: gemini-2.0-flash
+        value: gemini-3.5-flash
 
       - key: DB_PORT
         value: "5432"
 
       # --- prompted at Blueprint creation, never committed --------------------
       # Deployed frontend origin, e.g. https://smart-kitchen.vercel.app
+      # Must match the browser's Origin header character for character: https:// (not
+      # http://, Vercel always serves TLS) and no trailing slash. A mismatch fails
+      # silently in a way that looks like the backend is down.
       - key: CORS_ORIGIN
         sync: false
 
