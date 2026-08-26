@@ -8,7 +8,7 @@ async function run() {
     process.exit(1);
   }
 
-  const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+  const modelName = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: modelName });
 

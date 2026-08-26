@@ -44,6 +44,34 @@ function classifyGeminiError(err) {
     return notFoundErr;
   }
 
+  // Transient overload, distinct from 429: the request was fine and the quota is
+  // intact, the model just had no capacity. The route already retries these, so
+  // reaching here means the retries were used up — say so instead of "failed".
+  if (/\b503\b|UNAVAILABLE|high demand/i.test(message)) {
+    const busyErr = new Error("AI temporarily overloaded");
+    busyErr.status = 503;
+    return busyErr;
+  }
+
+  // Network-level failure: the SDK never got an HTTP status back, so it wrapped a
+  // raw fetch rejection ("Error fetching from ...: fetch failed") or an abort from
+  // requestOptions.timeout. The dominant cause is a thinking model holding the
+  // connection open with no headers until Node's undici default headersTimeout
+  // (300s) tears the socket down -- the request did reach Google and shows up in
+  // the dashboard, but the client hung up before any response arrived. Report it
+  // as a gateway timeout so the client can retry instead of showing SDK internals.
+  if (
+    /fetch failed|Request aborted when|The operation was aborted|terminated/i.test(message) ||
+    /\bUND_ERR_\w+/.test(message) ||
+    /\b(ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|UND_ERR_HEADERS_TIMEOUT)\b/.test(
+      `${message} ${err?.cause?.code || ""} ${err?.code || ""}`,
+    )
+  ) {
+    const timeoutErr = new Error("AI request timed out");
+    timeoutErr.status = 504;
+    return timeoutErr;
+  }
+
   return null;
 }
 

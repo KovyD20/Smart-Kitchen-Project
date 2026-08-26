@@ -107,7 +107,7 @@ normalized by that **same module** — so stored keys and lookups cannot drift a
 | Backend | Node.js 22, Express 5, `pg`, `zod`, `helmet`, `express-rate-limit`, `firebase-admin` |
 | Databases | PostgreSQL 16 (pantry catalog), Cloud Firestore (per-user data) |
 | Auth | Firebase Authentication |
-| AI | Google Gemini (`gemini-3.5-flash`) via `@google/generative-ai` |
+| AI | Google Gemini (`gemini-3.6-flash`) via `@google/generative-ai` |
 | Tests / CI | Vitest, GitHub Actions |
 
 Icons are inlined Font Awesome Free SVG paths — no icon webfont is shipped.

@@ -60,26 +60,68 @@ const AI_UNIT_RULES = [
   "Hosszú forma helyett rövidítéseket használj (pl. teáskanál helyett tk).",
 ].join(" ");
 
+// The SDK passes no timeout to fetch unless one is supplied, so an unanswered
+// request is governed by Node's undici default headersTimeout (300s). These are
+// thinking models: generateContent holds the socket open with no response headers
+// until the whole answer is ready, so a slow or overloaded model silently trips
+// that limit and fetch rejects with a bare "fetch failed" -- no HTTP status, and
+// the request still shows as received on Google's side. Time out on our own terms
+// instead, comfortably under 300s.
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 90000;
+
 function getModel() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Missing GEMINI_API_KEY in environment");
   }
-  const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+  const modelName = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({
-    model: modelName,
-    generationConfig: {
-      responseMimeType: "application/json",
-      temperature: 0.2,
+  return genAI.getGenerativeModel(
+    {
+      model: modelName,
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.2,
+      },
     },
-  });
+    { timeout: GEMINI_TIMEOUT_MS },
+  );
+}
+
+// Capacity fluctuates: the same request intermittently comes back as 503
+// UNAVAILABLE ("high demand"), so a single attempt would surface a hard error to
+// the user for a transient blip. An overloaded model can also take a minute or
+// more just to produce that 503, so retries are bounded by a wall-clock deadline
+// as well as an attempt count -- otherwise three slow attempts leave the caller
+// hanging for several minutes. Timeouts are retried alongside overload; quota
+// (429) and bad requests must still fail fast.
+const RETRYABLE =
+  /\b503\b|UNAVAILABLE|high demand|overloaded|fetch failed|Request aborted when|\bUND_ERR_\w+/i;
+
+async function generateContentWithRetry(
+  model,
+  prompt,
+  attempts = 3,
+  budgetMs = GEMINI_TIMEOUT_MS * 2,
+) {
+  const deadline = Date.now() + budgetMs;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await model.generateContent(prompt);
+    } catch (err) {
+      const retryable = RETRYABLE.test(err?.message || "");
+      if (!retryable || attempt >= attempts || Date.now() >= deadline) throw err;
+      await new Promise((resolve) =>
+        setTimeout(resolve, 700 * 2 ** (attempt - 1)),
+      );
+    }
+  }
 }
 
 async function generateJson(prompt) {
   const model = getModel();
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateContentWithRetry(model, prompt);
     const text = result.response.text();
     const parsed = extractJson(text);
     if (!parsed) {

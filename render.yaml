@@ -41,7 +41,7 @@ services:
         value: "true"
 
       - key: GEMINI_MODEL
-        value: gemini-3.5-flash
+        value: gemini-3.6-flash
 
       - key: DB_PORT
         value: "5432"

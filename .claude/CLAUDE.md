@@ -8,7 +8,7 @@ Full-stack AI-alapú konyhai asszisztens: hűtő-nyilvántartás, receptkezelés
 - **Backend**: Node.js 22, Express 5, `pg`, `zod`, `helmet`, `express-rate-limit`, `firebase-admin`
 - **Adatbázisok**: PostgreSQL 16 (globális pantry katalógus), Cloud Firestore (per-user adatok: hűtő, receptek, bevásárlólista)
 - **Auth**: Firebase Authentication (email/jelszó + Google)
-- **AI**: Google Gemini (`gemini-3.5-flash`) a `@google/generative-ai` csomagon keresztül
+- **AI**: Google Gemini (`gemini-3.6-flash`) a `@google/generative-ai` csomagon keresztül
 - **Tesztek**: Vitest mindkét workspace-ben, GitHub Actions CI
 
 ## Architektúra — miért két adatbázis
