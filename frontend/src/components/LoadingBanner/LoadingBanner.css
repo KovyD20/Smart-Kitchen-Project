@@ -1,0 +1,75 @@
+/* Status strip between the top bar and the main content. Sits in the normal flow
+   so it pushes the content down instead of covering it. */
+
+.loading-banner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 14px 26px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text-dim);
+  font-size: 13px;
+  animation: loading-banner-in 0.18s ease-out;
+}
+
+.loading-banner.is-error {
+  border-color: color-mix(in srgb, var(--brand-bright) 55%, var(--line));
+  color: var(--text-body);
+}
+
+.loading-banner-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.loading-banner-spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line-dashed);
+  /* One coloured edge is what makes the rotation legible. */
+  border-top-color: var(--brand-bright);
+  border-radius: 50%;
+  animation: loading-banner-spin 0.7s linear infinite;
+}
+
+.loading-banner-retry {
+  flex: none;
+}
+
+@keyframes loading-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes loading-banner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 767px) {
+  .loading-banner {
+    margin: 10px 12px 0;
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+}
+
+/* The spinner is decorative; the text already carries the message. */
+@media (prefers-reduced-motion: reduce) {
+  .loading-banner {
+    animation: none;
+  }
+  .loading-banner-spinner {
+    animation: none;
+    border-top-color: var(--line-dashed);
+  }
+}

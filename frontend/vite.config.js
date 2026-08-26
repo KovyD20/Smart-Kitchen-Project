@@ -10,8 +10,9 @@ export default defineConfig({
   },
   plugins: [react()],
   test: {
-    // Unit tests here cover pure logic only, so the default Node environment is
-    // enough (no jsdom). Add environment: 'jsdom' when component tests are introduced.
+    // Most tests here cover pure logic, so Node stays the default. Hook and
+    // component tests opt into a DOM per file with a
+    // `// @vitest-environment jsdom` docblock.
     environment: 'node',
     include: ['src/**/*.test.{js,jsx}'],
   },

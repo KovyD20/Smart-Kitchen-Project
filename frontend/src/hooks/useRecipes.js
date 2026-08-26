@@ -17,6 +17,16 @@ import { db } from "../firebase";
 export function useRecipes(uid) {
   const [recipes, setRecipes] = useState([]);
   const [allTags, setAllTags] = useState([]);
+  // Until the first snapshot lands, an empty recipe list is indistinguishable
+  // from a list that simply has not arrived yet -- the UI needs to tell them
+  // apart to avoid rendering an "empty" state over data that is still loading.
+  //
+  // Tracked as "which uid have we heard back about" rather than a boolean, so
+  // loading is derived: it needs no reset when the uid changes (a user switch
+  // would otherwise keep the previous user's "loaded" state while their
+  // replacement is still in flight), and no setState in the effect body.
+  const [loadedUid, setLoadedUid] = useState(null);
+  const loading = Boolean(uid) && loadedUid !== uid;
 
   useEffect(() => {
     if (!uid) return;
@@ -30,8 +40,13 @@ export function useRecipes(uid) {
         const tags = new Set();
         items.forEach((item) => item.tags?.forEach((tag) => tags.add(tag)));
         setAllTags([...tags]);
+        setLoadedUid(uid);
       },
-      (err) => console.error("Hiba a receptek olvasásakor", err),
+      (err) => {
+        console.error("Hiba a receptek olvasásakor", err);
+        // A failed listener still ends the wait -- otherwise the banner hangs.
+        setLoadedUid(uid);
+      },
     );
 
     return () => unsub();
@@ -65,6 +80,7 @@ export function useRecipes(uid) {
   return {
     recipes,
     allTags,
+    recipesLoading: loading,
     addTag,
     createRecipe,
     updateRecipe,
