@@ -100,6 +100,10 @@ export default function ShoppingView({
   units,
   recommendations,
   isMobile,
+  colorFor,
+  isCustomColor,
+  onCategoryColorChange,
+  onCategoryColorReset,
   onToggleDone,
   onUpdateItem,
   onDeleteItem,
@@ -182,11 +186,20 @@ export default function ShoppingView({
             return (
               <GroupCard
                 key={group.category}
-                accent={ACCENT}
+                accent={colorFor(group.category)}
                 category={group.category}
                 meta={`${done}/${group.items.length}`}
                 open={isOpen(group.category)}
                 onToggle={() => toggle(group.category)}
+                isCustomColor={isCustomColor?.(group.category)}
+                onColorChange={
+                  onCategoryColorChange &&
+                  ((hex) => onCategoryColorChange(group.category, hex))
+                }
+                onColorReset={
+                  onCategoryColorReset &&
+                  (() => onCategoryColorReset(group.category))
+                }
               >
                 {group.items.map((item) => (
                   <ItemRow

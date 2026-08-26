@@ -28,6 +28,24 @@
   --blue: #3fa0ff;
   --green: #6ee7a0;
 
+  /* Pantry category accents. One per seeded category (see
+     constants/categoryColors.js). All are mid-saturation and light enough to read
+     on --card as a 4px stripe, a border and as text. */
+  --cat-vegetables: #6ee7a0;
+  --cat-fruits: #ffb020;
+  --cat-meat: #e5383b;
+  --cat-dairy: #7fc7ff;
+  --cat-bakery: #d9a05b;
+  --cat-dry: #c9b458;
+  --cat-spices: #ff7a45;
+  --cat-frozen: #67d5e0;
+  --cat-deli: #d98cb3;
+  --cat-drinks: #9b8cff;
+  --cat-snacks: #f0c96a;
+  --cat-household: #9aa0a6;
+  --cat-household-bath: #8fb2c4;
+  --cat-other: #8f8f8f;
+
   /* Text */
   --text: #ffffff;
   --text-strong: #f2f2f2;
@@ -181,6 +199,11 @@ button {
 }
 .icon-btn:hover:not(:disabled) {
   background: #3a3a3a;
+}
+/* Favourite toggle: the star is filled either way, so colour carries the state.
+   The button also exposes aria-pressed, so this is not the only signal. */
+.icon-btn.is-favorite {
+  color: var(--yellow);
 }
 .icon-btn:disabled {
   opacity: 0.4;

@@ -65,6 +65,12 @@ export function useRecipes(uid) {
   const deleteRecipe = (id) =>
     deleteDoc(doc(db, "users", uid, "recipes", id));
 
+  // Absent means "not a favourite", so no migration is needed for older recipes.
+  const toggleFavorite = (recipe) =>
+    updateDoc(doc(db, "users", uid, "recipes", recipe.id), {
+      favorite: !recipe.favorite,
+    });
+
   const deleteTagGlobally = async (tag) => {
     const affected = recipes.filter((r) => r.tags?.includes(tag));
     if (affected.length === 0) return;
@@ -85,6 +91,7 @@ export function useRecipes(uid) {
     createRecipe,
     updateRecipe,
     deleteRecipe,
+    toggleFavorite,
     deleteTagGlobally,
   };
 }

@@ -75,6 +75,44 @@ describe("useRecipes loading flag", () => {
     expect(result.current.recipesLoading).toBe(false);
   });
 
+  it("flips the favorite flag on the recipe's own document", async () => {
+    const { result } = renderHook(() => useRecipes("u1"));
+    act(() => emitSnapshot(pathFor("u1"), [{ id: "r1", name: "Gulyásleves" }]));
+
+    await act(() =>
+      result.current.toggleFavorite({ id: "r1", favorite: false }),
+    );
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: "users/u1/recipes/r1" },
+      { favorite: true },
+    );
+  });
+
+  it("unfavorites an already favorite recipe", async () => {
+    const { result } = renderHook(() => useRecipes("u1"));
+    act(() => emitSnapshot(pathFor("u1"), []));
+
+    await act(() => result.current.toggleFavorite({ id: "r1", favorite: true }));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: "users/u1/recipes/r1" },
+      { favorite: false },
+    );
+  });
+
+  it("treats a recipe with no favorite field as not a favorite", async () => {
+    const { result } = renderHook(() => useRecipes("u1"));
+    act(() => emitSnapshot(pathFor("u1"), []));
+
+    await act(() => result.current.toggleFavorite({ id: "r1" }));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: "users/u1/recipes/r1" },
+      { favorite: true },
+    );
+  });
+
   it("derives allTags from the snapshot", () => {
     const { result } = renderHook(() => useRecipes("u1"));
 

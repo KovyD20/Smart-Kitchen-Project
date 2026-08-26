@@ -1,6 +1,7 @@
 import Icon from "../Icon/Icon";
 import {
   availabilityLevel,
+  FAVORITES_FILTER,
   recipeAvailability,
   recipeMeta,
   recipeTimeLabel,
@@ -69,9 +70,21 @@ export default function RecipesView({
   onSelectRecipe,
   searchInputRef,
 }) {
-  const chips = ["all", ...allTags];
+  // Favourites sit right after "Mind", ahead of the user's own tags.
+  const chips = ["all", FAVORITES_FILTER, ...allTags];
 
-  const chipLabel = (tag) => (tag === "all" ? "Mind" : tag);
+  const chipLabel = (tag) => {
+    if (tag === "all") return "Mind";
+    if (tag === FAVORITES_FILTER) {
+      return (
+        <>
+          <Icon name="star" size={11} />
+          Kedvencek
+        </>
+      );
+    }
+    return tag;
+  };
 
   // Only meaningful once the fridge is known; without it the cards fall back to
   // the plain ingredient count.
@@ -84,7 +97,9 @@ export default function RecipesView({
         <button
           key={tag}
           type="button"
-          className={`chip${filterTag === tag ? " is-active" : ""}`}
+          className={`chip${filterTag === tag ? " is-active" : ""}${
+            tag === FAVORITES_FILTER ? " chip-fav" : ""
+          }`}
           onClick={() => onFilterChange(tag)}
         >
           {chipLabel(tag)}
@@ -140,6 +155,11 @@ export default function RecipesView({
                 <span className="recipe-card-art">
                   <Icon name="bowl" size={isMobile ? 17 : 32} />
                 </span>
+                {recipe.favorite && (
+                  <span className="recipe-card-fav" title="Kedvenc">
+                    <Icon name="star" size={isMobile ? 11 : 13} />
+                  </span>
+                )}
                 <span className="recipe-card-body">
                   <span className="recipe-card-name">{recipe.name}</span>
                   <CardMeta

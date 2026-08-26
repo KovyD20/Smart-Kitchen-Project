@@ -11,6 +11,10 @@ export default function FridgeView({
   itemCount,
   units,
   isMobile,
+  colorFor,
+  isCustomColor,
+  onCategoryColorChange,
+  onCategoryColorReset,
   onUpdateItem,
   onDeleteItem,
   onAddItem,
@@ -62,11 +66,20 @@ export default function FridgeView({
           {groups.map((group) => (
             <GroupCard
               key={group.category}
-              accent={ACCENT}
+              accent={colorFor(group.category)}
               category={group.category}
               meta={`${group.items.length} tétel`}
               open={isOpen(group.category)}
               onToggle={() => toggle(group.category)}
+              isCustomColor={isCustomColor?.(group.category)}
+              onColorChange={
+                onCategoryColorChange &&
+                ((hex) => onCategoryColorChange(group.category, hex))
+              }
+              onColorReset={
+                onCategoryColorReset &&
+                (() => onCategoryColorReset(group.category))
+              }
             >
               {group.items.map((item) => (
                 <ItemRow

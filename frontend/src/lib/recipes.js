@@ -113,6 +113,22 @@ export function sortByAvailability(recipes, fridge, keyOf) {
     .map((entry) => entry.recipe);
 }
 
+// Reserved filter id for the favourites chip. Favourites are a system flag on the
+// recipe, not one of the user's tags -- tags can be renamed and deleted globally
+// (deleteTagGlobally), which must never take the favourite state with them.
+export const FAVORITES_FILTER = "favorites";
+
+// The "Receptek" tab's filter chain: the tag/favourites chip plus the header
+// search. Extracted from Home.jsx so the branching is unit-testable.
+export function filterRecipes(recipes, { filterTag = "all", search = "" } = {}) {
+  return (recipes || []).filter((recipe) => {
+    if (!recipeMatchesSearch(recipe, search)) return false;
+    if (filterTag === "all") return true;
+    if (filterTag === FAVORITES_FILTER) return recipe?.favorite === true;
+    return recipe?.tags?.includes(filterTag) === true;
+  });
+}
+
 // Header search: matches a recipe on its name, tags or ingredient names.
 // Comparison runs on the catalog's normalized text (lowercase, accent-free), so
 // "turos" finds "Túrós csusza".

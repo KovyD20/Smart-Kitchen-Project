@@ -307,6 +307,16 @@
 .chip:hover {
   filter: brightness(1.2);
 }
+/* The favourites chip is the only one with an icon. */
+.chip-fav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chip-fav:not(.is-active) {
+  color: var(--yellow);
+}
+
 .chip.is-active {
   background: var(--brand);
   border-color: var(--brand);
@@ -316,6 +326,7 @@
 /* -------------------------------------------------------- recipe cards ---- */
 
 .recipe-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   border-radius: 14px;
@@ -342,6 +353,22 @@
   align-items: center;
   justify-content: center;
   color: rgba(255, 255, 255, 0.4);
+}
+
+/* Corner marker on a favourite card. Sits over the artwork, so it needs its own
+   dark backing to stay legible against the lighter part of the gradient. */
+.recipe-card-fav {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(12, 9, 8, 0.72);
+  color: var(--yellow);
 }
 
 .recipe-card-body {
@@ -640,6 +667,39 @@
   border: 1px solid var(--line);
   overflow: hidden;
   align-self: start;
+}
+
+/* The colour dot cannot live inside .group-head (a button inside a button), so it
+   sits beside it and the row keeps them on one line. */
+.group-head-row {
+  display: flex;
+  align-items: stretch;
+}
+.group-head-row .group-head {
+  flex: 1;
+  min-width: 0;
+}
+
+.group-color {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.group-color:hover {
+  background: #2f2f2f;
+}
+.group-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  /* A ring keeps a pale accent visible against the card. */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
 }
 
 .group-head {
@@ -1327,6 +1387,15 @@
     height: 52px;
     border-radius: 10px;
     flex: none;
+  }
+  /* The mobile card is a row ending in a chevron, so the top-right corner is
+     taken. Move the star onto the thumbnail instead. */
+  .recipe-card-fav {
+    top: 10px;
+    left: 10px;
+    right: auto;
+    width: 19px;
+    height: 19px;
   }
   .recipe-card-body {
     flex: 1;

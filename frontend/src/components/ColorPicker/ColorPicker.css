@@ -1,0 +1,81 @@
+/* Category colour panel. Expands inside the group card, below its header. */
+
+.color-panel {
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--card-inset);
+  animation: color-panel-in 0.14s ease-out;
+}
+
+.color-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.color-panel-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+.color-panel-head .icon-btn {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.color-grid {
+  display: grid;
+  /* 8 columns divides the 16 swatches into two even rows at both card widths
+     (3-column desktop grid, and full width on mobile). */
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.color-swatch {
+  height: 30px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: var(--swatch);
+  cursor: pointer;
+  padding: 0;
+}
+.color-swatch:hover {
+  filter: brightness(1.15);
+}
+.color-swatch.is-selected {
+  /* A white ring plus an inset gap, so the swatch keeps its size and the colour
+     itself stays fully visible. */
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--card-inset) inset;
+}
+.color-swatch:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.color-reset {
+  width: 100%;
+  justify-content: center;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+@keyframes color-panel-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .color-panel {
+    animation: none;
+  }
+}

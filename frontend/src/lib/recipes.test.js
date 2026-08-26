@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { normalizeCatalogText } from "../constants/pantryCatalog.js";
 import {
   availabilityLevel,
+  FAVORITES_FILTER,
+  filterRecipes,
   recipeAvailability,
   recipeTimeLabel,
   sortByAvailability,
@@ -122,6 +124,86 @@ describe("sortByAvailability", () => {
 
   it("tolerates a missing list", () => {
     expect(sortByAvailability(undefined, [], keyOf)).toEqual([]);
+  });
+});
+
+describe("filterRecipes", () => {
+  const all = [
+    { name: "Gulyásleves", tags: ["magyar", "leves"], favorite: true,
+      ingredients: [{ name: "marha" }] },
+    { name: "Almás pite", tags: ["desszert"],
+      ingredients: [{ name: "alma" }] },
+    { name: "Túrós csusza", tags: ["magyar"], favorite: false,
+      ingredients: [{ name: "túró" }] },
+  ];
+  const names = (recipes) => recipes.map((r) => r.name);
+
+  it("returns everything for the default filter", () => {
+    expect(names(filterRecipes(all))).toEqual([
+      "Gulyásleves",
+      "Almás pite",
+      "Túrós csusza",
+    ]);
+  });
+
+  it("filters by tag", () => {
+    expect(names(filterRecipes(all, { filterTag: "magyar" }))).toEqual([
+      "Gulyásleves",
+      "Túrós csusza",
+    ]);
+  });
+
+  it("filters by the favourite flag, not by a tag lookup", () => {
+    expect(names(filterRecipes(all, { filterTag: FAVORITES_FILTER }))).toEqual([
+      "Gulyásleves",
+    ]);
+  });
+
+  it("treats a missing favorite field as not a favourite", () => {
+    // Recipes written before the flag existed have no `favorite` at all.
+    const legacy = [{ name: "Régi", ingredients: [] }];
+    expect(filterRecipes(legacy, { filterTag: FAVORITES_FILTER })).toEqual([]);
+  });
+
+  it("matches the search accent-insensitively", () => {
+    expect(names(filterRecipes(all, { search: "turos" }))).toEqual([
+      "Túrós csusza",
+    ]);
+  });
+
+  it("searches ingredient names too", () => {
+    expect(names(filterRecipes(all, { search: "marha" }))).toEqual([
+      "Gulyásleves",
+    ]);
+  });
+
+  it("applies the chip filter and the search together", () => {
+    // "magyar" matches two recipes; the search narrows it to one.
+    expect(
+      names(filterRecipes(all, { filterTag: "magyar", search: "csusza" })),
+    ).toEqual(["Túrós csusza"]);
+
+    // Favourite AND a search that only the non-favourite matches -> nothing.
+    expect(
+      filterRecipes(all, { filterTag: FAVORITES_FILTER, search: "csusza" }),
+    ).toEqual([]);
+  });
+
+  it("returns an empty list for an unknown tag", () => {
+    expect(filterRecipes(all, { filterTag: "nincs-ilyen" })).toEqual([]);
+  });
+
+  it("tolerates a missing list and recipes without tags", () => {
+    expect(filterRecipes(undefined)).toEqual([]);
+    expect(filterRecipes([{ name: "Címkétlen" }], { filterTag: "magyar" })).toEqual(
+      [],
+    );
+  });
+
+  it("does not mutate the input array", () => {
+    const before = names(all);
+    filterRecipes(all, { filterTag: "magyar" });
+    expect(names(all)).toEqual(before);
   });
 });
 

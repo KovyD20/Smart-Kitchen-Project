@@ -1,21 +1,74 @@
 import { useState } from "react";
 import Icon from "../Icon/Icon";
+import ColorPicker from "../ColorPicker/ColorPicker";
 
 // Collapsible category card — the shared shape behind the shopping list and the
 // fridge in the design (accent stripe on the left, count on the right).
-export function GroupCard({ accent, category, meta, open, onToggle, children }) {
+//
+// The colour dot only appears when the caller passes onColorChange. It has to sit
+// beside the header rather than inside it: the header is itself a <button>, and a
+// button cannot contain another one.
+export function GroupCard({
+  accent,
+  category,
+  meta,
+  open,
+  onToggle,
+  onColorChange,
+  onColorReset,
+  isCustomColor,
+  children,
+}) {
+  const [picking, setPicking] = useState(false);
+
   return (
     <div className="group-card" style={{ "--accent": accent }}>
-      <button
-        type="button"
-        className="group-head"
-        aria-expanded={open}
-        onClick={onToggle}
-      >
-        <span className="group-name">{category}</span>
-        <span className="group-meta">{meta}</span>
-        <Icon name={open ? "chevronUp" : "chevronDown"} size={11} color="#7d7d7d" />
-      </button>
+      <div className="group-head-row">
+        <button
+          type="button"
+          className="group-head"
+          aria-expanded={open}
+          onClick={onToggle}
+        >
+          <span className="group-name">{category}</span>
+          <span className="group-meta">{meta}</span>
+          <Icon
+            name={open ? "chevronUp" : "chevronDown"}
+            size={11}
+            color="#7d7d7d"
+          />
+        </button>
+
+        {onColorChange && (
+          <button
+            type="button"
+            className="group-color"
+            aria-label={`${category} színének módosítása`}
+            aria-expanded={picking}
+            onClick={() => setPicking((prev) => !prev)}
+          >
+            <span className="group-color-dot" />
+          </button>
+        )}
+      </div>
+
+      {picking && (
+        <ColorPicker
+          category={category}
+          value={accent}
+          isCustom={Boolean(isCustomColor)}
+          onSelect={(hex) => {
+            onColorChange(hex);
+            setPicking(false);
+          }}
+          onReset={() => {
+            onColorReset?.();
+            setPicking(false);
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
+
       {open && <div className="group-body">{children}</div>}
     </div>
   );

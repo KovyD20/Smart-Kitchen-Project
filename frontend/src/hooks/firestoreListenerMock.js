@@ -9,6 +9,10 @@ export const listeners = [];
 
 export function resetListeners() {
   listeners.length = 0;
+  firestoreMock.addDoc.mockClear();
+  firestoreMock.updateDoc.mockClear();
+  firestoreMock.deleteDoc.mockClear();
+  firestoreMock.setDoc.mockClear();
 }
 
 // `collection(db, "users", uid, "recipes")` becomes { path: "users/<uid>/recipes" }
@@ -28,8 +32,14 @@ export const firestoreMock = {
   addDoc: vi.fn(),
   updateDoc: vi.fn(),
   deleteDoc: vi.fn(),
+  setDoc: vi.fn(),
+  // The real deleteField() returns an opaque sentinel; a recognisable stand-in
+  // lets a test assert "this key was removed" without depending on internals.
+  deleteField: () => DELETE_FIELD,
   writeBatch: vi.fn(() => ({ update: vi.fn(), commit: vi.fn() })),
 };
+
+export const DELETE_FIELD = { __op: "deleteField" };
 
 function find(path) {
   const entry = [...listeners].reverse().find((l) => l.active && l.path === path);
@@ -47,6 +57,15 @@ function find(path) {
 export function emitSnapshot(path, docs = []) {
   find(path).onNext({
     docs: docs.map(({ id, ...data }) => ({ id, data: () => data })),
+  });
+}
+
+// Document listeners get a different snapshot shape than collection ones: one
+// data() instead of a docs array.
+export function emitDocSnapshot(path, data) {
+  find(path).onNext({
+    exists: () => data !== undefined && data !== null,
+    data: () => data,
   });
 }
 
