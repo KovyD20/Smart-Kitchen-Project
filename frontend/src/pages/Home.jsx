@@ -26,6 +26,7 @@ import {
   recipeMatchesSearch,
   recipeServings,
   scaleIngredients,
+  sortByAvailability,
 } from "../lib/recipes";
 
 // The five destinations of the redesign. Order and accent color are shared by the
@@ -134,6 +135,9 @@ export default function Home({ user }) {
   const [editingRecipe, setEditingRecipe] = useState(null);
   const [showManualForm, setShowManualForm] = useState(false);
   const [filterTag, setFilterTag] = useState("all");
+  // "name" | "availability". Recipes arrive ordered by name from Firestore, so
+  // only "availability" needs sorting here.
+  const [sortMode, setSortMode] = useState("name");
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [servingsFor, setServingsFor] = useState({});
@@ -180,15 +184,17 @@ export default function Home({ user }) {
 
   const steps = selectedRecipe?.steps || [];
 
-  const visibleRecipes = useMemo(
-    () =>
-      recipes.filter(
-        (r) =>
-          (filterTag === "all" || r.tags?.includes(filterTag)) &&
-          recipeMatchesSearch(r, search),
-      ),
-    [recipes, filterTag, search],
-  );
+  const visibleRecipes = useMemo(() => {
+    const filtered = recipes.filter(
+      (r) =>
+        (filterTag === "all" || r.tags?.includes(filterTag)) &&
+        recipeMatchesSearch(r, search),
+    );
+    if (sortMode !== "availability") return filtered;
+    // fridge and resolveCatalogKey belong in the deps: without them the order
+    // would go stale the moment something is added to or removed from the fridge.
+    return sortByAvailability(filtered, fridge, resolveCatalogKey);
+  }, [recipes, filterTag, search, sortMode, fridge, resolveCatalogKey]);
 
   const visibleShoppingGroups = useMemo(
     () => filterGroups(groupedShoppingList, search),
@@ -280,6 +286,10 @@ export default function Home({ user }) {
           search={search}
           isMobile={isMobile}
           searchInputRef={searchInputRef}
+          sortMode={sortMode}
+          fridge={fridge}
+          resolveCatalogKey={resolveCatalogKey}
+          onSortChange={setSortMode}
           onFilterChange={setFilterTag}
           onSearchChange={setSearch}
           onSelectRecipe={openRecipe}

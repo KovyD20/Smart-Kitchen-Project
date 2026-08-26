@@ -11,6 +11,14 @@ function recipeTime(recipe) {
   return asNumber(recipe?.time ?? recipe?.time_minutes);
 }
 
+// "90 perc", or null when the recipe does not say. Exposed on its own so a card
+// can put the ingredient count in a separately styled badge and still append the
+// time in the same line.
+export function recipeTimeLabel(recipe) {
+  const minutes = recipeTime(recipe);
+  return minutes ? `${minutes} perc` : null;
+}
+
 export function recipeServings(recipe) {
   return asNumber(recipe?.servings) || 1;
 }
@@ -57,6 +65,52 @@ export function splitByFridge(ingredients, fridge, keyOf) {
   }
 
   return { have, missing };
+}
+
+// "5/8 hozzávaló megvan" -- the recipe card's badge and the basis for the
+// "Ami megvan" ordering.
+export function recipeAvailability(recipe, fridge, keyOf) {
+  const total = recipe?.ingredients?.length || 0;
+  if (total === 0) return { have: 0, total: 0, ratio: 0 };
+  const { have } = splitByFridge(recipe.ingredients, fridge, keyOf);
+  return { have: have.length, total, ratio: have.length / total };
+}
+
+// Drives the badge colour: everything in the fridge, some of it, or none.
+export function availabilityLevel(availability) {
+  const { have = 0, total = 0 } = availability || {};
+  if (total > 0 && have >= total) return "full";
+  if (have > 0) return "partial";
+  return "empty";
+}
+
+// Orders recipes by how much of them is already in the fridge.
+//
+// The ratio leads, not the raw count: with the raw count a 20-ingredient recipe
+// missing 14 items would outrank a 3-ingredient one that is ready to cook. Ties
+// go to whichever needs fewer extra ingredients, then to Hungarian collation so
+// the order is stable and reads naturally.
+export function sortByAvailability(recipes, fridge, keyOf) {
+  return (recipes || [])
+    // Availability is computed once per recipe rather than inside the comparator,
+    // which would recompute it O(n log n) times.
+    .map((recipe) => ({
+      recipe,
+      availability: recipeAvailability(recipe, fridge, keyOf),
+    }))
+    .sort((a, b) => {
+      if (b.availability.ratio !== a.availability.ratio) {
+        return b.availability.ratio - a.availability.ratio;
+      }
+      const missingA = a.availability.total - a.availability.have;
+      const missingB = b.availability.total - b.availability.have;
+      if (missingA !== missingB) return missingA - missingB;
+      return (a.recipe?.name || "").localeCompare(
+        b.recipe?.name || "",
+        "hu-HU",
+      );
+    })
+    .map((entry) => entry.recipe);
 }
 
 // Header search: matches a recipe on its name, tags or ingredient names.

@@ -276,6 +276,21 @@
   padding-bottom: 2px;
 }
 
+/* The sort toggle is a fixed pair, unlike the tag row it borrows its chips from:
+   it should never scroll or absorb leftover space. */
+.sort-row {
+  flex: none;
+  overflow: visible;
+}
+
+/* The sort pair and the tag filters share the chip styling and the same active
+   colour, so on desktop they sit side by side and read as one group without a
+   divider. On mobile they are already on separate rows. */
+.view-head .sort-row {
+  padding-right: 14px;
+  border-right: 1px solid var(--line);
+}
+
 .chip {
   flex: none;
   padding: 7px 15px;
@@ -345,6 +360,21 @@
 .recipe-card-meta {
   font-size: 14px;
   color: var(--text-dim);
+}
+
+/* How much of the recipe is already in the fridge. Only the count is coloured --
+   the time after it stays neutral. */
+.recipe-card-avail {
+  font-weight: 600;
+}
+.recipe-card-avail.is-full {
+  color: var(--green);
+}
+.recipe-card-avail.is-partial {
+  color: var(--orange);
+}
+.recipe-card-avail.is-empty {
+  color: var(--text-mute);
 }
 
 .tag-pill {

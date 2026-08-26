@@ -1,5 +1,54 @@
 import Icon from "../Icon/Icon";
-import { recipeMeta } from "../../lib/recipes";
+import {
+  availabilityLevel,
+  recipeAvailability,
+  recipeMeta,
+  recipeTimeLabel,
+} from "../../lib/recipes";
+
+const SORT_MODES = [
+  { id: "name", label: "Név szerint" },
+  { id: "availability", label: "Ami megvan" },
+];
+
+// Two-state toggle above the list. Reuses the tag chips' look so it reads as part
+// of the same filter row.
+function SortToggle({ sortMode, onSortChange }) {
+  return (
+    <div className="chip-row sort-row" role="group" aria-label="Rendezés">
+      {SORT_MODES.map((mode) => (
+        <button
+          key={mode.id}
+          type="button"
+          className={`chip${sortMode === mode.id ? " is-active" : ""}`}
+          aria-pressed={sortMode === mode.id}
+          onClick={() => onSortChange(mode.id)}
+        >
+          {mode.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// "5/8 hozzávaló · 90 perc" when the fridge is known, otherwise the plain
+// "8 hozzávaló · 90 perc". The count sits in its own element so it can be
+// coloured by how much of the recipe is actually available.
+function CardMeta({ recipe, availability }) {
+  if (!availability || availability.total === 0) {
+    return <span className="recipe-card-meta">{recipeMeta(recipe)}</span>;
+  }
+
+  const time = recipeTimeLabel(recipe);
+  return (
+    <span className="recipe-card-meta">
+      <span className={`recipe-card-avail is-${availabilityLevel(availability)}`}>
+        {availability.have}/{availability.total} hozzávaló
+      </span>
+      {time && ` · ${time}`}
+    </span>
+  );
+}
 
 // "Receptek" — the recipe browser. Cards with artwork on desktop, compact rows
 // on mobile (the layout switch lives in CSS).
@@ -11,6 +60,10 @@ export default function RecipesView({
   allTags,
   search,
   isMobile,
+  sortMode,
+  fridge,
+  resolveCatalogKey,
+  onSortChange,
   onFilterChange,
   onSearchChange,
   onSelectRecipe,
@@ -19,6 +72,26 @@ export default function RecipesView({
   const chips = ["all", ...allTags];
 
   const chipLabel = (tag) => (tag === "all" ? "Mind" : tag);
+
+  // Only meaningful once the fridge is known; without it the cards fall back to
+  // the plain ingredient count.
+  const availabilityFor = (recipe) =>
+    resolveCatalogKey ? recipeAvailability(recipe, fridge, resolveCatalogKey) : null;
+
+  const tagChips = (
+    <div className="chip-row">
+      {chips.map((tag) => (
+        <button
+          key={tag}
+          type="button"
+          className={`chip${filterTag === tag ? " is-active" : ""}`}
+          onClick={() => onFilterChange(tag)}
+        >
+          {chipLabel(tag)}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="view">
@@ -33,36 +106,16 @@ export default function RecipesView({
               onChange={(e) => onSearchChange(e.target.value)}
             />
           </div>
-          <div className="chip-row">
-            {chips.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className={`chip${filterTag === tag ? " is-active" : ""}`}
-                onClick={() => onFilterChange(tag)}
-              >
-                {chipLabel(tag)}
-              </button>
-            ))}
-          </div>
+          {tagChips}
+          <SortToggle sortMode={sortMode} onSortChange={onSortChange} />
         </>
       ) : (
         <div className="view-head">
           <span className="view-title">Receptek</span>
           <span className="view-count">{totalCount} db</span>
           <div className="view-spacer" />
-          <div className="chip-row">
-            {chips.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className={`chip${filterTag === tag ? " is-active" : ""}`}
-                onClick={() => onFilterChange(tag)}
-              >
-                {chipLabel(tag)}
-              </button>
-            ))}
-          </div>
+          <SortToggle sortMode={sortMode} onSortChange={onSortChange} />
+          {tagChips}
         </div>
       )}
 
@@ -89,7 +142,10 @@ export default function RecipesView({
                 </span>
                 <span className="recipe-card-body">
                   <span className="recipe-card-name">{recipe.name}</span>
-                  <span className="recipe-card-meta">{recipeMeta(recipe)}</span>
+                  <CardMeta
+                    recipe={recipe}
+                    availability={availabilityFor(recipe)}
+                  />
                   {/* Desktop stacks the tag under the meta line; the mobile row
                       puts it beside the text, before the chevron. */}
                   {!isMobile && recipe.tags?.[0] && (
