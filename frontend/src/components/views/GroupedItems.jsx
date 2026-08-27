@@ -2,6 +2,27 @@ import { useState } from "react";
 import Icon from "../Icon/Icon";
 import ColorPicker from "../ColorPicker/ColorPicker";
 
+// One control for every card at once, instead of clicking through a dozen headers.
+// A single button rather than a pair: its label names the action it will perform,
+// which is unambiguous even when the cards are in mixed states (anything closed ->
+// expanding is what the user wants next).
+export function CollapseAllToggle({ keys, anyClosed, onOpenAll, onCloseAll }) {
+  if (!keys || keys.length === 0) return null;
+
+  const willExpand = anyClosed(keys);
+
+  return (
+    <button
+      type="button"
+      className="btn-pill btn-outline btn-outline-neutral collapse-all"
+      onClick={() => (willExpand ? onOpenAll() : onCloseAll(keys))}
+    >
+      <Icon name={willExpand ? "chevronDown" : "chevronUp"} size={11} />
+      {willExpand ? "Kategóriák kibontása" : "Kategóriák összecsukása"}
+    </button>
+  );
+}
+
 // Collapsible category card — the shared shape behind the shopping list and the
 // fridge in the design (accent stripe on the left, count on the right).
 //

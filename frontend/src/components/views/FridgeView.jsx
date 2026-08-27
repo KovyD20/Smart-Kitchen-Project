@@ -1,5 +1,10 @@
 import Icon from "../Icon/Icon";
-import { AddItemRow, GroupCard, ItemRow } from "./GroupedItems";
+import {
+  AddItemRow,
+  CollapseAllToggle,
+  GroupCard,
+  ItemRow,
+} from "./GroupedItems";
 import { useCollapsedGroups } from "../../hooks/useCollapsedGroups";
 
 const ACCENT = "var(--blue)";
@@ -20,8 +25,18 @@ export default function FridgeView({
   onAddItem,
   onGoToNew,
 }) {
-  const { isOpen, toggle } = useCollapsedGroups();
+  const { isOpen, toggle, openAll, closeAll, anyClosed } = useCollapsedGroups();
   const summary = `${itemCount} tétel a hűtőben`;
+  const collapsibleKeys = groups.map((group) => group.category);
+
+  const collapseToggle = (
+    <CollapseAllToggle
+      keys={collapsibleKeys}
+      anyClosed={anyClosed}
+      onOpenAll={openAll}
+      onCloseAll={closeAll}
+    />
+  );
 
   return (
     <div className="view" style={{ "--accent": ACCENT }}>
@@ -43,6 +58,7 @@ export default function FridgeView({
           <span className="view-title">Hűtő</span>
           <span className="view-pill">{summary}</span>
           <div className="view-spacer" />
+          {collapseToggle}
           <AddItemRow units={units} onAdd={onAddItem} />
           <button
             type="button"
@@ -53,6 +69,10 @@ export default function FridgeView({
             Ötletek a hűtőből
           </button>
         </div>
+      )}
+
+      {isMobile && groups.length > 0 && (
+        <div className="list-tools">{collapseToggle}</div>
       )}
 
       <div className="view-scroll">

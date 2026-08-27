@@ -675,6 +675,20 @@
   display: flex;
   align-items: stretch;
 }
+
+/* Row for list-wide actions above the cards (mobile, where the view-head does not
+   render). */
+.list-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.collapse-all {
+  flex: none;
+  padding: 9px 14px;
+}
 .group-head-row .group-head {
   flex: 1;
   min-width: 0;
@@ -687,11 +701,12 @@
   justify-content: center;
   width: 38px;
   border: 0;
-  background: transparent;
+  /* Same tint as .group-head, so the two form one continuous band. */
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   cursor: pointer;
 }
 .group-color:hover {
-  background: #2f2f2f;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 .group-color-dot {
   width: 14px;
@@ -711,13 +726,18 @@
   padding: 6px 16px;
   border: 0;
   border-left: 4px solid var(--accent);
-  background: transparent;
+  /* A 4px stripe is easy to miss across a grid of cards, so the whole header is
+     tinted with the category colour. Kept at a low mix so it reads as a surface
+     rather than a saturated block -- the same treatment as .view-banner. */
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   font-family: inherit;
   cursor: pointer;
   text-align: left;
 }
 .group-head:hover {
-  background: #2f2f2f;
+  /* Strengthen the tint instead of replacing it with grey, which would hide the
+     category colour exactly while the user is pointing at it. */
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 .group-name {
@@ -728,7 +748,9 @@
   letter-spacing: 1.3px;
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
+  /* Mostly white, tinted toward the category colour: carries the colour without
+     dropping below the contrast the header text needs. */
+  color: color-mix(in srgb, var(--accent) 35%, #fff);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
