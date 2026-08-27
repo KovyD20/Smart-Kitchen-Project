@@ -105,6 +105,9 @@ export default function FridgeView({
                 <ItemRow
                   key={item.id}
                   name={item.displayName || item.name}
+                  nameKey={item.nameKey}
+                  imageUrl={item.imageUrl}
+                  showThumb={!isMobile}
                   qtyLabel={`${item.amount} ${item.unit}`}
                   onIncrement={() => onUpdateItem(item, 1)}
                   onDecrement={() => onUpdateItem(item, -1)}

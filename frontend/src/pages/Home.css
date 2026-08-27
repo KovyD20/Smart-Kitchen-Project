@@ -795,6 +795,18 @@
   color: #1b1b1b;
 }
 
+/* Product thumbnail, 24px to match .item-check so the two line up. Sized in CSS
+   rather than via width/height attributes because the asset is 2x (48px) for
+   retina; a failed load unmounts the element, so there is no broken-image box. */
+.item-thumb {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--pill);
+}
+
 .item-name {
   flex: 1;
   min-width: 0;

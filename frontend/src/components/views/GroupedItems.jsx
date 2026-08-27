@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "../Icon/Icon";
 import ColorPicker from "../ColorPicker/ColorPicker";
+import { pantryImageUrl } from "../../lib/pantryImages";
 
 // One control for every card at once, instead of clicking through a dozen headers.
 // A single button rather than a pair: its label names the action it will perform,
@@ -95,9 +96,18 @@ export function GroupCard({
   );
 }
 
-// One inventory line: optional bought-checkbox, name, −/qty/+ stepper, delete.
+// One inventory line: optional bought-checkbox, thumbnail, name, −/qty/+ stepper,
+// delete.
+//
+// The thumbnail is opportunistic: `pantryImageUrl` builds a conventional path
+// without knowing whether the file exists, and a load failure drops the <img>
+// entirely rather than leaving an empty slot — so a partially filled asset set
+// costs nothing in rows it does not cover.
 export function ItemRow({
   name,
+  nameKey,
+  imageUrl,
+  showThumb = true,
   qtyLabel,
   done,
   onToggleDone,
@@ -106,6 +116,9 @@ export function ItemRow({
   onDelete,
   disableDecrement,
 }) {
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const thumbSrc = showThumb ? pantryImageUrl({ nameKey, imageUrl }) : null;
+
   return (
     <div className="item-row">
       {onToggleDone && (
@@ -118,6 +131,18 @@ export function ItemRow({
         >
           <Icon name="check" size={11} />
         </button>
+      )}
+
+      {thumbSrc && !thumbFailed && (
+        <img
+          className="item-thumb"
+          src={thumbSrc}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+          onError={() => setThumbFailed(true)}
+        />
       )}
 
       <span className={`item-name${done ? " is-done" : ""}`}>{name}</span>

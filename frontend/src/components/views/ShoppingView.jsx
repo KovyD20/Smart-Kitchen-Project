@@ -233,6 +233,9 @@ export default function ShoppingView({
                   <ItemRow
                     key={item.id}
                     name={item.displayName || item.name}
+                  nameKey={item.nameKey}
+                  imageUrl={item.imageUrl}
+                  showThumb={!isMobile}
                     qtyLabel={`${item.amount} ${item.unit}`}
                     done={item.done}
                     onToggleDone={() => onToggleDone(item)}

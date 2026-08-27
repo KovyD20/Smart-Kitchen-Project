@@ -25,6 +25,12 @@ CREATE TABLE IF NOT EXISTS pantry_items (
                  CHECK (priority IN ('essential', 'good_to_have', 'extra'))
 );
 
+-- Optional per-item thumbnail override. While NULL the frontend falls back to
+-- its conventional `public/pantry/{normalized_key}.webp` path, so the static
+-- asset set works with no data here; setting a URL is the migration path to a
+-- CDN or to user-uploaded images without a frontend change.
+ALTER TABLE pantry_items ADD COLUMN IF NOT EXISTS image_url TEXT;
+
 CREATE TABLE IF NOT EXISTS pantry_aliases (
   id             SERIAL PRIMARY KEY,
   item_id        INT  NOT NULL REFERENCES pantry_items(id) ON DELETE CASCADE,

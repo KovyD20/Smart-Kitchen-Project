@@ -36,6 +36,7 @@ export function createCatalog(catalogData) {
           name: item.canonicalName,
           category: category.name,
           priority: item.priority || null,
+          imageUrl: item.imageUrl || null,
         };
         catalogByKey.set(entry.key, entry);
         for (const aliasKey of item.aliases || []) {
@@ -87,6 +88,7 @@ export function createCatalog(catalogData) {
         nameKey: resolveCatalogKey(displayName),
         category,
         priority: meta?.priority || null,
+        imageUrl: meta?.imageUrl || null,
       };
 
       const list = grouped.get(category) || [];
