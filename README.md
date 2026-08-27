@@ -140,6 +140,26 @@ need a PostgreSQL instance and a Firebase project.
     }
     ```
 
+  - **Storage** → enable it (recipe images live here), and restrict it the same way.
+    The size cap is the second line of defence: the client already re-encodes every
+    picked image to WebP at 1200px, which puts a phone photo well under 2 MB.
+
+    ```
+    rules_version = '2';
+    service firebase.storage {
+      match /b/{bucket}/o {
+        match /recipes/{uid}/{allPaths=**} {
+          allow read: if request.auth != null && request.auth.uid == uid;
+          allow write: if request.auth != null
+                       && request.auth.uid == uid
+                       && request.resource.size < 2 * 1024 * 1024
+                       && request.resource.contentType.matches('image/.*');
+          allow delete: if request.auth != null && request.auth.uid == uid;
+        }
+      }
+    }
+    ```
+
   - **Project Settings → Service accounts → Generate new private key** — the backend
     needs this to verify ID tokens
 
@@ -175,7 +195,9 @@ cp frontend/.env.local.example frontend/.env.local
 ```
 
 Fill in the `VITE_FIREBASE_*` values from Firebase Console → Project Settings → Your
-apps. Leave `VITE_API_BASE_URL` **empty** for local development — Vite's dev proxy
+apps. `VITE_FIREBASE_STORAGE_BUCKET` has to be present for recipe-image upload to
+work; without it the app runs but every upload fails. Leave `VITE_API_BASE_URL`
+**empty** for local development — Vite's dev proxy
 forwards `/api` to `localhost:3000`.
 
 **4. Create and seed the pantry catalog**

@@ -9,8 +9,10 @@ import {
   query,
   orderBy,
   writeBatch,
+  deleteField,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { deleteRecipeImage, uploadRecipeImage } from "../lib/imageUpload";
 
 // Owns the user's recipes: real-time listener, derived tag set, and CRUD.
 // UI concerns (confirm/toast) stay in the caller.
@@ -56,14 +58,69 @@ export function useRecipes(uid) {
   const addTag = (tag) =>
     setAllTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]));
 
-  const createRecipe = (data) =>
-    addDoc(collection(db, "users", uid, "recipes"), data);
+  const imageUrlOf = (id) => recipes.find((r) => r.id === id)?.imageUrl || null;
 
-  const updateRecipe = (id, data) =>
-    updateDoc(doc(db, "users", uid, "recipes", id), data);
+  // Marks an error as "the document went through, only the image did not", so
+  // the caller can say so instead of reporting a failed save that succeeded.
+  const asImageStageError = (err) => {
+    if (err && typeof err === "object") err.stage = "image";
+    return err;
+  };
 
-  const deleteRecipe = (id) =>
-    deleteDoc(doc(db, "users", uid, "recipes", id));
+  // A new recipe has no id until it exists, and the Storage path needs one. So
+  // the document is written first and patched with the URL afterwards: an upload
+  // that fails leaves a recipe without an image, which the user can retry --
+  // whereas uploading first would leave an orphaned file behind on any failure.
+  const createRecipe = async (data, { imageFile } = {}) => {
+    const created = await addDoc(collection(db, "users", uid, "recipes"), data);
+    if (!imageFile) return created;
+
+    try {
+      const imageUrl = await uploadRecipeImage({
+        uid,
+        recipeId: created.id,
+        file: imageFile,
+      });
+      await updateDoc(doc(db, "users", uid, "recipes", created.id), { imageUrl });
+    } catch (err) {
+      throw asImageStageError(err);
+    }
+    return created;
+  };
+
+  // Replacement order matters: the new file is uploaded and the document points
+  // at it before the old object is removed. The other way round, a failed upload
+  // would leave the recipe pointing at a file that no longer exists.
+  const updateRecipe = async (id, data, { imageFile, removeImage } = {}) => {
+    const previousUrl = imageUrlOf(id);
+    let patch = data;
+
+    if (imageFile) {
+      try {
+        patch = {
+          ...data,
+          imageUrl: await uploadRecipeImage({ uid, recipeId: id, file: imageFile }),
+        };
+      } catch (err) {
+        throw asImageStageError(err);
+      }
+    } else if (removeImage) {
+      // Removing the key rather than storing null keeps "no image" as one state.
+      patch = { ...data, imageUrl: deleteField() };
+    }
+
+    await updateDoc(doc(db, "users", uid, "recipes", id), patch);
+
+    if (imageFile || removeImage) await deleteRecipeImage(previousUrl);
+  };
+
+  // The Storage object outlives the document unless it is removed too, and
+  // nothing else would ever reach it again.
+  const deleteRecipe = async (id) => {
+    const url = imageUrlOf(id);
+    await deleteDoc(doc(db, "users", uid, "recipes", id));
+    await deleteRecipeImage(url);
+  };
 
   // Absent means "not a favourite", so no migration is needed for older recipes.
   const toggleFavorite = (recipe) =>

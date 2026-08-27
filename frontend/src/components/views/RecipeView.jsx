@@ -210,7 +210,16 @@ export default function RecipeView({
     <div className="view">
       <div className="recipe-head">
         <span className="recipe-head-art">
-          <Icon name="bowl" size={20} />
+          {recipe.imageUrl ? (
+            <img
+              className="recipe-head-img"
+              src={recipe.imageUrl}
+              alt=""
+              aria-hidden="true"
+            />
+          ) : (
+            <Icon name="bowl" size={20} />
+          )}
         </span>
         <div className="recipe-head-text">
           <div className="recipe-head-name">{recipe.name}</div>

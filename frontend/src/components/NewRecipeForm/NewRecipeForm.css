@@ -150,6 +150,72 @@
   height: 46px;
 }
 
+/* Image picker: preview on the left, hint + actions on the right. Dashed to
+   match .rform-add, since it is the same "add something optional" affordance. */
+.rform-image {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px dashed var(--line-dashed);
+  background: #1f1f1f;
+}
+.rform-image.is-dragging {
+  border-color: var(--accent, #b8b8b8);
+  background: #262626;
+}
+
+.rform-image-preview,
+.rform-image-empty {
+  width: 92px;
+  height: 92px;
+  flex: none;
+  border-radius: 12px;
+  object-fit: cover;
+  background: linear-gradient(150deg, #7d0d16, #3a0709);
+}
+.rform-image-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.rform-image-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.rform-image-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #8a8a8a;
+}
+.rform-image-clear {
+  border-style: solid;
+  border-color: #4a2a2a;
+  background: #2a2020;
+  color: #d98b8b;
+}
+.rform-image-clear:hover {
+  background: #352424;
+  color: #f0a8a8;
+}
+
+/* The <input type=file> is driven by the buttons; it must stay in the DOM and
+   focusable-by-click rather than display:none. */
+.rform-image-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 @media (max-width: 767px) {
   .rform {
     gap: 16px;
@@ -205,5 +271,15 @@
 
   .rform-submit {
     align-self: stretch;
+  }
+
+  .rform-image {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .rform-image-preview,
+  .rform-image-empty {
+    width: 100%;
+    height: 150px;
   }
 }

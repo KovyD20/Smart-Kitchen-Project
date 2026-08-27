@@ -153,7 +153,17 @@ export default function RecipesView({
                 onClick={() => onSelectRecipe(recipe)}
               >
                 <span className="recipe-card-art">
-                  <Icon name="bowl" size={isMobile ? 17 : 32} />
+                  {recipe.imageUrl ? (
+                    <img
+                      className="recipe-card-img"
+                      src={recipe.imageUrl}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <Icon name="bowl" size={isMobile ? 17 : 32} />
+                  )}
                 </span>
                 {recipe.favorite && (
                   <span className="recipe-card-fav" title="Kedvenc">

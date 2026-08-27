@@ -1,13 +1,112 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./NewRecipeForm.css";
 import Icon from "../Icon/Icon";
 import { SYSTEM_UNITS } from "../../constants/units";
+import {
+  ACCEPTED_TYPES,
+  IMAGE_ERROR,
+  validateImageFile,
+} from "../../lib/imageUpload";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";
 
 const UNITS = SYSTEM_UNITS;
 
 const emptyIngredient = () => ({ name: "", amount: "", unit: "g" });
+
+// The validator returns a code so the wording stays here, next to the UI that
+// shows it. An unlisted code should be impossible, hence the generic fallback.
+const IMAGE_ERROR_TEXT = {
+  [IMAGE_ERROR.TYPE]: "Csak képfájlt lehet feltölteni",
+  [IMAGE_ERROR.SIZE]: "A kép túl nagy (max. 15 MB)",
+  [IMAGE_ERROR.DECODE]: "Ezt a képformátumot a böngésző nem tudja megnyitni",
+  [IMAGE_ERROR.TOO_BIG_ENCODED]: "A képet nem sikerült elég kicsire tömöríteni",
+};
+
+const imageErrorText = (code) =>
+  IMAGE_ERROR_TEXT[code] || "A képet nem sikerült betölteni";
+
+// Drag & drop plus a file picker over one hidden input, with a preview of
+// whichever image currently applies: a freshly picked file, or the one already
+// on the recipe until it is explicitly cleared.
+function ImagePicker({ previewUrl, hasImage, disabled, onPick, onClear }) {
+  const inputRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+
+  const handleFiles = (files) => {
+    const file = files?.[0];
+    if (file) onPick(file);
+  };
+
+  return (
+    <section className="rform-section">
+      <span className="rform-label">Kép (opcionális)</span>
+
+      <div
+        className={`rform-image${dragging ? " is-dragging" : ""}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          handleFiles(e.dataTransfer?.files);
+        }}
+      >
+        {previewUrl ? (
+          <img className="rform-image-preview" src={previewUrl} alt="A recept képe" />
+        ) : (
+          <span className="rform-image-empty">
+            <Icon name="bowl" size={22} />
+          </span>
+        )}
+
+        <div className="rform-image-actions">
+          <p className="rform-image-hint">
+            Húzd ide a képet, vagy válaszd ki. A feltöltés előtt automatikusan
+            kisebbre méretezzük.
+          </p>
+          <div className="rform-row">
+            <button
+              type="button"
+              className="rform-add"
+              disabled={disabled}
+              onClick={() => inputRef.current?.click()}
+            >
+              <Icon name="plus" size={11} />
+              {hasImage ? "Kép cseréje" : "Kép választása"}
+            </button>
+            {hasImage && (
+              <button
+                type="button"
+                className="rform-add rform-image-clear"
+                disabled={disabled}
+                onClick={onClear}
+              >
+                <Icon name="trash" size={11} />
+                Kép törlése
+              </button>
+            )}
+          </div>
+        </div>
+
+        <input
+          ref={inputRef}
+          className="rform-image-input"
+          type="file"
+          accept={ACCEPTED_TYPES.join(",")}
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            // Let the same file be picked again after a clear.
+            e.target.value = "";
+          }}
+        />
+      </div>
+    </section>
+  );
+}
 
 export default function NewRecipeForm({
   onCreate,
@@ -28,6 +127,30 @@ export default function NewRecipeForm({
   const [servings, setServings] = useState(recipe?.servings ?? "");
   const [time, setTime] = useState(recipe?.time ?? recipe?.time_minutes ?? "");
   const [saving, setSaving] = useState(false);
+
+  // Three-way image state: a newly picked File wins, otherwise the recipe's
+  // existing URL applies unless it was explicitly cleared.
+  const [imageFile, setImageFile] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
+
+  // Derived rather than held in state, so picking a file does not cost a second
+  // render pass. An object URL is a live handle, not a string, so the effect
+  // exists purely to release it -- otherwise the blob stays in memory for as
+  // long as the page lives.
+  const localPreview = useMemo(
+    () => (imageFile ? URL.createObjectURL(imageFile) : null),
+    [imageFile],
+  );
+
+  useEffect(
+    () => () => {
+      if (localPreview) URL.revokeObjectURL(localPreview);
+    },
+    [localPreview],
+  );
+
+  const existingImage = removeImage ? null : recipe?.imageUrl || null;
+  const previewUrl = localPreview || existingImage;
 
   const { showToast } = useToast();
   const confirm = useConfirm();
@@ -73,11 +196,11 @@ export default function NewRecipeForm({
     setSaving(true);
     try {
       if (editMode) {
-        await onSave({ ...data, id: recipe.id });
+        await onSave({ ...data, id: recipe.id }, { imageFile, removeImage });
         return;
       }
 
-      await onCreate?.(data);
+      await onCreate?.(data, { imageFile });
 
       setName("");
       setIngredients([emptyIngredient()]);
@@ -86,6 +209,8 @@ export default function NewRecipeForm({
       setNewTag("");
       setServings("");
       setTime("");
+      setImageFile(null);
+      setRemoveImage(false);
     } finally {
       setSaving(false);
     }
@@ -110,6 +235,27 @@ export default function NewRecipeForm({
           onChange={(e) => setName(e.target.value)}
         />
       </label>
+
+      <ImagePicker
+        previewUrl={previewUrl}
+        hasImage={Boolean(previewUrl)}
+        disabled={saving}
+        onPick={(file) => {
+          const invalid = validateImageFile(file);
+          if (invalid) {
+            showToast(imageErrorText(invalid), "error");
+            return;
+          }
+          setImageFile(file);
+          setRemoveImage(false);
+        }}
+        onClear={() => {
+          setImageFile(null);
+          // Only an image already stored on the recipe needs deleting; dropping a
+          // not-yet-uploaded pick is just local state.
+          setRemoveImage(Boolean(recipe?.imageUrl));
+        }}
+      />
 
       <section className="rform-section">
         <div className="rform-section-head">
@@ -300,7 +446,13 @@ export default function NewRecipeForm({
         onClick={submit}
       >
         <Icon name="save" size={13} />
-        {saving ? "Mentés…" : editMode ? "Módosítások mentése" : "Recept mentése"}
+        {saving
+          ? imageFile
+            ? "Kép feltöltése…"
+            : "Mentés…"
+          : editMode
+            ? "Módosítások mentése"
+            : "Recept mentése"}
       </button>
     </div>
   );

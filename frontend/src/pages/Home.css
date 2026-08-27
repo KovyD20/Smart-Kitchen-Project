@@ -349,10 +349,21 @@
 .recipe-card-art {
   height: 130px;
   background: linear-gradient(150deg, #7d0d16, #3a0709);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   color: rgba(255, 255, 255, 0.4);
+}
+
+/* Uploaded artwork fills the slot the gradient+icon used to occupy, so the card
+   and header geometry is unchanged whether a recipe has an image or not. */
+.recipe-card-img,
+.recipe-head-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 /* Corner marker on a favourite card. Sits over the artwork, so it needs its own
@@ -434,6 +445,7 @@
   flex: none;
   border-radius: 12px;
   background: linear-gradient(150deg, #7d0d16, #3a0709);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
