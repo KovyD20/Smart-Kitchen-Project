@@ -96,8 +96,8 @@ export function GroupCard({
   );
 }
 
-// One inventory line: optional bought-checkbox, thumbnail, name, −/qty/+ stepper,
-// delete.
+// One inventory line: optional bought-checkbox, thumbnail, name (with an
+// optional secondary note under it), −/qty/+ stepper, delete.
 //
 // The thumbnail is opportunistic: `pantryImageUrl` builds a conventional path
 // without knowing whether the file exists, and a load failure drops the <img>
@@ -109,6 +109,7 @@ export function ItemRow({
   imageUrl,
   showThumb = true,
   qtyLabel,
+  note,
   done,
   onToggleDone,
   onIncrement,
@@ -145,7 +146,10 @@ export function ItemRow({
         />
       )}
 
-      <span className={`item-name${done ? " is-done" : ""}`}>{name}</span>
+      <div className="item-label">
+        <span className={`item-name${done ? " is-done" : ""}`}>{name}</span>
+        {note && <span className="item-note">{note}</span>}
+      </div>
 
       <div className="item-stepper">
         <button

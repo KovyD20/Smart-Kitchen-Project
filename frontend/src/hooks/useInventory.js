@@ -10,7 +10,11 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useCatalog } from "../context/CatalogContext";
-import { normalizeUnit, stripAmountsAndUnits } from "../lib/units";
+import {
+  normalizeUnit,
+  stripAmountsAndUnits,
+  toPurchaseAmount,
+} from "../lib/units";
 import { upsertInventoryItem } from "../lib/inventory";
 
 // Owns the user's shopping list + fridge: real-time listeners, catalog-grouped
@@ -19,6 +23,7 @@ import { upsertInventoryItem } from "../lib/inventory";
 // concerns (confirm/toast) stay in the caller.
 export function useInventory(uid) {
   const {
+    getCatalogItemByName,
     getMissingCatalogRecommendations,
     groupItemsByCatalog,
     resolveCanonicalCatalogName,
@@ -99,6 +104,9 @@ export function useInventory(uid) {
     [fridge, shoppingList, getMissingCatalogRecommendations],
   );
 
+  // Recipes measure in cooking units ("2 tk cukor"); shops sell packages
+  // ("1 kg cukor"). Only this path rounds: manual entry and the fridge keep
+  // whatever amount the user typed, because there the amount *is* the intent.
   const addToShoppingList = async (ingredients) => {
     for (const ing of ingredients) {
       const rawName = (ing?.name || "").toString().trim();
@@ -106,15 +114,20 @@ export function useInventory(uid) {
       const amount = Number(ing?.amount || 0);
       if (!amount || amount <= 0) continue;
 
+      const unit = normalizeUnit(ing?.unit);
+      const purchase = getCatalogItemByName(rawName)?.purchase;
+      const buy = toPurchaseAmount(amount, unit, purchase);
+
       await upsertInventoryItem({
         db,
         uid,
         collectionName: "shoppingList",
         list: shoppingList,
         canonicalName: canonicalizeName(rawName),
-        unit: normalizeUnit(ing?.unit),
-        mergeAmount: amount,
+        unit: buy.unit,
+        mergeAmount: buy.amount,
         nameKeyOf: normalizeName,
+        purchaseSource: buy.rounded ? { amount, unit } : null,
       });
     }
   };

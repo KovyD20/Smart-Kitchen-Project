@@ -39,3 +39,11 @@ CREATE TABLE IF NOT EXISTS pantry_aliases (
 
 CREATE INDEX IF NOT EXISTS idx_pantry_items_category ON pantry_items(category_id);
 CREATE INDEX IF NOT EXISTS idx_pantry_aliases_item   ON pantry_aliases(item_id);
+
+-- Smallest purchasable package of an item ("purchase_amount x purchase_unit"):
+-- flour is sold by the kilo, eggs by the ten. The shopping list rounds recipe
+-- quantities up to whole packages with it. Both columns are nullable and are
+-- only meaningful together — where they are NULL the recipe quantity is used
+-- unchanged, which is what makes filling this data in gradually safe.
+ALTER TABLE pantry_items ADD COLUMN IF NOT EXISTS purchase_unit   TEXT;
+ALTER TABLE pantry_items ADD COLUMN IF NOT EXISTS purchase_amount NUMERIC;

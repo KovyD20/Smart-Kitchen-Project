@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook } from "@testing-library/react";
 
 import {
+  DELETE_FIELD,
   emitError,
   emitSnapshot,
   firestoreMock,
@@ -14,7 +15,11 @@ vi.mock("firebase/firestore", () => firestoreMock);
 
 // Stable identities: a fresh object per render would invalidate the hook's
 // useMemos on every render and obscure what the test is actually asserting.
+// Package sizes per raw ingredient name; filled in by the tests that need one.
+const purchaseByName = new Map();
 const catalog = {
+  getCatalogItemByName: (name) =>
+    purchaseByName.has(name) ? { purchase: purchaseByName.get(name) } : null,
   getMissingCatalogRecommendations: () => [],
   groupItemsByCatalog: (items) => [{ key: "all", items }],
   resolveCanonicalCatalogName: (value) => value,
@@ -96,5 +101,99 @@ describe("useInventory loading flag", () => {
   it("is not loading without a uid, so the banner cannot stick open", () => {
     const { result } = renderHook(() => useInventory(null));
     expect(result.current.inventoryLoading).toBe(false);
+  });
+});
+
+describe("useInventory shop-package rounding", () => {
+  beforeEach(() => {
+    purchaseByName.clear();
+    firestoreMock.addDoc.mockResolvedValue({ id: "new" });
+  });
+
+  // Both listeners have to deliver before a mutation can see the current list.
+  function mountLoaded(shop = [], fridge = []) {
+    const hook = renderHook(() => useInventory("u1"));
+    act(() => emitSnapshot(shopPath("u1"), shop));
+    act(() => emitSnapshot(fridgePath("u1"), fridge));
+    return hook;
+  }
+
+  it("rounds a recipe ingredient up to a whole package, keeping the original", async () => {
+    purchaseByName.set("liszt", { unit: "kg", amount: 1 });
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addToShoppingList([
+        { name: "liszt", amount: 500, unit: "g" },
+      ]);
+    });
+
+    expect(firestoreMock.addDoc).toHaveBeenCalledWith(
+      { path: shopPath("u1") },
+      {
+        name: "liszt",
+        amount: 1,
+        unit: "kg",
+        sourceAmount: 500,
+        sourceUnit: "g",
+      },
+    );
+  });
+
+  it("leaves an ingredient with no package data untouched", async () => {
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addToShoppingList([
+        { name: "kapor", amount: 2, unit: "csokor" },
+      ]);
+    });
+
+    expect(firestoreMock.addDoc).toHaveBeenCalledWith(
+      { path: shopPath("u1") },
+      { name: "kapor", amount: 2, unit: "csokor" },
+    );
+  });
+
+  it("does not round a manually added item — there the amount is the intent", async () => {
+    purchaseByName.set("liszt", { unit: "kg", amount: 1 });
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addSingleShoppingItem({
+        name: "liszt",
+        amount: 500,
+        unit: "g",
+      });
+    });
+
+    expect(firestoreMock.addDoc).toHaveBeenCalledWith(
+      { path: shopPath("u1") },
+      { name: "liszt", amount: 500, unit: "g" },
+    );
+  });
+
+  it("drops the origin note when the rounded amount merges into an existing item", async () => {
+    purchaseByName.set("liszt", { unit: "kg", amount: 1 });
+    const { result } = mountLoaded([
+      { id: "s1", name: "liszt", amount: 1, unit: "kg", sourceAmount: 2, sourceUnit: "tk" },
+    ]);
+
+    await act(async () => {
+      await result.current.addToShoppingList([
+        { name: "liszt", amount: 500, unit: "g" },
+      ]);
+    });
+
+    expect(firestoreMock.addDoc).not.toHaveBeenCalled();
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${shopPath("u1")}/s1` },
+      {
+        amount: 2,
+        name: "liszt",
+        sourceAmount: DELETE_FIELD,
+        sourceUnit: DELETE_FIELD,
+      },
+    );
   });
 });

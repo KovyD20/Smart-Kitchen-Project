@@ -237,6 +237,11 @@ export default function ShoppingView({
                   imageUrl={item.imageUrl}
                   showThumb={!isMobile}
                     qtyLabel={`${item.amount} ${item.unit}`}
+                    note={
+                      item.sourceAmount
+                        ? `recept: ${item.sourceAmount} ${item.sourceUnit || ""}`.trim()
+                        : null
+                    }
                     done={item.done}
                     onToggleDone={() => onToggleDone(item)}
                     onIncrement={() => onUpdateItem(item, 1)}

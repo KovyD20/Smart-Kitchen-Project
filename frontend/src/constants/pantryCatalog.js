@@ -15,6 +15,16 @@ export function normalizeCatalogText(value) {
 }
 
 
+// The API omits `purchase` for items with no package data; guard the shape here
+// so every catalog entry exposes either a usable { unit, amount } or null.
+function normalizePurchase(purchase) {
+  const unit = (purchase?.unit || "").toString().trim();
+  const amount = Number(purchase?.amount);
+  if (!unit || !Number.isFinite(amount) || amount <= 0) return null;
+  return { unit, amount };
+}
+
+
 export function createCatalog(catalogData) {
   const categories = Array.isArray(catalogData?.categories)
     ? catalogData.categories
@@ -37,6 +47,9 @@ export function createCatalog(catalogData) {
           category: category.name,
           priority: item.priority || null,
           imageUrl: item.imageUrl || null,
+          // Smallest purchasable package ({ unit, amount }), or null where the
+          // catalog has no data for it — see toPurchaseAmount in lib/units.
+          purchase: normalizePurchase(item.purchase),
         };
         catalogByKey.set(entry.key, entry);
         for (const aliasKey of item.aliases || []) {
@@ -89,6 +102,7 @@ export function createCatalog(catalogData) {
         category,
         priority: meta?.priority || null,
         imageUrl: meta?.imageUrl || null,
+        purchase: meta?.purchase || null,
       };
 
       const list = grouped.get(category) || [];

@@ -45,6 +45,16 @@ function collectAliases(name) {
   return Array.from(aliases);
 }
 
+// Package size ("1 kg", "10 db") for the shopping list's rounding. Both fields
+// are optional and only usable together, so a half-filled row is dropped rather
+// than stored as a unit with no amount.
+function readPurchase(row) {
+  const unit = (row.purchaseUnit || "").toString().trim();
+  const amount = Number(row.purchaseAmount);
+  if (!unit || !Number.isFinite(amount) || amount <= 0) return null;
+  return { unit, amount };
+}
+
 // Build the in-memory catalog (categories in first-seen order, canonical items
 // with priority tie-breaking, aliases) exactly as the frontend used to.
 function buildCatalog() {
@@ -67,9 +77,16 @@ function buildCatalog() {
     if (!key) continue;
 
     const priority = row.priority || "extra";
+    const purchase = readPurchase(row);
     const existing = catalogByKey.get(key);
     if (!existing) {
-      catalogByKey.set(key, { key, name: row.name, category, priority });
+      catalogByKey.set(key, {
+        key,
+        name: row.name,
+        category,
+        priority,
+        purchase,
+      });
       continue;
     }
 
@@ -77,6 +94,10 @@ function buildCatalog() {
     const existingRank = PRIORITY_RANK[existing.priority] || 0;
     if (incomingRank > existingRank) {
       existing.priority = priority;
+    }
+    // Duplicate names are merged; the first row that carries package data wins.
+    if (!existing.purchase && purchase) {
+      existing.purchase = purchase;
     }
   }
 
@@ -144,8 +165,15 @@ async function run() {
     for (const entry of catalogByKey.values()) {
       const categoryId = categoryIdByName.get(entry.category);
       const res = await client.query(
-        "INSERT INTO pantry_items (category_id, canonical_name, normalized_key, priority) VALUES ($1, $2, $3, $4) RETURNING id",
-        [categoryId, entry.name, entry.key, entry.priority],
+        "INSERT INTO pantry_items (category_id, canonical_name, normalized_key, priority, purchase_unit, purchase_amount) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+        [
+          categoryId,
+          entry.name,
+          entry.key,
+          entry.priority,
+          entry.purchase?.unit ?? null,
+          entry.purchase?.amount ?? null,
+        ],
       );
       itemIdByKey.set(entry.key, res.rows[0].id);
     }
@@ -165,8 +193,12 @@ async function run() {
     }
 
     await client.query("COMMIT");
+    const withPurchase = Array.from(catalogByKey.values()).filter(
+      (entry) => entry.purchase,
+    ).length;
     console.log(
-      `Seeded pantry catalog: ${categoryOrder.length} categories, ${catalogByKey.size} items, ${aliasCount} aliases.`,
+      `Seeded pantry catalog: ${categoryOrder.length} categories, ${catalogByKey.size} items ` +
+        `(${withPurchase} with package data), ${aliasCount} aliases.`,
     );
   } catch (err) {
     await client.query("ROLLBACK");

@@ -819,9 +819,15 @@
   background: var(--pill);
 }
 
-.item-name {
+/* Name and its optional note stack in the flexible middle column, so both keep
+   their own ellipsis instead of fighting the stepper for width. */
+.item-label {
   flex: 1;
   min-width: 0;
+}
+
+.item-name {
+  display: block;
   font-size: 16px;
   font-weight: 600;
   color: var(--text-body);
@@ -832,6 +838,17 @@
 .item-name.is-done {
   color: #6b6b6b;
   text-decoration: line-through;
+}
+
+/* "recept: 2 tk" under an amount that was rounded up to a shop package. */
+.item-note {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8a8a8a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .item-stepper {

@@ -1,4 +1,10 @@
-import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteField,
+} from "firebase/firestore";
 import { unitInfo, areUnitsCompatible, convertAmount } from "./units";
 
 // Shared "find compatible existing item -> merge amounts (converting units) or
@@ -15,6 +21,10 @@ import { unitInfo, areUnitsCompatible, convertAmount } from "./units";
 //   mergeAmount      - amount added to an existing item (may be negative: decrement)
 //   createAmount     - amount used when creating a new item (defaults to mergeAmount)
 //   nameKeyOf        - fn mapping a name to its comparison key (catalog-aware)
+//   purchaseSource   - what the amount was before rounding to a shop package
+//                      ({ amount, unit }), or null to clear a previous note.
+//                      Leave it out entirely on paths that do not round, so
+//                      they never touch the fields.
 //
 // Returns { status: "merged" | "created" | "skipped", id? }.
 export async function upsertInventoryItem({
@@ -27,6 +37,7 @@ export async function upsertInventoryItem({
   mergeAmount,
   createAmount = mergeAmount,
   nameKeyOf,
+  purchaseSource,
 }) {
   const nameKey = nameKeyOf(canonicalName);
   const incomingUnitInfo = unitInfo(unit);
@@ -47,6 +58,11 @@ export async function upsertInventoryItem({
     await updateDoc(doc(db, "users", uid, collectionName, existing.id), {
       amount: nextAmount,
       name: canonicalName,
+      // After a merge the amount is a sum of several sources, so no single
+      // recipe quantity explains it — drop the note instead of keeping a stale one.
+      ...(purchaseSource === undefined
+        ? {}
+        : { sourceAmount: deleteField(), sourceUnit: deleteField() }),
     });
     return { status: "merged", id: existing.id };
   }
@@ -56,6 +72,9 @@ export async function upsertInventoryItem({
     name: canonicalName,
     amount: createAmount,
     unit,
+    ...(purchaseSource
+      ? { sourceAmount: purchaseSource.amount, sourceUnit: purchaseSource.unit }
+      : {}),
   });
   return { status: "created", id: ref.id };
 }
