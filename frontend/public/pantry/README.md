@@ -4,13 +4,13 @@ Static product images for the shopping-list and fridge rows (`ItemRow`).
 
 ## Naming
 
-`{slug}.webp`, where the slug is the catalog's `normalized_key` with spaces
+`{slug}.avif`, where the slug is the catalog's `normalized_key` with spaces
 replaced by dashes — exactly what `src/lib/pantryImages.js` generates:
 
 | canonical name        | normalized_key        | file                       |
 |-----------------------|-----------------------|----------------------------|
-| `vöröshagyma`         | `voroshagyma`         | `voroshagyma.webp`         |
-| `csirke mellfilé`     | `csirke mellfile`     | `csirke-mellfile.webp`     |
+| `vöröshagyma`         | `voroshagyma`         | `voroshagyma.avif`         |
+| `csirke mellfilé`     | `csirke mellfile`     | `csirke-mellfile.avif`     |
 
 Nothing enumerates this directory: a missing file is handled by the `<img>`
 `onError` handler, which drops the thumbnail for that row. So files can be added
@@ -18,13 +18,24 @@ incrementally without touching any code.
 
 ## Asset requirements
 
-- **Format:** WebP.
-- **Size:** 48×48 px (2× the 24 px display size).
+- **Format:** AVIF, for every file. The extension is a single constant
+  (`PANTRY_IMAGE_EXT` in `src/lib/pantryImages.js`), not a per-file guess, so a
+  stray `.webp` or `.png` is simply never requested. Changing formats means
+  re-encoding the whole directory.
+- **Size:** square, and no resizing needed. The row renders at 24×24 CSS px with
+  `object-fit: cover`, so anything from 48 px up looks identical; ~200-256 px is
+  a good default and costs a few kB per file. A non-square image is centre-
+  cropped to a square, which cuts the edges.
 - **Style:** one consistent look and background across the whole set — a
-  visually inconsistent set looks worse than no images at all.
+  visually inconsistent set looks worse than no images at all. A plain white
+  background reads as a small product tile against the dark UI; transparency
+  also works, and shows `--pill` behind it.
 - **Licence:** freely usable sources only.
-- **Order of work:** the `priority: "essential"` catalog items first (~20–30
-  images), then `good_to_have`, then the rest.
+- **Order of work:** the `priority: "essential"` catalog items first (37 of the
+  220 items), then `good_to_have` (58), then `extra` (125).
+
+Desktop only: the thumbnail is hidden on mobile (`showThumb={!isMobile}` in the
+shopping and fridge views), so there is no need for a 3× variant.
 
 ## Overriding a single item
 

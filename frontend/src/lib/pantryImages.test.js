@@ -22,9 +22,9 @@ describe("pantryImageSlug", () => {
 
 describe("pantryImageUrl", () => {
   it("builds the conventional path from the catalog key", () => {
-    expect(pantryImageUrl({ nameKey: "tej" })).toBe("/pantry/tej.webp");
+    expect(pantryImageUrl({ nameKey: "tej" })).toBe("/pantry/tej.avif");
     expect(pantryImageUrl({ nameKey: "csirke mellfile" })).toBe(
-      "/pantry/csirke-mellfile.webp",
+      "/pantry/csirke-mellfile.avif",
     );
   });
 
