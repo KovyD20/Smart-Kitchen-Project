@@ -109,7 +109,7 @@ Render reads [`render.yaml`](render.yaml) and fills in everything that isn't a s
 | Start command | `npm start` |
 | Plan / region | `free` / `frankfurt` |
 | Health check | `/health` |
-| `NODE_ENV`, `TRUST_PROXY`, `INSTANCE_NAME`, `DB_SSL`, `GEMINI_MODEL`, `DB_PORT` | fixed values |
+| `NODE_ENV`, `TRUST_PROXY`, `INSTANCE_NAME`, `DB_SSL`, `AI_MODEL`, `DB_PORT` | fixed values |
 
 Render then **prompts you once for the nine `sync: false` variables** — that is the only
 data entry in this step, and nothing sensitive is committed. Copy them straight out of
@@ -121,6 +121,10 @@ your `backend/.env`:
 
 Paste `FIREBASE_PRIVATE_KEY` as **one line, keeping the literal `\n` sequences** — the
 backend converts them back to real newlines.
+
+> Upgrading an older deployment: the model variable was renamed `GEMINI_MODEL` -> `AI_MODEL`.
+> Rename it in the Render dashboard too, otherwise the service silently falls back to the
+> default model regardless of what the old variable says. `GEMINI_API_KEY` is unchanged.
 
 > Do **not** set `PORT`. Render injects it, and [`server.js`](backend/server.js) already
 > reads `Number(process.env.PORT || 3000)`.

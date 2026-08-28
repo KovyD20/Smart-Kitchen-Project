@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { authedFetch } from "../../lib/api";
+import { aiErrorMessage } from "../../lib/aiErrors";
 import Icon from "../Icon/Icon";
 import { formatAmount } from "../../lib/recipes";
 import "./AiRecipePanel.css";
@@ -90,7 +91,7 @@ export default function AiRecipePanel({
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error || "AI hiba");
+        setError(aiErrorMessage(res.status, data));
         return;
       }
 
@@ -119,7 +120,7 @@ export default function AiRecipePanel({
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error === "Fridge is empty" ? "A hűtő üres" : data?.error || "AI hiba");
+        setError(aiErrorMessage(res.status, data));
         return;
       }
 
@@ -151,7 +152,7 @@ export default function AiRecipePanel({
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error === "Fridge is empty" ? "A hűtő üres" : data?.error || "AI hiba");
+        setError(aiErrorMessage(res.status, data));
         return;
       }
 

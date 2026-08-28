@@ -40,7 +40,7 @@ services:
       - key: DB_SSL
         value: "true"
 
-      - key: GEMINI_MODEL
+      - key: AI_MODEL
         value: gemini-3.6-flash
 
       - key: DB_PORT

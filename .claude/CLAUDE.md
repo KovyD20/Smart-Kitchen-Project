@@ -8,7 +8,11 @@ Full-stack AI-alapú konyhai asszisztens: hűtő-nyilvántartás, receptkezelés
 - **Backend**: Node.js 22, Express 5, `pg`, `zod`, `helmet`, `express-rate-limit`, `firebase-admin`
 - **Adatbázisok**: PostgreSQL 16 (globális pantry katalógus), Cloud Firestore (per-user adatok: hűtő, receptek, bevásárlólista)
 - **Auth**: Firebase Authentication (email/jelszó + Google)
-- **AI**: Google Gemini (`gemini-3.6-flash`) a `@google/generative-ai` csomagon keresztül
+- **AI**: Google Gemini a `@google/genai` csomagon keresztül. A modell-ID **csak** az `AI_MODEL`
+  env-változóban él (default: `gemini-3.6-flash`), a hívás egyetlen helyen, a
+  `backend/lib/aiClient.js`-ben. A Gemini flash-generációkat kb. félévente kivezetik, és a
+  leállítás azonnali (404) — **évente kétszer ellenőrizd a modell-listát**; a váltás ilyenkor
+  egy env-változó, nem kódmódosítás. Gyors diagnózis: `npm run ai:smoke` a `backend`-ben.
 - **Tesztek**: Vitest mindkét workspace-ben, GitHub Actions CI
 
 ## Architektúra — miért két adatbázis
@@ -23,10 +27,10 @@ Ha valamit hozzáadnál: **per-user, real-time adat → Firestore**; **globális
 backend/
 ├── server.js
 ├── db/            # pool.js, schema.sql
-├── lib/           # normalize.js, aiJson.js, firebaseAdmin.js
+├── lib/           # normalize.js, aiClient.js, aiError.js, aiSchemas.js, firebaseAdmin.js
 ├── middleware/     # auth.js, rateLimit.js, validate.js
 ├── routes/         # ai.js, db.js, pantry.js
-└── scripts/         # migrate.js, seedPantry.js
+└── scripts/         # migrate.js, seedPantry.js, aiSmokeTest.js
 
 frontend/src/
 ├── components/     # AiRecipePanel, AuthPanel, Background, Icon, NewRecipeForm, views
