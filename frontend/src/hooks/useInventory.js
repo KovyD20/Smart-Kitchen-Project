@@ -7,6 +7,7 @@ import {
   onSnapshot,
   query,
   orderBy,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useCatalog } from "../context/CatalogContext";
@@ -16,6 +17,9 @@ import {
   toPurchaseAmount,
 } from "../lib/units";
 import { upsertInventoryItem } from "../lib/inventory";
+
+// Firestore's hard limit on operations in a single writeBatch.
+const BATCH_LIMIT = 500;
 
 // Owns the user's shopping list + fridge: real-time listeners, catalog-grouped
 // views, recommendations, and all mutations (including moving the whole list
@@ -169,12 +173,28 @@ export function useInventory(uid) {
   const deleteShoppingItem = (item) =>
     deleteDoc(doc(db, "users", uid, "shoppingList", item.id));
 
+  // Firestore caps one batch at 500 operations, so a long list is split across
+  // several. One commit per chunk instead of one request per document: emptying
+  // a 40-item list costs a single round trip rather than 40.
+  //
+  // Nothing is committed for an empty selection -- an empty batch would be a
+  // pointless request, and both callers can legitimately be handed nothing.
+  const deleteShoppingItems = async (items) => {
+    for (let start = 0; start < items.length; start += BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      for (const item of items.slice(start, start + BATCH_LIMIT)) {
+        batch.delete(doc(db, "users", uid, "shoppingList", item.id));
+      }
+      await batch.commit();
+    }
+  };
+
   const clearDoneShoppingItems = () =>
-    Promise.all(
-      shoppingList
-        .filter((item) => item.done)
-        .map((item) => deleteDoc(doc(db, "users", uid, "shoppingList", item.id))),
-    );
+    deleteShoppingItems(shoppingList.filter((item) => item.done));
+
+  // Empties the whole list, bought and unbought alike. The confirmation (and the
+  // item count in it) is the caller's job, as with every other mutation here.
+  const clearShoppingList = () => deleteShoppingItems(shoppingList);
 
   const moveShoppingToFridge = async () => {
     if (shoppingList.length === 0) return;
@@ -236,6 +256,7 @@ export function useInventory(uid) {
     toggleShoppingItemDone,
     deleteShoppingItem,
     clearDoneShoppingItems,
+    clearShoppingList,
     moveShoppingToFridge,
     addToFridge,
     deleteFridgeItem,

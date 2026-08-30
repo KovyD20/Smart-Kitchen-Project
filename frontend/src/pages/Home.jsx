@@ -116,6 +116,7 @@ export default function Home({ user }) {
     toggleShoppingItemDone,
     deleteShoppingItem,
     clearDoneShoppingItems,
+    clearShoppingList,
     moveShoppingToFridge,
     addToFridge,
     deleteFridgeItem,
@@ -297,6 +298,25 @@ export default function Home({ user }) {
     }
   };
 
+  // The one action in the app that discards a lot of data in a single click, and
+  // the list is often collapsed into cards -- so the confirmation names the count
+  // rather than asking a vague "are you sure?".
+  const handleClearAll = async () => {
+    if (shoppingList.length === 0) return;
+    if (
+      !(await confirm(
+        `Biztosan törlöd mind a ${shoppingList.length} tételt a listáról?`,
+      ))
+    )
+      return;
+    try {
+      await clearShoppingList();
+      showToast("A bevásárlólista kiürítve", "success");
+    } catch (err) {
+      notifyError(err, "A lista ürítése sikertelen");
+    }
+  };
+
   const focusSearch = () => {
     if (tab === "receptek") {
       searchInputRef.current?.focus();
@@ -432,6 +452,7 @@ export default function Home({ user }) {
           }}
           onAddItem={(item) => addSingleShoppingItem(item).catch(notifyError)}
           onClearDone={handleClearDone}
+          onClearAll={handleClearAll}
           onMoveToFridge={handleMoveToFridge}
         />
       );

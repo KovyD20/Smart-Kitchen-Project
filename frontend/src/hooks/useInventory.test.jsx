@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook } from "@testing-library/react";
 
 import {
+  batches,
   DELETE_FIELD,
   emitError,
   emitSnapshot,
@@ -195,5 +196,83 @@ describe("useInventory shop-package rounding", () => {
         sourceUnit: DELETE_FIELD,
       },
     );
+  });
+});
+
+describe("useInventory batched shopping-list deletion", () => {
+  function mountLoaded(shop = []) {
+    const hook = renderHook(() => useInventory("u1"));
+    act(() => emitSnapshot(shopPath("u1"), shop));
+    act(() => emitSnapshot(fridgePath("u1"), []));
+    return hook;
+  }
+
+  const deletedPaths = () =>
+    batches.flatMap((batch) =>
+      batch.ops.filter((op) => op.type === "delete").map((op) => op.path),
+    );
+
+  it("clears the whole list in a single batch, bought items included", async () => {
+    const { result } = mountLoaded([
+      { id: "s1", name: "liszt", amount: 1, unit: "kg" },
+      { id: "s2", name: "tojás", amount: 10, unit: "db", done: true },
+      { id: "s3", name: "vaj", amount: 1, unit: "db" },
+    ]);
+
+    await act(async () => {
+      await result.current.clearShoppingList();
+    });
+
+    expect(firestoreMock.writeBatch).toHaveBeenCalledTimes(1);
+    expect(deletedPaths()).toEqual([
+      `${shopPath("u1")}/s1`,
+      `${shopPath("u1")}/s2`,
+      `${shopPath("u1")}/s3`,
+    ]);
+    expect(batches[0].commit).toHaveBeenCalledTimes(1);
+    // The per-document path is what the batch replaces; it must stay unused.
+    expect(firestoreMock.deleteDoc).not.toHaveBeenCalled();
+  });
+
+  it("commits nothing when the list is already empty", async () => {
+    const { result } = mountLoaded([]);
+
+    await act(async () => {
+      await result.current.clearShoppingList();
+    });
+
+    expect(firestoreMock.writeBatch).not.toHaveBeenCalled();
+  });
+
+  it("leaves the unbought items alone when only the done ones are cleared", async () => {
+    const { result } = mountLoaded([
+      { id: "s1", name: "liszt", amount: 1, unit: "kg" },
+      { id: "s2", name: "tojás", amount: 10, unit: "db", done: true },
+    ]);
+
+    await act(async () => {
+      await result.current.clearDoneShoppingItems();
+    });
+
+    expect(deletedPaths()).toEqual([`${shopPath("u1")}/s2`]);
+  });
+
+  it("splits past Firestore's 500-operation batch limit", async () => {
+    const items = Array.from({ length: 501 }, (_, i) => ({
+      id: `s${i}`,
+      name: `tétel ${i}`,
+      amount: 1,
+      unit: "db",
+    }));
+    const { result } = mountLoaded(items);
+
+    await act(async () => {
+      await result.current.clearShoppingList();
+    });
+
+    expect(firestoreMock.writeBatch).toHaveBeenCalledTimes(2);
+    expect(batches[0].ops).toHaveLength(500);
+    expect(batches[1].ops).toHaveLength(1);
+    expect(deletedPaths()).toHaveLength(501);
   });
 });

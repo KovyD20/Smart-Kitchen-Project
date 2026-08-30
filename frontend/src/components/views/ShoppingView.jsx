@@ -122,12 +122,31 @@ export default function ShoppingView({
   onDeleteItem,
   onAddItem,
   onClearDone,
+  onClearAll,
   onMoveToFridge,
 }) {
   const { isOpen, toggle, openAll, closeAll, anyClosed } = useCollapsedGroups();
 
   const summary = `${openCount} tétel hátra · ${doneCount} kész`;
   const hasGroups = groups.length > 0;
+  // `groups` is search-filtered, so it cannot answer "is the list empty?" --
+  // the counts can, and they describe the whole list the button actually clears.
+  const hasItems = openCount + doneCount > 0;
+
+  // Rendered in the desktop header and, on mobile, in the tools row: the banner
+  // there only has space for one action, which the "done" cleanup already holds.
+  const clearAllButton = (
+    <button
+      type="button"
+      className="btn-pill btn-outline"
+      style={{ "--accent": "var(--brand-bright)" }}
+      disabled={!hasItems}
+      onClick={onClearAll}
+    >
+      <Icon name="trash" size={12} />
+      Lista ürítése
+    </button>
+  );
   // The recommendations card sits in the same grid, so it collapses with the rest.
   const collapsibleKeys = [...groups.map((group) => group.category), REC_KEY];
 
@@ -181,6 +200,7 @@ export default function ShoppingView({
           >
             Kész tételek törlése
           </button>
+          {clearAllButton}
         </div>
       )}
 
@@ -196,6 +216,7 @@ export default function ShoppingView({
             <Icon name="swap" size={12} />
             Hűtőbe rak
           </button>
+          {clearAllButton}
           {collapseToggle}
         </div>
       )}

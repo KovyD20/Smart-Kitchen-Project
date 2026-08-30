@@ -7,8 +7,13 @@ import { vi } from "vitest";
 // Every onSnapshot registration, in call order.
 export const listeners = [];
 
+// Every batch handed out by writeBatch(), in call order.
+export const batches = [];
+
 export function resetListeners() {
   listeners.length = 0;
+  batches.length = 0;
+  firestoreMock.writeBatch.mockClear();
   firestoreMock.addDoc.mockClear();
   firestoreMock.updateDoc.mockClear();
   firestoreMock.deleteDoc.mockClear();
@@ -36,7 +41,20 @@ export const firestoreMock = {
   // The real deleteField() returns an opaque sentinel; a recognisable stand-in
   // lets a test assert "this key was removed" without depending on internals.
   deleteField: () => DELETE_FIELD,
-  writeBatch: vi.fn(() => ({ update: vi.fn(), commit: vi.fn() })),
+  // Records what was queued on it, so a test can assert a batched mutation by
+  // its operations instead of by counting deleteDoc calls that never happen.
+  writeBatch: vi.fn(() => {
+    const ops = [];
+    const batch = {
+      ops,
+      update: (ref, data) => ops.push({ type: "update", path: ref.path, data }),
+      set: (ref, data) => ops.push({ type: "set", path: ref.path, data }),
+      delete: (ref) => ops.push({ type: "delete", path: ref.path }),
+      commit: vi.fn(() => Promise.resolve()),
+    };
+    batches.push(batch);
+    return batch;
+  }),
 };
 
 export const DELETE_FIELD = { __op: "deleteField" };
