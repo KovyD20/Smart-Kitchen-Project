@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   updateDoc,
   onSnapshot,
@@ -12,9 +13,12 @@ import {
 import { db } from "../firebase";
 import { useCatalog } from "../context/CatalogContext";
 import {
+  areUnitsCompatible,
+  convertAmount,
   normalizeUnit,
   stripAmountsAndUnits,
   toPurchaseAmount,
+  unitInfo,
 } from "../lib/units";
 import { upsertInventoryItem } from "../lib/inventory";
 
@@ -163,6 +167,56 @@ export function useInventory(uid) {
     });
   };
 
+  // Direct edit of one row's amount or unit, for both collections.
+  //
+  // A plain updateDoc, deliberately not the upsert path: the user is correcting
+  // *this* line, so it must not be silently merged into a compatible sibling.
+  //
+  // Switching to a compatible unit converts (500 g -> 0.5 kg) rather than
+  // keeping the number, because the row still names the same quantity of food --
+  // "500 kg" would be a different, absurd item. Between incompatible units
+  // (g -> db) there is no arithmetic, so only the label changes.
+  const setInventoryItemAmount =
+    (collectionName) =>
+    async (item, { amount, unit } = {}) => {
+      if (!uid || !item?.id) return;
+
+      let nextAmount = amount === undefined ? Number(item.amount || 0) : Number(amount);
+      let nextUnit = item.unit;
+
+      if (unit !== undefined) {
+        const normalized = normalizeUnit(unit);
+        if (!normalized) return;
+        if (normalized !== item.unit) {
+          const from = unitInfo(item.unit);
+          const to = unitInfo(normalized);
+          if (areUnitsCompatible(from, to)) {
+            // Two decimals: the conversion factors are powers of ten, so this
+            // only trims float noise (0.30000000000000004 -> 0.3).
+            nextAmount =
+              Math.round(convertAmount(nextAmount, from, to) * 100) / 100;
+          }
+        }
+        nextUnit = normalized;
+      }
+
+      if (!Number.isFinite(nextAmount) || nextAmount <= 0) return;
+      if (nextAmount === Number(item.amount || 0) && nextUnit === item.unit) return;
+
+      await updateDoc(doc(db, "users", uid, collectionName, item.id), {
+        amount: nextAmount,
+        unit: nextUnit,
+        // The "recept: 2 tk" note explains a shop-rounded amount. Once the user
+        // sets the amount by hand it explains nothing, so it goes.
+        ...(item.sourceAmount === undefined
+          ? {}
+          : { sourceAmount: deleteField(), sourceUnit: deleteField() }),
+      });
+    };
+
+  const setShoppingItemAmount = setInventoryItemAmount("shoppingList");
+  const setFridgeItemAmount = setInventoryItemAmount("fridge");
+
   // The redesigned list lets you tick items off as you shop; `done` is persisted
   // so the state survives a reload and syncs across devices.
   const toggleShoppingItemDone = (item) =>
@@ -253,6 +307,8 @@ export function useInventory(uid) {
     addToShoppingList,
     addSingleShoppingItem,
     updateShoppingItem,
+    setShoppingItemAmount,
+    setFridgeItemAmount,
     toggleShoppingItemDone,
     deleteShoppingItem,
     clearDoneShoppingItems,

@@ -15,11 +15,12 @@ import {
 
 const SORT_MODES = [
   { id: "name", label: "Név szerint" },
+  { id: "course", label: "Kategória szerint" },
   { id: "availability", label: "Ami megvan" },
 ];
 
-// Two-state toggle above the list. Reuses the tag chips' look so it reads as part
-// of the same filter row.
+// Sort toggle above the list. Reuses the tag chips' look so it reads as part of
+// the same filter row.
 function SortToggle({ sortMode, onSortChange }) {
   return (
     <div className="chip-row sort-row" role="group" aria-label="Rendezés">

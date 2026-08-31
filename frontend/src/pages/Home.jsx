@@ -28,6 +28,7 @@ import {
   recipeServings,
   scaleIngredients,
   sortByAvailability,
+  sortByCourse,
 } from "../lib/recipes";
 
 // The five destinations of the redesign. Order and accent color are shared by the
@@ -113,6 +114,8 @@ export default function Home({ user }) {
     addToShoppingList,
     addSingleShoppingItem,
     updateShoppingItem,
+    setShoppingItemAmount,
+    setFridgeItemAmount,
     toggleShoppingItemDone,
     deleteShoppingItem,
     clearDoneShoppingItems,
@@ -197,6 +200,7 @@ export default function Home({ user }) {
 
   const visibleRecipes = useMemo(() => {
     const filtered = filterRecipes(recipes, { filterTag, search });
+    if (sortMode === "course") return sortByCourse(filtered);
     if (sortMode !== "availability") return filtered;
     // fridge and resolveCatalogKey belong in the deps: without them the order
     // would go stale the moment something is added to or removed from the fridge.
@@ -458,6 +462,9 @@ export default function Home({ user }) {
           onUpdateItem={(item, delta) =>
             updateShoppingItem(item, delta).catch(notifyError)
           }
+          onSetItemAmount={(item, patch) =>
+            setShoppingItemAmount(item, patch).catch(notifyError)
+          }
           onDeleteItem={async (item) => {
             if (
               !(await confirm("Biztosan törlöd?", {
@@ -489,6 +496,11 @@ export default function Home({ user }) {
           onCategoryColorReset={handleCategoryColorReset}
           onUpdateItem={(item, delta) =>
             addToFridge(item, delta).catch((err) =>
+              notifyError(err, "Hiba a hűtő frissítésekor"),
+            )
+          }
+          onSetItemAmount={(item, patch) =>
+            setFridgeItemAmount(item, patch).catch((err) =>
               notifyError(err, "Hiba a hűtő frissítésekor"),
             )
           }

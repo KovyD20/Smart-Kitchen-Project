@@ -13,12 +13,20 @@ import {
   IMAGE_ERROR,
   validateImageFile,
 } from "../../lib/imageUpload";
+import {
+  emptyIngredient,
+  flattenBlocks,
+  moveIngredient,
+  newBlock,
+  toBlocks,
+  ungroupBlock,
+} from "../../lib/ingredientBlocks";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";
 
 const UNITS = SYSTEM_UNITS;
 
-const emptyIngredient = () => ({ name: "", amount: "", unit: "g" });
+
 
 // The validator returns a code so the wording stays here, next to the UI that
 // shows it. An unlisted code should be impossible, hence the generic fallback.
@@ -124,9 +132,9 @@ export default function NewRecipeForm({
   recipe,
 }) {
   const [name, setName] = useState(recipe?.name || "");
-  const [ingredients, setIngredients] = useState(
-    recipe?.ingredients?.length ? recipe.ingredients : [emptyIngredient()],
-  );
+  // Blocks, not a flat list: see lib/ingredientBlocks.js for why the editor and
+  // the stored shape differ.
+  const [blocks, setBlocks] = useState(() => toBlocks(recipe?.ingredients));
   const [steps, setSteps] = useState(recipe?.steps?.length ? recipe.steps : [""]);
   const [selectedTags, setSelectedTags] = useState(recipe?.tags || []);
   const [newTag, setNewTag] = useState("");
@@ -161,15 +169,32 @@ export default function NewRecipeForm({
   const { showToast } = useToast();
   const confirm = useConfirm();
 
-  const patchIngredient = (index, field, value) =>
-    setIngredients((prev) =>
-      prev.map((ing, i) => (i === index ? { ...ing, [field]: value } : ing)),
+  const patchIngredient = (blockId, index, field, value) =>
+    setBlocks((prev) =>
+      prev.map((block) =>
+        block.id === blockId
+          ? {
+              ...block,
+              items: block.items.map((item, i) =>
+                i === index ? { ...item, [field]: value } : item,
+              ),
+            }
+          : block,
+      ),
+    );
+
+  const patchGroup = (blockId, value) =>
+    setBlocks((prev) =>
+      prev.map((block) =>
+        block.id === blockId ? { ...block, group: value } : block,
+      ),
     );
 
   // A long recipe pushes the section's header button off-screen, so rows can also
   // be added from the bottom. Adding one then has to move focus into it, or the
   // hand goes back to the mouse for every single line.
-  const ingredientNameRefs = useRef([]);
+  const ingredientNameRefs = useRef({});
+  const groupInputRefs = useRef({});
   const stepRefs = useRef([]);
   // Which row was just added, consumed by the effect below. A ref rather than
   // state: it must not cause a render of its own, only ride along with the one
@@ -180,26 +205,104 @@ export default function NewRecipeForm({
     const pending = pendingFocusRef.current;
     if (!pending) return;
     pendingFocusRef.current = null;
-    const refs = pending.list === "ingredients" ? ingredientNameRefs : stepRefs;
-    refs.current[pending.index]?.focus();
+    const refs =
+      pending.list === "ingredients"
+        ? ingredientNameRefs
+        : pending.list === "group"
+          ? groupInputRefs
+          : stepRefs;
+    refs.current[pending.key]?.focus();
   });
 
-  const addIngredient = () => {
-    pendingFocusRef.current = { list: "ingredients", index: ingredients.length };
-    setIngredients((prev) => [...prev, emptyIngredient()]);
+  const addIngredient = (blockId) => {
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) return;
+    pendingFocusRef.current = {
+      list: "ingredients",
+      key: `${blockId}:${block.items.length}`,
+    };
+    setBlocks((prev) =>
+      prev.map((b) =>
+        b.id === blockId ? { ...b, items: [...b.items, emptyIngredient()] } : b,
+      ),
+    );
   };
 
-  // Enter on the last row appends another one, so a whole ingredient list can be
-  // typed without ever leaving the keyboard. Only from the last row: in the
-  // middle it would insert rows where the user is merely correcting a typo.
-  const addOnEnterFromLast = (index, count) => (event) => {
-    if (event.key !== "Enter" || index !== count - 1) return;
+  // A new group starts with one empty row, so it is immediately a place to type
+  // rather than an empty heading the user has to feed by hand.
+  const addGroup = () => {
+    const block = newBlock("");
+    pendingFocusRef.current = { list: "group", key: block.id };
+    setBlocks((prev) => [...prev, block]);
+  };
+
+  const removeIngredient = (blockId, index) =>
+    setBlocks((prev) =>
+      prev.map((block) =>
+        block.id === blockId
+          ? { ...block, items: block.items.filter((_, i) => i !== index) }
+          : block,
+      ),
+    );
+
+  // Rows survive their heading: dropping a group is about the label, and losing
+  // four ingredients to a mis-click would be a nasty way to learn that.
+  const removeGroup = (blockId) =>
+    setBlocks((prev) => ungroupBlock(prev, blockId));
+
+  // Drag & drop between groups. The dragged row lives in a ref -- it changes on
+  // every dragover and must not re-render the form -- while the row currently
+  // under the pointer is state, because it is what draws the drop marker.
+  const dragRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+  const [dropTarget, setDropTarget] = useState(null);
+
+  const rowKey = (blockId, index) => `${blockId}:${index}`;
+
+  const startDrag = (blockId, index) => (event) => {
+    dragRef.current = { blockId, index };
+    setDragging(true);
+    // Firefox starts no drag at all without a payload, even an empty one.
+    event.dataTransfer?.setData("text/plain", "");
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  };
+
+  const endDrag = () => {
+    dragRef.current = null;
+    setDragging(false);
+    setDropTarget(null);
+  };
+
+  const allowDrop = (key) => (event) => {
+    if (!dragRef.current) return;
     event.preventDefault();
-    addIngredient();
+    event.stopPropagation();
+    setDropTarget(key);
+  };
+
+  // A null index means "the end of this block" -- the trailing zone, which is
+  // also the only way into a group whose rows have all been deleted.
+  const dropOn = (blockId, index) => (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const from = dragRef.current;
+    endDrag();
+    if (!from) return;
+    setBlocks((prev) => moveIngredient(prev, from, { blockId, index }));
+  };
+
+  // Enter on a block's last row appends another one to that same block, so a
+  // whole section can be typed without leaving the keyboard. Only from the last
+  // row: in the middle it would insert rows where the user is merely correcting
+  // a typo.
+  const addOnEnterFromLast = (block, index) => (event) => {
+    if (event.key !== "Enter" || index !== block.items.length - 1) return;
+    event.preventDefault();
+    addIngredient(block.id);
   };
 
   const addStep = () => {
-    pendingFocusRef.current = { list: "steps", index: steps.length };
+    pendingFocusRef.current = { list: "steps", key: steps.length };
     setSteps((prev) => [...prev, ""]);
   };
 
@@ -209,6 +312,7 @@ export default function NewRecipeForm({
       return;
     }
 
+    const ingredients = flattenBlocks(blocks);
     if (
       ingredients.length === 0 ||
       ingredients.some((i) => !i.name.trim() || Number(i.amount) <= 0)
@@ -253,7 +357,7 @@ export default function NewRecipeForm({
       await onCreate?.(data, { imageFile });
 
       setName("");
-      setIngredients([emptyIngredient()]);
+      setBlocks(toBlocks(null));
       setSteps([""]);
       setSelectedTags([]);
       setNewTag("");
@@ -322,64 +426,147 @@ export default function NewRecipeForm({
           <button
             type="button"
             className="rform-add"
-            onClick={addIngredient}
+            onClick={() => addIngredient(blocks[blocks.length - 1]?.id)}
           >
             <Icon name="plus" size={11} />
             Hozzávaló
           </button>
         </div>
 
-        {ingredients.map((ing, i) => (
-          <div key={i} className="rform-ing">
-            <input
-              ref={(el) => (ingredientNameRefs.current[i] = el)}
-              className="field field-neutral rform-ing-name"
-              placeholder="Név"
-              value={ing.name}
-              onChange={(e) => patchIngredient(i, "name", e.target.value)}
-              onKeyDown={addOnEnterFromLast(i, ingredients.length)}
-            />
-            <input
-              className="field field-neutral rform-ing-amount"
-              type="number"
-              min="0"
-              placeholder="Menny."
-              value={ing.amount}
-              onChange={(e) => patchIngredient(i, "amount", e.target.value)}
-              onKeyDown={addOnEnterFromLast(i, ingredients.length)}
-            />
-            <select
-              className="field field-neutral rform-ing-unit"
-              aria-label="Mértékegység"
-              value={ing.unit}
-              onChange={(e) => patchIngredient(i, "unit", e.target.value)}
-            >
-              {UNITS.map((unit) => (
-                <option key={unit} value={unit}>
-                  {unit}
-                </option>
-              ))}
-            </select>
+        {blocks.map((block) => (
+          <div
+            key={block.id}
+            className={`rform-group${block.group === null ? "" : " is-named"}`}
+          >
+            {block.group !== null && (
+              <div className="rform-group-head">
+                <input
+                  ref={(el) => (groupInputRefs.current[block.id] = el)}
+                  className="field field-neutral rform-group-name"
+                  placeholder="Csoport neve (pl. A töltelékhez)"
+                  aria-label="Csoport neve"
+                  value={block.group}
+                  onChange={(e) => patchGroup(block.id, e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="icon-btn rform-remove"
+                  aria-label="Csoport feloldása"
+                  onClick={() => removeGroup(block.id)}
+                >
+                  <Icon name="xmark" size={11} />
+                </button>
+              </div>
+            )}
+
+            {block.items.map((ing, i) => {
+              const key = rowKey(block.id, i);
+              return (
+                <div
+                  key={ing.id}
+                  className={`rform-ing${dropTarget === key ? " is-drop-target" : ""}`}
+                  onDragOver={allowDrop(key)}
+                  onDrop={dropOn(block.id, i)}
+                >
+                  <button
+                    type="button"
+                    draggable
+                    className="rform-drag"
+                    aria-label={`${ing.name || "Hozzávaló"} áthelyezése`}
+                    onDragStart={startDrag(block.id, i)}
+                    onDragEnd={endDrag}
+                  >
+                    <Icon name="swap" size={11} />
+                  </button>
+                  <input
+                    ref={(el) => (ingredientNameRefs.current[key] = el)}
+                    className="field field-neutral rform-ing-name"
+                    placeholder="Név"
+                    value={ing.name}
+                    onChange={(e) =>
+                      patchIngredient(block.id, i, "name", e.target.value)
+                    }
+                    onKeyDown={addOnEnterFromLast(block, i)}
+                  />
+                  <input
+                    className="field field-neutral rform-ing-amount"
+                    type="number"
+                    min="0"
+                    placeholder="Menny."
+                    value={ing.amount}
+                    onChange={(e) =>
+                      patchIngredient(block.id, i, "amount", e.target.value)
+                    }
+                    onKeyDown={addOnEnterFromLast(block, i)}
+                  />
+                  <select
+                    className="field field-neutral rform-ing-unit"
+                    aria-label="Mértékegység"
+                    value={ing.unit}
+                    onChange={(e) =>
+                      patchIngredient(block.id, i, "unit", e.target.value)
+                    }
+                  >
+                    {UNITS.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="field field-neutral rform-ing-note"
+                    placeholder="Megjegyzés"
+                    aria-label="Megjegyzés"
+                    value={ing.note || ""}
+                    onChange={(e) =>
+                      patchIngredient(block.id, i, "note", e.target.value)
+                    }
+                    onKeyDown={addOnEnterFromLast(block, i)}
+                  />
+                  <button
+                    type="button"
+                    className="icon-btn danger rform-remove"
+                    aria-label="Hozzávaló törlése"
+                    onClick={() => removeIngredient(block.id, i)}
+                  >
+                    <Icon name="trash" size={12} />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* The tail drop zone only exists mid-drag, except in an emptied
+                group where it is the only way back in. */}
+            {(dragging || block.items.length === 0) && (
+              <div
+                className={`rform-drop-end${
+                  dropTarget === rowKey(block.id, "end") ? " is-drop-target" : ""
+                }`}
+                onDragOver={allowDrop(rowKey(block.id, "end"))}
+                onDrop={dropOn(block.id, null)}
+              >
+                Ide húzva a csoport végére kerül
+              </div>
+            )}
+
             <button
               type="button"
-              className="icon-btn danger rform-remove"
-              aria-label="Hozzávaló törlése"
-              onClick={() =>
-                setIngredients((prev) => prev.filter((_, index) => index !== i))
-              }
+              className="rform-add rform-add-trailing"
+              onClick={() => addIngredient(block.id)}
             >
-              <Icon name="trash" size={12} />
+              <Icon name="plus" size={11} />
+              Hozzávaló
             </button>
           </div>
         ))}
 
         <button
           type="button"
-          className="rform-add rform-add-trailing"
-          onClick={addIngredient}
+          className="rform-add rform-add-trailing rform-add-group"
+          onClick={addGroup}
         >
           <Icon name="plus" size={11} />
-          Hozzávaló
+          Csoport
         </button>
       </section>
 

@@ -306,3 +306,184 @@ describe("NewRecipeForm main category", () => {
   });
 });
 
+
+const groupNames = () => screen.queryAllByLabelText("Csoport neve");
+const noteInputs = () => screen.getAllByLabelText("Megjegyzés");
+const addGroup = () => fireEvent.click(screen.getByRole("button", { name: "Csoport" }));
+const rows = () => document.querySelectorAll(".rform-ing");
+
+// The drag payload is optional in the handlers, so a bare event is enough here.
+const dragRow = (fromRow, toRow) => {
+  fireEvent.dragStart(rows()[fromRow].querySelector(".rform-drag"));
+  fireEvent.dragOver(rows()[toRow]);
+  fireEvent.drop(rows()[toRow]);
+};
+
+describe("NewRecipeForm ingredient notes", () => {
+  it("saves the note typed on the row itself", () => {
+    const onCreate = vi.fn();
+    render(<NewRecipeForm onCreate={onCreate} />);
+    fillValid();
+
+    fireEvent.change(noteInputs()[0], { target: { value: " apróra vágva " } });
+    fireEvent.click(screen.getByRole("button", { name: /Recept mentése/ }));
+
+    expect(onCreate.mock.calls[0][0].ingredients[0]).toEqual({
+      name: "hagyma",
+      amount: "2",
+      unit: "g",
+      note: "apróra vágva",
+    });
+  });
+
+  it("stores no empty note key for a row left blank", () => {
+    const onCreate = vi.fn();
+    render(<NewRecipeForm onCreate={onCreate} />);
+    fillValid();
+    fireEvent.click(screen.getByRole("button", { name: /Recept mentése/ }));
+
+    expect(onCreate.mock.calls[0][0].ingredients[0]).toEqual({
+      name: "hagyma",
+      amount: "2",
+      unit: "g",
+    });
+  });
+});
+
+describe("NewRecipeForm ingredient groups", () => {
+  it("shows no group heading until one is added", () => {
+    render(<NewRecipeForm onCreate={vi.fn()} />);
+    expect(groupNames()).toHaveLength(0);
+
+    addGroup();
+    expect(groupNames()).toHaveLength(1);
+  });
+
+  it("gives a new group one row to type into", () => {
+    render(<NewRecipeForm onCreate={vi.fn()} />);
+    expect(nameInputs()).toHaveLength(1);
+
+    addGroup();
+    expect(nameInputs()).toHaveLength(2);
+  });
+
+  it("applies the heading to every row under it", () => {
+    const onCreate = vi.fn();
+    render(<NewRecipeForm onCreate={onCreate} />);
+    fillValid();
+
+    addGroup();
+    fireEvent.change(groupNames()[0], { target: { value: "A töltelékhez" } });
+    fireEvent.change(nameInputs()[1], { target: { value: "gomba" } });
+    fireEvent.change(screen.getAllByPlaceholderText("Menny.")[1], {
+      target: { value: "300" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Recept mentése/ }));
+
+    const saved = onCreate.mock.calls[0][0].ingredients;
+    expect(saved[0].group).toBeUndefined();
+    expect(saved[1]).toMatchObject({ name: "gomba", group: "A töltelékhez" });
+  });
+
+  it("keeps the rows when the group is dissolved", () => {
+    const onCreate = vi.fn();
+    render(<NewRecipeForm onCreate={onCreate} />);
+    fillValid();
+
+    addGroup();
+    fireEvent.change(groupNames()[0], { target: { value: "A töltelékhez" } });
+    fireEvent.change(nameInputs()[1], { target: { value: "gomba" } });
+    fireEvent.change(screen.getAllByPlaceholderText("Menny.")[1], {
+      target: { value: "300" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Csoport feloldása" }));
+
+    expect(groupNames()).toHaveLength(0);
+    expect(nameInputs()).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: /Recept mentése/ }));
+    const saved = onCreate.mock.calls[0][0].ingredients;
+    expect(saved).toHaveLength(2);
+    expect(saved[1].group).toBeUndefined();
+  });
+
+  it("shows an edited recipe's groups as containers", () => {
+    render(
+      <NewRecipeForm
+        editMode
+        recipe={{
+          id: "r1",
+          name: "Rétes",
+          ingredients: [
+            { name: "liszt", amount: 500, unit: "g", group: "A tésztához" },
+            { name: "alma", amount: 3, unit: "db", group: "A töltelékhez" },
+          ],
+          steps: ["Nyújtsd ki"],
+          tags: ["Desszert"],
+        }}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(groupNames().map((input) => input.value)).toEqual([
+      "A tésztához",
+      "A töltelékhez",
+    ]);
+  });
+
+  it("adds a row to the group whose own button was pressed", () => {
+    render(<NewRecipeForm onCreate={vi.fn()} />);
+    addGroup();
+    // Two blocks now, each with its own trailing button; press the first one's.
+    const trailing = screen.getAllByRole("button", { name: "Hozzávaló" });
+    fireEvent.click(trailing[1]);
+
+    // The new row belongs to the ungrouped block, so it sits above the group's.
+    expect(nameInputs()).toHaveLength(3);
+    expect(document.activeElement).toBe(nameInputs()[1]);
+  });
+});
+
+describe("NewRecipeForm dragging rows between groups", () => {
+  it("moves a row into another group", () => {
+    const onCreate = vi.fn();
+    render(<NewRecipeForm onCreate={onCreate} />);
+    fillValid();
+
+    addGroup();
+    fireEvent.change(groupNames()[0], { target: { value: "A töltelékhez" } });
+    fireEvent.change(nameInputs()[1], { target: { value: "gomba" } });
+    fireEvent.change(screen.getAllByPlaceholderText("Menny.")[1], {
+      target: { value: "300" },
+    });
+
+    // Drag the ungrouped "hagyma" onto the grouped "gomba".
+    dragRow(0, 1);
+
+    fireEvent.click(screen.getByRole("button", { name: /Recept mentése/ }));
+    const saved = onCreate.mock.calls[0][0].ingredients;
+    expect(saved.map((i) => [i.name, i.group])).toEqual([
+      ["hagyma", "A töltelékhez"],
+      ["gomba", "A töltelékhez"],
+    ]);
+  });
+
+  it("reorders rows inside one group", () => {
+    const onCreate = vi.fn();
+    render(<NewRecipeForm onCreate={onCreate} />);
+    fillValid();
+    fireEvent.click(trailingAdd("Hozzávaló"));
+    fireEvent.change(nameInputs()[1], { target: { value: "paprika" } });
+    fireEvent.change(screen.getAllByPlaceholderText("Menny.")[1], {
+      target: { value: "1" },
+    });
+
+    dragRow(1, 0);
+
+    fireEvent.click(screen.getByRole("button", { name: /Recept mentése/ }));
+    expect(
+      onCreate.mock.calls[0][0].ingredients.map((i) => i.name),
+    ).toEqual(["paprika", "hagyma"]);
+  });
+});

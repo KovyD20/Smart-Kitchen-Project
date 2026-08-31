@@ -3,10 +3,13 @@ import { normalizeCatalogText } from "../constants/pantryCatalog.js";
 import {
   availabilityLevel,
   FAVORITES_FILTER,
+  cleanIngredient,
   filterRecipes,
+  groupIngredients,
   recipeAvailability,
   recipeTimeLabel,
   sortByAvailability,
+  sortByCourse,
 } from "./recipes.js";
 
 // The real catalog resolves aliases too, but accent/case folding is what the
@@ -217,5 +220,128 @@ describe("recipeTimeLabel", () => {
     expect(recipeTimeLabel({})).toBeNull();
     expect(recipeTimeLabel({ time: 0 })).toBeNull();
     expect(recipeTimeLabel(null)).toBeNull();
+  });
+});
+
+describe("groupIngredients", () => {
+  const ing = (name, group) => ({ name, ...(group ? { group } : {}) });
+
+  it("keeps an ungrouped list as a single unnamed block", () => {
+    const blocks = groupIngredients([ing("liszt"), ing("tojás")]);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].group).toBeNull();
+    expect(blocks[0].items.map((i) => i.name)).toEqual(["liszt", "tojás"]);
+  });
+
+  it("splits consecutive runs into one block per group", () => {
+    const blocks = groupIngredients([
+      ing("gomba", "A töltelékhez"),
+      ing("hagyma", "A töltelékhez"),
+      ing("liszt", "A tésztához"),
+    ]);
+
+    expect(blocks.map((b) => b.group)).toEqual(["A töltelékhez", "A tésztához"]);
+    expect(blocks[0].items).toHaveLength(2);
+    expect(blocks[1].items).toHaveLength(1);
+  });
+
+  it("does not reorder: the same group twice, apart, stays two blocks", () => {
+    const blocks = groupIngredients([
+      ing("gomba", "A töltelékhez"),
+      ing("liszt", "A tésztához"),
+      ing("hagyma", "A töltelékhez"),
+    ]);
+
+    expect(blocks.map((b) => b.group)).toEqual([
+      "A töltelékhez",
+      "A tésztához",
+      "A töltelékhez",
+    ]);
+  });
+
+  it("treats a blank group as no group at all", () => {
+    const blocks = groupIngredients([ing("liszt"), { name: "só", group: "  " }]);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].group).toBeNull();
+  });
+
+  it("survives a missing list", () => {
+    expect(groupIngredients(undefined)).toEqual([]);
+  });
+});
+
+describe("cleanIngredient", () => {
+  it("drops blank group and note instead of storing empty strings", () => {
+    expect(
+      cleanIngredient({ name: "liszt", amount: 500, unit: "g", group: "", note: "  " }),
+    ).toEqual({ name: "liszt", amount: 500, unit: "g" });
+  });
+
+  it("trims the values it keeps", () => {
+    expect(
+      cleanIngredient({ name: "citrom", group: " A tésztához ", note: " reszelve " }),
+    ).toEqual({ name: "citrom", group: "A tésztához", note: "reszelve" });
+  });
+});
+
+describe("sortByCourse", () => {
+  const named = (name, course) => ({ name, tags: course ? [course] : [] });
+
+  it("orders by the fixed course order, not alphabetically", () => {
+    const sorted = sortByCourse([
+      named("Almás pite", "Desszert"),
+      named("Bableves", "Leves"),
+      named("Bundás kenyér", "Reggeli"),
+    ]);
+
+    expect(sorted.map((r) => r.name)).toEqual([
+      "Bundás kenyér",
+      "Bableves",
+      "Almás pite",
+    ]);
+  });
+
+  it("sorts by name inside one course", () => {
+    const sorted = sortByCourse([
+      named("Zöldbableves", "Leves"),
+      named("Gulyás", "Leves"),
+      named("Áfonyaleves", "Leves"),
+    ]);
+
+    expect(sorted.map((r) => r.name)).toEqual([
+      "Áfonyaleves",
+      "Gulyás",
+      "Zöldbableves",
+    ]);
+  });
+
+  it("puts recipes with no course last", () => {
+    const sorted = sortByCourse([
+      named("Régi recept", null),
+      named("Rakott krumpli", "Főétel"),
+    ]);
+
+    expect(sorted.map((r) => r.name)).toEqual(["Rakott krumpli", "Régi recept"]);
+  });
+
+  it("treats a lowercase course tag as that course", () => {
+    const sorted = sortByCourse([
+      named("Régi recept", null),
+      named("Bableves", "leves"),
+    ]);
+
+    expect(sorted.map((r) => r.name)).toEqual(["Bableves", "Régi recept"]);
+  });
+
+  it("does not mutate the input", () => {
+    const input = [named("B", "Desszert"), named("A", "Reggeli")];
+    sortByCourse(input);
+    expect(input.map((r) => r.name)).toEqual(["B", "A"]);
+  });
+
+  it("survives a missing list", () => {
+    expect(sortByCourse(undefined)).toEqual([]);
   });
 });

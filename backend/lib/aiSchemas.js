@@ -38,6 +38,10 @@ const INGREDIENTS_SCHEMA = {
       name: { type: Type.STRING },
       amount: { type: Type.NUMBER },
       unit: { type: Type.STRING, enum: AI_ALLOWED_UNITS },
+      // Optional on purpose: most recipes have neither, and forcing them into
+      // `required` would make the model invent section names and remarks.
+      group: { type: Type.STRING },
+      note: { type: Type.STRING },
     },
     required: ["name", "amount", "unit"],
   },
@@ -87,6 +91,8 @@ const SYSTEM_PROMPT = [
   "Minden szöveges mezőt kizárólag magyarul írj: az étel nevét, a hozzávalókat és az elkészítési lépéseket is.",
   "A hozzávalóknál a name mezőbe csak magát a hozzávalót írd, a mennyiség az amount és a unit mezőbe kerül.",
   "Szinonimák normalizálása: teáskanál/kiskanál -> tk, evőkanál -> ek, darab -> db.",
+  'Ha a recept a hozzávalókat szekciókra bontja (pl. tészta és töltelék), minden hozzávaló group mezőjébe írd a szekció nevét (pl. "A töltelékhez"); egyébként hagyd üresen.',
+  'A note mezőbe csak az adott hozzávalóra vonatkozó előkészítési megjegyzés kerülhet (pl. "reszelve a héja"); ha nincs ilyen, hagyd üresen.',
 ].join("\n");
 
 module.exports = {

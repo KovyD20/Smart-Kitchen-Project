@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import Icon from "../Icon/Icon";
+import { groupIngredients } from "../../lib/recipes";
 
 // "Főzés mód" — one step at a time in large type, for reading from across the
 // kitchen. Full-screen on mobile, a centered modal on desktop.
@@ -58,11 +59,23 @@ export default function CookMode({
           {isMobile && <div className="cook-kicker">Lépés {index + 1}</div>}
           <div className="cook-step">{steps[index]}</div>
           {chips.length > 0 && (
-            <div className="cook-chips">
-              {chips.map((ingredient, i) => (
-                <span key={i} className="cook-chip">
-                  {ingredient.amount} {ingredient.unit} {ingredient.name}
-                </span>
+            <div className="cook-chip-groups">
+              {groupIngredients(chips).map((block, blockIndex) => (
+                <div key={blockIndex} className="cook-chips">
+                  {block.group && (
+                    <span className="cook-chip-group">{block.group}</span>
+                  )}
+                  {block.items.map((ingredient, i) => (
+                    <span key={i} className="cook-chip">
+                      {ingredient.amount} {ingredient.unit} {ingredient.name}
+                      {ingredient.note?.trim() && (
+                        <span className="cook-chip-note">
+                          {ingredient.note.trim()}
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </div>
               ))}
             </div>
           )}

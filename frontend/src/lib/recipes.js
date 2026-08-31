@@ -1,4 +1,5 @@
 import { normalizeCatalogText } from "../constants/pantryCatalog";
+import { MAIN_TAG_NAMES, mainTagOf } from "../constants/recipeTags";
 
 // Pure presentation helpers for the recipe views. No React, no Firestore.
 
@@ -113,6 +114,27 @@ export function sortByAvailability(recipes, fridge, keyOf) {
     .map((entry) => entry.recipe);
 }
 
+// Orders recipes by their course, in the fixed MAIN_TAGS order (which is roughly
+// the order of a meal: Reggeli, Leves, Főétel, Desszert, Egyéb) and then by name
+// inside each course. Recipes saved before courses became mandatory have none, so
+// they collect at the end rather than being guessed into a category.
+export function sortByCourse(recipes) {
+  const rank = (recipe) => {
+    const course = mainTagOf(recipe);
+    if (!course) return MAIN_TAG_NAMES.length;
+    const index = MAIN_TAG_NAMES.indexOf(course);
+    // mainTagOf matches case-insensitively, so a recipe carrying "leves" is a
+    // course even though indexOf on the canonical list would miss it.
+    return index === -1 ? MAIN_TAG_NAMES.length : index;
+  };
+
+  return [...(recipes || [])].sort((a, b) => {
+    const diff = rank(a) - rank(b);
+    if (diff !== 0) return diff;
+    return (a?.name || "").localeCompare(b?.name || "", "hu-HU");
+  });
+}
+
 // Reserved filter id for the favourites chip. Favourites are a system flag on the
 // recipe, not one of the user's tags -- tags can be renamed and deleted globally
 // (deleteTagGlobally), which must never take the favourite state with them.
@@ -153,4 +175,35 @@ export function itemMatchesSearch(item, term) {
   const needle = normalizeCatalogText(term);
   if (!needle) return true;
   return normalizeCatalogText(item?.displayName || item?.name).includes(needle);
+}
+
+// Ingredients can carry an optional `group` ("A töltelékhez"), which sections the
+// list the way a cookbook does. Runs of consecutive same-group items are folded
+// into one block; the order is NOT rearranged, because the recipe's own order is
+// itself information -- the same group appearing twice, apart, stays two blocks.
+// Ungrouped items land in a block with `group: null`, which renders without a
+// heading rather than under an invented "Egyéb".
+export function groupIngredients(ingredients) {
+  const blocks = [];
+
+  for (const ingredient of ingredients || []) {
+    const group = ingredient?.group?.trim() || null;
+    const last = blocks[blocks.length - 1];
+    if (last && last.group === group) last.items.push(ingredient);
+    else blocks.push({ group, items: [ingredient] });
+  }
+
+  return blocks;
+}
+
+// `group` and `note` are optional, so an ingredient that has neither must not
+// carry two empty strings into Firestore -- every reader would then have to
+// treat "" and undefined alike. The AI can return empty strings for both, and
+// so can a form row whose fields were opened and left blank.
+export function cleanIngredient({ group, note, ...ingredient }) {
+  return {
+    ...ingredient,
+    ...(group?.trim() ? { group: group.trim() } : {}),
+    ...(note?.trim() ? { note: note.trim() } : {}),
+  };
 }

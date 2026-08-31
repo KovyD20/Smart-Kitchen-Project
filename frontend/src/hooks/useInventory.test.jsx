@@ -276,3 +276,109 @@ describe("useInventory batched shopping-list deletion", () => {
     expect(deletedPaths()).toHaveLength(501);
   });
 });
+
+describe("setShoppingItemAmount / setFridgeItemAmount", () => {
+  const withItem = (item) => {
+    const { result } = renderHook(() => useInventory("u1"));
+    act(() => emitSnapshot(shopPath("u1"), [item]));
+    act(() => emitSnapshot(fridgePath("u1"), [item]));
+    return result;
+  };
+
+  it("writes a typed amount straight to that row", async () => {
+    const result = withItem({ id: "s1", name: "liszt", amount: 2, unit: "kg" });
+
+    await act(() => result.current.setShoppingItemAmount(
+      { id: "s1", name: "liszt", amount: 2, unit: "kg" },
+      { amount: 5 },
+    ));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${shopPath("u1")}/s1` },
+      { amount: 5, unit: "kg" },
+    );
+  });
+
+  it("converts the amount when the new unit is compatible", async () => {
+    const item = { id: "s1", name: "liszt", amount: 500, unit: "g" };
+    const result = withItem(item);
+
+    await act(() => result.current.setShoppingItemAmount(item, { unit: "kg" }));
+
+    // Still the same 500 g of flour, now expressed in kilos.
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${shopPath("u1")}/s1` },
+      { amount: 0.5, unit: "kg" },
+    );
+  });
+
+  it("keeps the number when the units cannot be converted", async () => {
+    const item = { id: "s1", name: "tojás", amount: 6, unit: "g" };
+    const result = withItem(item);
+
+    await act(() => result.current.setShoppingItemAmount(item, { unit: "db" }));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${shopPath("u1")}/s1` },
+      { amount: 6, unit: "db" },
+    );
+  });
+
+  it("drops the shop-rounding note, which no longer explains the amount", async () => {
+    const item = {
+      id: "s1",
+      name: "cukor",
+      amount: 1,
+      unit: "kg",
+      sourceAmount: 2,
+      sourceUnit: "tk",
+    };
+    const result = withItem(item);
+
+    await act(() => result.current.setShoppingItemAmount(item, { amount: 3 }));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${shopPath("u1")}/s1` },
+      {
+        amount: 3,
+        unit: "kg",
+        sourceAmount: DELETE_FIELD,
+        sourceUnit: DELETE_FIELD,
+      },
+    );
+  });
+
+  it("writes nothing for a zero or unchanged amount", async () => {
+    const item = { id: "s1", name: "liszt", amount: 2, unit: "kg" };
+    const result = withItem(item);
+
+    await act(() => result.current.setShoppingItemAmount(item, { amount: 0 }));
+    await act(() => result.current.setShoppingItemAmount(item, { amount: 2 }));
+
+    expect(firestoreMock.updateDoc).not.toHaveBeenCalled();
+  });
+
+  it("normalizes a written-out unit", async () => {
+    const item = { id: "f1", name: "tojás", amount: 6, unit: "g" };
+    const result = withItem(item);
+
+    await act(() => result.current.setFridgeItemAmount(item, { unit: "darab" }));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${fridgePath("u1")}/f1` },
+      { amount: 6, unit: "db" },
+    );
+  });
+
+  it("edits the fridge row, not the shopping row of the same name", async () => {
+    const item = { id: "f1", name: "vaj", amount: 1, unit: "db" };
+    const result = withItem(item);
+
+    await act(() => result.current.setFridgeItemAmount(item, { amount: 4 }));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${fridgePath("u1")}/f1` },
+      { amount: 4, unit: "db" },
+    );
+  });
+});

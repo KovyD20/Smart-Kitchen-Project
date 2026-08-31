@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "../Icon/Icon";
-import { recipeMeta, splitByFridge } from "../../lib/recipes";
+import { groupIngredients, recipeMeta, splitByFridge } from "../../lib/recipes";
 import { mainTagColor, mainTagOf } from "../../constants/recipeTags";
 
 function Servings({ value, onChange }) {
@@ -29,12 +29,16 @@ function Servings({ value, onChange }) {
 }
 
 function IngredientRow({ ingredient, onAdd }) {
+  const note = ingredient.note?.trim();
   return (
     <div className="ing-row">
       <span className="ing-qty">
         {ingredient.amount} {ingredient.unit}
       </span>
-      <span className="ing-name">{ingredient.name}</span>
+      <span className="ing-name">
+        {ingredient.name}
+        {note && <span className="ing-note">{note}</span>}
+      </span>
       <button
         type="button"
         className="icon-btn ing-add"
@@ -45,6 +49,23 @@ function IngredientRow({ ingredient, onAdd }) {
       </button>
     </div>
   );
+}
+
+// The ingredient list, sectioned by the optional `group` field. A recipe that
+// uses no groups renders exactly as before: one unnamed block, no headings.
+function IngredientList({ ingredients, onAdd }) {
+  if (ingredients.length === 0) {
+    return <div className="empty-state">Nincs megadva hozzávaló.</div>;
+  }
+
+  return groupIngredients(ingredients).map((block, blockIndex) => (
+    <div key={blockIndex} className="ing-group">
+      {block.group && <div className="ing-group-label">{block.group}</div>}
+      {block.items.map((ingredient, i) => (
+        <IngredientRow key={i} ingredient={ingredient} onAdd={onAdd} />
+      ))}
+    </div>
+  ));
 }
 
 // The recipe's course, in the same colour it has on the cards and in the filter
@@ -195,17 +216,7 @@ export default function RecipeView({
 
         {mobileTab === "ing" ? (
           <div className="mobile-stack">
-            {ingredients.length === 0 ? (
-              <div className="empty-state">Nincs megadva hozzávaló.</div>
-            ) : (
-              ingredients.map((ingredient, i) => (
-                <IngredientRow
-                  key={i}
-                  ingredient={ingredient}
-                  onAdd={onAddIngredient}
-                />
-              ))
-            )}
+            <IngredientList ingredients={ingredients} onAdd={onAddIngredient} />
           </div>
         ) : (
           <div className="mobile-stack">
@@ -267,17 +278,7 @@ export default function RecipeView({
             <span className="panel-title">Hozzávalók</span>
           </header>
           <div className="panel-body">
-            {ingredients.length === 0 ? (
-              <div className="empty-state">Nincs megadva hozzávaló.</div>
-            ) : (
-              ingredients.map((ingredient, i) => (
-                <IngredientRow
-                  key={i}
-                  ingredient={ingredient}
-                  onAdd={onAddIngredient}
-                />
-              ))
-            )}
+            <IngredientList ingredients={ingredients} onAdd={onAddIngredient} />
           </div>
         </section>
 

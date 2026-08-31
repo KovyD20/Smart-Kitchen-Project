@@ -2,7 +2,11 @@ import { useState } from "react";
 import { authedFetch } from "../../lib/api";
 import { aiErrorMessage } from "../../lib/aiErrors";
 import Icon from "../Icon/Icon";
-import { formatAmount } from "../../lib/recipes";
+import {
+  cleanIngredient,
+  formatAmount,
+  groupIngredients,
+} from "../../lib/recipes";
 import "./AiRecipePanel.css";
 
 export default function AiRecipePanel({
@@ -177,7 +181,9 @@ export default function AiRecipePanel({
     const payload = {
       name: recipe.name,
       ingredients: Array.isArray(recipe.ingredients)
-        ? recipe.ingredients.map(({ _baseAmount, ...ingredient }) => ingredient)
+        ? recipe.ingredients.map(({ _baseAmount, ...ingredient }) =>
+            cleanIngredient(ingredient),
+          )
         : [],
       steps: Array.isArray(recipe.steps) ? recipe.steps : [],
       tags: Array.isArray(recipe.tags) ? recipe.tags : [],
@@ -297,12 +303,26 @@ export default function AiRecipePanel({
           <div className="ai-result-body">
             <div className="ai-result-col">
               <div className="ai-result-label">Hozzávalók</div>
-              {(recipe.ingredients || []).map((ingredient, i) => (
-                <div key={i} className="ing-row">
-                  <span className="ing-qty">
-                    {ingredient.amount} {ingredient.unit}
-                  </span>
-                  <span className="ing-name">{ingredient.name}</span>
+              {/* Same sectioning as the saved recipe, so the preview shows
+                  everything the save is about to store. */}
+              {groupIngredients(recipe.ingredients).map((block, blockIndex) => (
+                <div key={blockIndex} className="ing-group">
+                  {block.group && (
+                    <div className="ing-group-label">{block.group}</div>
+                  )}
+                  {block.items.map((ingredient, i) => (
+                    <div key={i} className="ing-row">
+                      <span className="ing-qty">
+                        {ingredient.amount} {ingredient.unit}
+                      </span>
+                      <span className="ing-name">
+                        {ingredient.name}
+                        {ingredient.note?.trim() && (
+                          <span className="ing-note">{ingredient.note.trim()}</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
