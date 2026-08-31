@@ -33,6 +33,23 @@
   gap: 10px;
 }
 
+/* The dialog focuses its default action on open, and browsers do not reliably
+   paint a :focus-visible ring for programmatic focus. Which button Enter is
+   about to press is the dialog's core information, so this ring is on :focus. */
+.confirm-actions .btn-pill:focus {
+  outline: 2px solid var(--text-strong);
+  outline-offset: 2px;
+}
+
+/* A destructive confirmation gets a brighter red than the brand button, so
+   "Törlés" and "Rendben" are not the same shape in the same colour. */
+.confirm-accept.is-danger {
+  background: var(--brand-bright);
+}
+.confirm-accept.is-danger:hover:not(:disabled) {
+  background: #ff5457;
+}
+
 @keyframes confirm-fade {
   from {
     opacity: 0;

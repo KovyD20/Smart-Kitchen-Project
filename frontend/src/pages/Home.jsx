@@ -266,7 +266,12 @@ export default function Home({ user }) {
 
   const handleDeleteRecipe = async () => {
     if (!selectedRecipe) return;
-    if (!(await confirm(`Biztosan törlöd a "${selectedRecipe.name}" receptet?`)))
+    if (
+      !(await confirm(`Biztosan törlöd a "${selectedRecipe.name}" receptet?`, {
+        danger: true,
+        confirmLabel: "Törlés",
+      }))
+    )
       return;
     try {
       await deleteRecipe(selectedRecipe.id);
@@ -290,7 +295,13 @@ export default function Home({ user }) {
 
   const handleClearDone = async () => {
     if (doneCount === 0) return;
-    if (!(await confirm("Biztosan törlöd a kész tételeket?"))) return;
+    if (
+      !(await confirm("Biztosan törlöd a kész tételeket?", {
+        danger: true,
+        confirmLabel: "Törlés",
+      }))
+    )
+      return;
     try {
       await clearDoneShoppingItems();
     } catch (err) {
@@ -306,6 +317,7 @@ export default function Home({ user }) {
     if (
       !(await confirm(
         `Biztosan törlöd mind a ${shoppingList.length} tételt a listáról?`,
+        { danger: true, confirmLabel: "Lista ürítése" },
       ))
     )
       return;
@@ -447,7 +459,13 @@ export default function Home({ user }) {
             updateShoppingItem(item, delta).catch(notifyError)
           }
           onDeleteItem={async (item) => {
-            if (!(await confirm("Biztosan törlöd?"))) return;
+            if (
+              !(await confirm("Biztosan törlöd?", {
+                danger: true,
+                confirmLabel: "Törlés",
+              }))
+            )
+              return;
             await deleteShoppingItem(item).catch(notifyError);
           }}
           onAddItem={(item) => addSingleShoppingItem(item).catch(notifyError)}
@@ -475,7 +493,13 @@ export default function Home({ user }) {
             )
           }
           onDeleteItem={async (item) => {
-            if (!(await confirm("Biztosan törlöd?"))) return;
+            if (
+              !(await confirm("Biztosan törlöd?", {
+                danger: true,
+                confirmLabel: "Törlés",
+              }))
+            )
+              return;
             await deleteFridgeItem(item).catch(notifyError);
           }}
           onAddItem={(item) =>

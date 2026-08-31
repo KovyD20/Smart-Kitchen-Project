@@ -380,6 +380,7 @@ export default function NewRecipeForm({
                     if (
                       !(await confirm(
                         `Biztosan törlöd a "${tag}" címkét minden receptből?`,
+                        { danger: true, confirmLabel: "Törlés" },
                       ))
                     )
                       return;
