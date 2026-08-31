@@ -1,5 +1,11 @@
 import Icon from "../Icon/Icon";
 import {
+  isMainTag,
+  mainTagColor,
+  mainTagOf,
+  sortTags,
+} from "../../constants/recipeTags";
+import {
   availabilityLevel,
   FAVORITES_FILTER,
   recipeAvailability,
@@ -53,6 +59,19 @@ function CardMeta({ recipe, availability }) {
 
 // "Receptek" — the recipe browser. Cards with artwork on desktop, compact rows
 // on mobile (the layout switch lives in CSS).
+// The card's badge names the course rather than tags[0], which was whichever tag
+// happened to be stored first. Recipes saved before courses existed have none,
+// and show nothing rather than a guess.
+function CourseBadge({ recipe }) {
+  const course = mainTagOf(recipe);
+  if (!course) return null;
+  return (
+    <span className="tag-pill" style={{ "--tag-accent": mainTagColor(course) }}>
+      {course}
+    </span>
+  );
+}
+
 export default function RecipesView({
   recipes,
   totalCount,
@@ -70,8 +89,9 @@ export default function RecipesView({
   onSelectRecipe,
   searchInputRef,
 }) {
-  // Favourites sit right after "Mind", ahead of the user's own tags.
-  const chips = ["all", FAVORITES_FILTER, ...allTags];
+  // Favourites sit right after "Mind", ahead of the tags; sortTags then puts the
+  // five courses before anything the user invented.
+  const chips = ["all", FAVORITES_FILTER, ...sortTags(allTags)];
 
   const chipLabel = (tag) => {
     if (tag === "all") return "Mind";
@@ -99,7 +119,13 @@ export default function RecipesView({
           type="button"
           className={`chip${filterTag === tag ? " is-active" : ""}${
             tag === FAVORITES_FILTER ? " chip-fav" : ""
-          }`}
+          }${isMainTag(tag) ? " chip-course" : ""}`}
+          // "Mind" and "Kedvencek" are not tags, so they keep the neutral look.
+          style={
+            tag === "all" || tag === FAVORITES_FILTER
+              ? undefined
+              : { "--tag-accent": mainTagColor(tag) }
+          }
           onClick={() => onFilterChange(tag)}
         >
           {chipLabel(tag)}
@@ -178,15 +204,11 @@ export default function RecipesView({
                   />
                   {/* Desktop stacks the tag under the meta line; the mobile row
                       puts it beside the text, before the chevron. */}
-                  {!isMobile && recipe.tags?.[0] && (
-                    <span className="tag-pill">{recipe.tags[0]}</span>
-                  )}
+                  {!isMobile && <CourseBadge recipe={recipe} />}
                 </span>
                 {isMobile && (
                   <>
-                    {recipe.tags?.[0] && (
-                      <span className="tag-pill">{recipe.tags[0]}</span>
-                    )}
+                    <CourseBadge recipe={recipe} />
                     <Icon name="chevronRight" size={12} color="#6a6a6a" />
                   </>
                 )}

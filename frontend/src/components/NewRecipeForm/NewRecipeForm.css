@@ -60,6 +60,16 @@
   color: var(--text-body);
 }
 
+/* The same add action as the section header's, repeated under the last row so a
+   long list does not have to be scrolled back to the top. Full width and dashed,
+   matching the inline "add item" row in the list views. */
+.rform-add-trailing {
+  width: 100%;
+  justify-content: center;
+  height: 40px;
+  background: transparent;
+}
+
 .rform-ing {
   display: grid;
   grid-template-columns: 1fr 100px 110px 34px;
@@ -105,6 +115,30 @@
   gap: 8px;
 }
 
+/* Course chips. The colour arrives as --tag-accent from constants/recipeTags.js,
+   so the palette lives in one place rather than in this stylesheet. */
+.rform-maintag {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 7px 15px;
+  border-radius: 999px;
+  border: 1px solid #3d3d3d;
+  background: var(--chip);
+  color: #b0b0b0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rform-maintag:hover {
+  border-color: var(--tag-accent);
+}
+.rform-maintag.is-active {
+  border-color: var(--tag-accent);
+  color: var(--tag-accent);
+  background: color-mix(in srgb, var(--tag-accent) 14%, transparent);
+}
+
 .rform-tag {
   display: inline-flex;
   align-items: center;
@@ -114,8 +148,8 @@
   overflow: hidden;
 }
 .rform-tag.is-active {
-  background: #332226;
-  border-color: var(--brand-bright);
+  background: color-mix(in srgb, var(--tag-accent) 14%, transparent);
+  border-color: var(--tag-accent);
 }
 
 .rform-tag-toggle {
@@ -129,7 +163,7 @@
   cursor: pointer;
 }
 .rform-tag.is-active .rform-tag-toggle {
-  color: #e88b8f;
+  color: var(--tag-accent);
 }
 
 .rform-tag-del {

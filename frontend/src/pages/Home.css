@@ -323,6 +323,26 @@
   color: #fff;
 }
 
+/* A tag chip is tinted by its course colour (constants/recipeTags.js); the ones
+   the user invented fall back to the neutral --tag-user, so "coloured" reads as
+   "this is one of the five courses". "Mind"/"Kedvencek" set no accent at all. */
+/* Courses are shouted, the user's own tags are left as typed -- so the five
+   fixed categories stay recognisable at a glance in a mixed chip row. */
+.chip-course {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chip[style*="--tag-accent"] {
+  border-color: color-mix(in srgb, var(--tag-accent) 55%, transparent);
+  color: var(--tag-accent);
+}
+.chip[style*="--tag-accent"].is-active {
+  background: color-mix(in srgb, var(--tag-accent) 20%, transparent);
+  border-color: var(--tag-accent);
+  color: var(--tag-accent);
+}
+
 /* -------------------------------------------------------- recipe cards ---- */
 
 .recipe-card {
@@ -420,12 +440,16 @@
   margin-top: 4px;
   padding: 4px 11px;
   border-radius: 999px;
-  background: #332226;
+  background: color-mix(in srgb, var(--tag-accent, var(--brand-bright)) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tag-accent, var(--brand-bright)) 45%, transparent);
   font-size: 11px;
   font-weight: 700;
-  color: #e88b8f;
+  color: var(--tag-accent, #e88b8f);
   font-family: var(--font-display);
-  font-variant: all-small-caps;
+  /* Real uppercasing, not font-variant: all-small-caps -- that is an OpenType
+     feature, and the display font's small-caps coverage skips the Hungarian
+     accents, so "FŐÉTEL" came out half-cased while "REGGELI" did not. */
+  text-transform: uppercase;
   letter-spacing: 0.8px;
 }
 

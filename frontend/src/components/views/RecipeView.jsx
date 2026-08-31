@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "../Icon/Icon";
 import { recipeMeta, splitByFridge } from "../../lib/recipes";
+import { mainTagColor, mainTagOf } from "../../constants/recipeTags";
 
 function Servings({ value, onChange }) {
   return (
@@ -43,6 +44,18 @@ function IngredientRow({ ingredient, onAdd }) {
         <Icon name="plus" size={11} />
       </button>
     </div>
+  );
+}
+
+// The recipe's course, in the same colour it has on the cards and in the filter
+// row. Absent on recipes saved before courses existed.
+function CourseBadge({ recipe }) {
+  const course = mainTagOf(recipe);
+  if (!course) return null;
+  return (
+    <span className="tag-pill" style={{ "--tag-accent": mainTagColor(course) }}>
+      {course}
+    </span>
   );
 }
 
@@ -136,6 +149,7 @@ export default function RecipeView({
           <div className="recipe-head-text">
             <div className="recipe-head-name">{recipe.name}</div>
             <div className="recipe-head-meta">{recipeMeta(recipe)}</div>
+            <CourseBadge recipe={recipe} />
           </div>
         </div>
 
@@ -224,6 +238,7 @@ export default function RecipeView({
         <div className="recipe-head-text">
           <div className="recipe-head-name">{recipe.name}</div>
           <div className="recipe-head-meta">{recipeMeta(recipe)}</div>
+          <CourseBadge recipe={recipe} />
         </div>
         {tools}
         <button

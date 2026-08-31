@@ -46,6 +46,17 @@
   --cat-household-bath: #8fb2c4;
   --cat-other: #8f8f8f;
 
+  /* Course-category tags (see constants/recipeTags.js). Fixed, unlike the
+     --cat-* accents above: a recipe's course colour is not user-overridable, so
+     the same colour always means the same course. --tag-user is the neutral one
+     every tag the user invents falls back to. */
+  --tag-breakfast: #f0c96a;
+  --tag-soup: #ff9d2e;
+  --tag-main: #e5383b;
+  --tag-dessert: #b98cff;
+  --tag-misc: #6ee7a0;
+  --tag-user: #e6e6e6;
+
   /* Text */
   --text: #ffffff;
   --text-strong: #f2f2f2;
