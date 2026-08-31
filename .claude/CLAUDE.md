@@ -68,4 +68,4 @@ npm test
 - `.env` és `.env.local` fájlokat soha ne commitolj
 - `archive/` a régi Docker Compose + Nginx demó, **nem** az aktuális futtatási mód — ne vedd figyelembe új funkcióknál
 - Render (backend) 15 perc inaktivitás után leáll, 30-60s-et alszik felébredéskor — ez csak a katalógus-fetchet és az első AI hívást érinti
-- Teljes deploy-lépések: [DEPLOY.md](DEPLOY.md)
+- Teljes deploy-lépések: `.local_directory/DEPLOY.md` (helyi, nincs a repóban)

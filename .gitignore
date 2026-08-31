@@ -31,5 +31,8 @@ Thumbs.db
 # English docs by hand, plus scratch copies. Nothing in here belongs on GitHub.
 .local_directory/
 
+# Throwaway git worktrees used for isolated work; each holds a full checkout.
+.claude/worktrees/
+
 REFACTOR_TERV.md
 IMPROVE_TERV.md
