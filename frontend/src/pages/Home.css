@@ -117,6 +117,18 @@
   gap: 14px;
 }
 
+/* The "?" that publishes the keyboard layer. A glyph rather than an icon: the
+   character is the shortcut, so it needs no legend. */
+.topbar-help {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .topbar-email {
   font-size: 14px;
   color: #b5b5b5;

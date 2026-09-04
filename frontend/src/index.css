@@ -271,3 +271,23 @@ button {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Keyboard navigation (phase 6.1). Without an explicit rule the browser default
+   ring is nearly invisible on these dark surfaces, and every other keyboard
+   feature navigates blind. :focus-visible only, so a mouse click on a button
+   does not leave a ring behind. */
+:focus-visible {
+  outline: 2px solid var(--accent, var(--brand-bright));
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Rows and cards are the roving tab stops of the list navigation, so their ring
+   has to read as "this whole row is selected" rather than as a button outline. */
+.item-row:focus-visible,
+.recipe-card:focus-visible {
+  outline-offset: -2px;
+}

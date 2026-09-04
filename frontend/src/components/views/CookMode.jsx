@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import Icon from "../Icon/Icon";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { groupIngredients } from "../../lib/recipes";
 
 // "Főzés mód" — one step at a time in large type, for reading from across the
@@ -17,23 +18,27 @@ export default function CookMode({
   const index = Math.min(step, Math.max(0, total - 1));
   const isLast = index + 1 >= total;
 
-  // Arrow keys / Escape, so a laptop propped on the counter is usable too.
+  // Escape and the focus trap: the overlay covers the whole app, so Tab must not
+  // wander off into the list behind it.
+  const modalRef = useFocusTrap(true, { onEscape: onClose });
+
+  // Arrow keys stay on the window, so a laptop propped on the counter steps
+  // through the recipe whatever happens to hold the focus.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight") onStep(index + 1);
+      if (e.key === "ArrowRight") onStep(index + 1);
       else if (e.key === "ArrowLeft") onStep(index - 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, onStep, onClose]);
+  }, [index, onStep]);
 
   // Two ingredients per step is a rough but useful hint of what to reach for.
   const chips = ingredients.slice(index * 2, index * 2 + 2);
 
   return (
     <div className="cook-overlay" role="dialog" aria-modal="true">
-      <div className="cook-modal">
+      <div className="cook-modal" ref={modalRef} tabIndex={-1}>
         <header className="cook-head">
           <button
             type="button"

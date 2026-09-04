@@ -1,4 +1,6 @@
 import Icon from "../Icon/Icon";
+import { isPlainKey } from "../../lib/keyboard";
+import { useListKeyboardNav } from "../../hooks/useListKeyboardNav";
 import {
   isMainTag,
   mainTagColor,
@@ -88,8 +90,18 @@ export default function RecipesView({
   onFilterChange,
   onSearchChange,
   onSelectRecipe,
+  onToggleFavorite,
   searchInputRef,
 }) {
+  // The same roving tabindex as the inventory lists (phase 6.6): one tab stop
+  // for the whole grid, arrows between the cards, Enter opens, "f" favourites.
+  // "grid" layout: the next card is to the right, not the next in document
+  // order, so all four arrows are resolved geometrically.
+  const {
+    containerRef: navContainerRef,
+    onKeyDown: onNavKeyDown,
+    itemProps: navItemProps,
+  } = useListKeyboardNav({ layout: "grid" });
   // Favourites sit right after "Mind", ahead of the tags; sortTags then puts the
   // five courses before anything the user invented.
   const chips = ["all", FAVORITES_FILTER, ...sortTags(allTags)];
@@ -161,7 +173,12 @@ export default function RecipesView({
         </div>
       )}
 
-      <div className="view-scroll">
+      <div
+        className="view-scroll"
+        ref={navContainerRef}
+        tabIndex={-1}
+        onKeyDown={onNavKeyDown}
+      >
         {recipes.length === 0 ? (
           <div className="empty-state">
             {totalCount === 0
@@ -170,7 +187,7 @@ export default function RecipesView({
           </div>
         ) : (
           <div className="grid grid-4">
-            {recipes.map((recipe) => (
+            {recipes.map((recipe, index) => (
               <button
                 key={recipe.id}
                 type="button"
@@ -178,6 +195,13 @@ export default function RecipesView({
                   recipe.id === selectedId ? " is-selected" : ""
                 }`}
                 onClick={() => onSelectRecipe(recipe)}
+                {...navItemProps(recipe.id, { first: index === 0 })}
+                onKeyDown={(event) => {
+                  if (!isPlainKey(event)) return;
+                  if (event.key.toLowerCase() !== "f" || !onToggleFavorite) return;
+                  event.preventDefault();
+                  onToggleFavorite(recipe);
+                }}
               >
                 <span className="recipe-card-art">
                   {recipe.imageUrl ? (

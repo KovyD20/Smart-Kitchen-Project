@@ -33,10 +33,11 @@ backend/
 └── scripts/         # migrate.js, seedPantry.js, aiSmokeTest.js
 
 frontend/src/
-├── components/     # AiRecipePanel, AuthPanel, Background, Icon, NewRecipeForm, views
+├── components/     # AiRecipePanel, AuthPanel, Background, Icon, NewRecipeForm, ShortcutsHelp, views
 ├── context/        # CatalogContext, ConfirmContext, ToastContext
-├── hooks/          # useInventory, useRecipes, useCollapsedGroups, useIsMobile
-├── lib/            # api.js, inventory.js, recipes.js, units.js
+├── hooks/          # useInventory, useRecipes, useCollapsedGroups, useIsMobile,
+│                   useGlobalKeys, useSpatialNav, useListKeyboardNav, useFocusTrap
+├── lib/            # api.js, inventory.js, recipes.js, units.js, keyboard.js
 ├── pages/          # Home.jsx
 └── constants/      # pantryCatalog.js, units.js
 ```

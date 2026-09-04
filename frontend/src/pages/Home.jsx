@@ -12,12 +12,16 @@ import NewRecipeView from "../components/views/NewRecipeView";
 import CookMode from "../components/views/CookMode";
 import NewRecipeForm from "../components/NewRecipeForm/NewRecipeForm";
 import LoadingBanner from "../components/LoadingBanner/LoadingBanner";
+import ShortcutsHelp from "../components/ShortcutsHelp/ShortcutsHelp";
 
 import "./Home.css";
 import { SYSTEM_UNITS } from "../constants/units";
 import { useRecipes } from "../hooks/useRecipes";
 import { useInventory } from "../hooks/useInventory";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { useGlobalKeys } from "../hooks/useGlobalKeys";
+import { useSpatialNav } from "../hooks/useSpatialNav";
+import { isTypingTarget } from "../lib/keyboard";
 import { useCategoryColors } from "../hooks/useCategoryColors";
 import { useCatalog } from "../context/CatalogContext";
 import { useToast } from "../context/ToastContext";
@@ -82,6 +86,8 @@ function filterGroups(groups, search) {
     }))
     .filter((group) => group.items.length > 0);
 }
+
+const TAB_IDS = TABS.map((t) => t.id);
 
 const SCREEN_TITLES = {
   receptek: "Receptek",
@@ -157,6 +163,7 @@ export default function Home({ user }) {
   const [servingsFor, setServingsFor] = useState({});
   const [cooking, setCooking] = useState(false);
   const [cookStep, setCookStep] = useState(0);
+  const [helpOpen, setHelpOpen] = useState(false);
   const searchInputRef = useRef(null);
   const loadedToastShown = useRef(false);
 
@@ -333,13 +340,72 @@ export default function Home({ user }) {
     }
   };
 
+  // The shortcut always opens the field, never closes it: "/" is what you press
+  // when you want to search, and toggling it shut would be a surprise. The
+  // magnifier button in the mobile bar keeps its toggle.
   const focusSearch = () => {
-    if (tab === "receptek") {
+    if (!isMobile || tab === "receptek") {
       searchInputRef.current?.focus();
+      searchInputRef.current?.select();
       return;
     }
-    setSearchOpen((prev) => !prev);
+    setSearchOpen(true);
   };
+
+  // The tab bar is the app's home base: the one place Escape can always take a
+  // keyboard-only user back to, from anywhere, with the arrows leading out of
+  // it again.
+  const focusHome = () => {
+    const home = document.querySelector("[data-nav-home]");
+    if (!home) return false;
+    home.focus();
+    return true;
+  };
+
+  // Arrow-key focus movement across the whole page, as a fallback under the
+  // list navigation (phase 6.3) -- so every control, not just the list rows, is
+  // reachable with the four arrows alone.
+  const { exitField } = useSpatialNav({ onFallback: focusHome });
+
+  // Escape walks one step out, topmost layer first, and reports whether it
+  // found something to do -- so it never silently eats the key.
+  const handleEscape = () => {
+    if (helpOpen) {
+      setHelpOpen(false);
+      return true;
+    }
+    if (cooking) {
+      setCooking(false);
+      return true;
+    }
+    // The recipe form is the one layer Escape does not close from inside a
+    // field: it can hold a lot of unsaved typing, and the first Escape is far
+    // more likely to mean "get me out of this input". Out of a field it closes.
+    if (editingRecipe || showManualForm) {
+      if (isTypingTarget(document.activeElement)) return exitField();
+      setEditingRecipe(null);
+      setShowManualForm(false);
+      focusHome();
+      return true;
+    }
+    if (searchOpen) {
+      setSearchOpen(false);
+      focusHome();
+      return true;
+    }
+    // Not in a layer: leave the field, and from anywhere else go home.
+    if (exitField()) return true;
+    if (document.activeElement?.hasAttribute?.("data-nav-home")) return false;
+    return focusHome();
+  };
+
+  useGlobalKeys({
+    tabIds: TAB_IDS,
+    onSelectTab: goToTab,
+    onFocusSearch: focusSearch,
+    onToggleHelp: () => setHelpOpen((prev) => !prev),
+    onEscape: handleEscape,
+  });
 
   const renderTab = () => {
     if (tab === "receptek") {
@@ -360,6 +426,7 @@ export default function Home({ user }) {
           onFilterChange={setFilterTag}
           onSearchChange={setSearch}
           onSelectRecipe={openRecipe}
+          onToggleFavorite={handleToggleFavorite}
         />
       );
     }
@@ -602,7 +669,8 @@ export default function Home({ user }) {
                 type="button"
                 className="icon-btn topbar-icon"
                 aria-label="Keresés"
-                onClick={focusSearch}
+                aria-expanded={searchOpen}
+                onClick={() => setSearchOpen((prev) => !prev)}
               >
                 <Icon name="search" size={14} />
               </button>
@@ -635,6 +703,17 @@ export default function Home({ user }) {
                 </div>
               </div>
               <div className="topbar-user">
+                {/* The one visible trace of the keyboard layer: without it "?"
+                    is knowledge nobody can find. */}
+                <button
+                  type="button"
+                  className="icon-btn topbar-icon topbar-help"
+                  aria-label="Gyorsbillentyűk"
+                  title="Gyorsbillentyűk (?)"
+                  onClick={() => setHelpOpen(true)}
+                >
+                  ?
+                </button>
                 <span className="topbar-email">
                   {user?.email || "Ismeretlen email"}
                 </span>
@@ -683,6 +762,7 @@ export default function Home({ user }) {
                     className={`tab-top${tab === t.id ? " is-active" : ""}`}
                     style={{ "--accent": t.accent }}
                     aria-current={tab === t.id}
+                    data-nav-home={tab === t.id ? "" : undefined}
                     onClick={() => goToTab(t.id)}
                   >
                     <Icon name={t.icon} size={14} />
@@ -715,6 +795,7 @@ export default function Home({ user }) {
                 className={`tab-bottom${tab === t.id ? " is-active" : ""}`}
                 style={{ "--accent": t.accent }}
                 aria-current={tab === t.id}
+                data-nav-home={tab === t.id ? "" : undefined}
                 onClick={() => goToTab(t.id)}
               >
                 <span className="tab-bottom-icon">
@@ -727,6 +808,8 @@ export default function Home({ user }) {
           })}
         </nav>
       )}
+
+      {helpOpen && <ShortcutsHelp onClose={() => setHelpOpen(false)} />}
 
       {cooking && selectedRecipe && steps.length > 0 && (
         <CookMode

@@ -7,6 +7,7 @@ import {
   ItemRow,
 } from "./GroupedItems";
 import { useCollapsedGroups } from "../../hooks/useCollapsedGroups";
+import { useListKeyboardNav } from "../../hooks/useListKeyboardNav";
 
 const ACCENT = "var(--yellow)";
 // Collapse key for the recommendations card, which is not a real category.
@@ -127,6 +128,26 @@ export default function ShoppingView({
   onMoveToFridge,
 }) {
   const { isOpen, toggle, openAll, closeAll, anyClosed } = useCollapsedGroups();
+  // Arrow-key navigation over the card headers and rows below (phase 6.3).
+  const {
+    containerRef: navContainerRef,
+    onKeyDown: onNavKeyDown,
+    itemProps: navItemProps,
+    markRemoval: markNavRemoval,
+    clearRemoval: clearNavRemoval,
+  } = useListKeyboardNav();
+
+  // Delete goes through a confirm dialog, so the row is still there when the
+  // handler returns; markRemoval remembers where it was, and the hook moves the
+  // focus to the neighbour once Firestore actually drops it.
+  const deleteItem = async (item) => {
+    markNavRemoval(item.id);
+    try {
+      await onDeleteItem(item);
+    } finally {
+      clearNavRemoval();
+    }
+  };
 
   const summary = `${openCount} tétel hátra · ${doneCount} kész`;
   const hasGroups = groups.length > 0;
@@ -222,7 +243,12 @@ export default function ShoppingView({
         </div>
       )}
 
-      <div className="view-scroll">
+      <div
+        className="view-scroll"
+        ref={navContainerRef}
+        tabIndex={-1}
+        onKeyDown={onNavKeyDown}
+      >
         <div className="grid grid-3">
           {!hasGroups && (
             <div className="empty-state">
@@ -231,11 +257,14 @@ export default function ShoppingView({
             </div>
           )}
 
-          {groups.map((group) => {
+          {groups.map((group, groupIndex) => {
             const done = group.items.filter((item) => item.done).length;
             return (
               <GroupCard
                 key={group.category}
+                navProps={navItemProps(`group:${group.category}`, {
+                  first: groupIndex === 0,
+                })}
                 accent={colorFor(group.category)}
                 category={group.category}
                 meta={`${done}/${group.items.length}`}
@@ -254,6 +283,7 @@ export default function ShoppingView({
                 {group.items.map((item) => (
                   <ItemRow
                     key={item.id}
+                    navProps={navItemProps(item.id)}
                     name={item.displayName || item.name}
                   nameKey={item.nameKey}
                   imageUrl={item.imageUrl}
@@ -280,7 +310,7 @@ export default function ShoppingView({
                     onIncrement={() => onUpdateItem(item, 1)}
                     onDecrement={() => onUpdateItem(item, -1)}
                     disableDecrement={item.amount <= 1}
-                    onDelete={() => onDeleteItem(item)}
+                    onDelete={() => deleteItem(item)}
                   />
                 ))}
               </GroupCard>

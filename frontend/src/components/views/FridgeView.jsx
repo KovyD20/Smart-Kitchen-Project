@@ -6,6 +6,7 @@ import {
   ItemRow,
 } from "./GroupedItems";
 import { useCollapsedGroups } from "../../hooks/useCollapsedGroups";
+import { useListKeyboardNav } from "../../hooks/useListKeyboardNav";
 
 const ACCENT = "var(--blue)";
 
@@ -27,6 +28,24 @@ export default function FridgeView({
   onGoToNew,
 }) {
   const { isOpen, toggle, openAll, closeAll, anyClosed } = useCollapsedGroups();
+  // Same arrow-key navigation as the shopping list (phase 6.3).
+  const {
+    containerRef: navContainerRef,
+    onKeyDown: onNavKeyDown,
+    itemProps: navItemProps,
+    markRemoval: markNavRemoval,
+    clearRemoval: clearNavRemoval,
+  } = useListKeyboardNav();
+
+  const deleteItem = async (item) => {
+    markNavRemoval(item.id);
+    try {
+      await onDeleteItem(item);
+    } finally {
+      clearNavRemoval();
+    }
+  };
+
   const summary = `${itemCount} tétel a hűtőben`;
   const collapsibleKeys = groups.map((group) => group.category);
 
@@ -76,7 +95,12 @@ export default function FridgeView({
         <div className="list-tools">{collapseToggle}</div>
       )}
 
-      <div className="view-scroll">
+      <div
+        className="view-scroll"
+        ref={navContainerRef}
+        tabIndex={-1}
+        onKeyDown={onNavKeyDown}
+      >
         <div className="grid grid-3">
           {groups.length === 0 && (
             <div className="empty-state">
@@ -84,9 +108,12 @@ export default function FridgeView({
             </div>
           )}
 
-          {groups.map((group) => (
+          {groups.map((group, groupIndex) => (
             <GroupCard
               key={group.category}
+              navProps={navItemProps(`group:${group.category}`, {
+                first: groupIndex === 0,
+              })}
               accent={colorFor(group.category)}
               category={group.category}
               meta={`${group.items.length} tétel`}
@@ -105,6 +132,7 @@ export default function FridgeView({
               {group.items.map((item) => (
                 <ItemRow
                   key={item.id}
+                  navProps={navItemProps(item.id)}
                   name={item.displayName || item.name}
                   nameKey={item.nameKey}
                   imageUrl={item.imageUrl}
@@ -123,7 +151,7 @@ export default function FridgeView({
                   onIncrement={() => onUpdateItem(item, 1)}
                   onDecrement={() => onUpdateItem(item, -1)}
                   disableDecrement={item.amount <= 1}
-                  onDelete={() => onDeleteItem(item)}
+                  onDelete={() => deleteItem(item)}
                 />
               ))}
             </GroupCard>

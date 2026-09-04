@@ -6,6 +6,7 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "../../firebase";
 import LightPillar from "../Background/LightPillar";
+import { useSpatialNav } from "../../hooks/useSpatialNav";
 import "./AuthPanel.css";
 
 export default function AuthPanel() {
@@ -13,6 +14,10 @@ export default function AuthPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  // The sign-in screen is a page of the app too: arrows move between the
+  // fields and buttons, Escape steps out of a field. Home mounts its own; the
+  // two screens are never on at the same time, so they cannot both answer a key.
+  const { exitField } = useSpatialNav();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,7 +44,13 @@ export default function AuthPanel() {
   };
 
   return (
-    <div className="auth-wrap">
+    <div
+      className="auth-wrap"
+      onKeyDown={(e) => {
+        if (e.key !== "Escape") return;
+        if (exitField()) e.preventDefault();
+      }}
+    >
       <div className="auth-bg">
         <LightPillar />
       </div>

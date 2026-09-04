@@ -109,6 +109,9 @@ function ImagePicker({ previewUrl, hasImage, disabled, onPick, onClear }) {
         <input
           ref={inputRef}
           className="rform-image-input"
+          // Off-screen but still in the layout, so without this it is an
+          // invisible Tab stop between the picker button and the next field.
+          tabIndex={-1}
           type="file"
           accept={ACCEPTED_TYPES.join(",")}
           onChange={(e) => {
@@ -387,8 +390,17 @@ export default function NewRecipeForm({
     setNewTag("");
   };
 
+  // Ctrl+Enter saves from anywhere on the form. The form is long and its fields
+  // swallow plain Enter (which adds the next ingredient or a line break), so
+  // without this the only way out is scrolling to the button.
+  const handleFormKeyDown = (event) => {
+    if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    if (!saving) submit();
+  };
+
   return (
-    <div className="rform">
+    <div className="rform" onKeyDown={handleFormKeyDown}>
       <label className="rform-field">
         <span className="rform-label">Recept neve</span>
         <input

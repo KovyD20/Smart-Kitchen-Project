@@ -36,3 +36,5 @@ Thumbs.db
 
 REFACTOR_TERV.md
 IMPROVE_TERV.md
+# Playwright MCP scratch output (page snapshots, console logs).
+.playwright-mcp/

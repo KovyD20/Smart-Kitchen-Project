@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Icon from "../Icon/Icon";
+import { isPlainKey, isTypingTarget } from "../../lib/keyboard";
 import ColorPicker from "../ColorPicker/ColorPicker";
 import { pantryImageUrl } from "../../lib/pantryImages";
 
@@ -36,6 +37,7 @@ export function GroupCard({
   meta,
   open,
   onToggle,
+  navProps,
   onColorChange,
   onColorReset,
   isCustomColor,
@@ -46,11 +48,25 @@ export function GroupCard({
   return (
     <div className="group-card" style={{ "--accent": accent }}>
       <div className="group-head-row">
+        {/* Arrow keys follow the treeview convention: they open and close the
+            card only in the direction they point, so "close" on an already
+            closed card does not reopen it. */}
         <button
           type="button"
           className="group-head"
           aria-expanded={open}
           onClick={onToggle}
+          {...navProps}
+          onKeyDown={(event) => {
+            if (!isPlainKey(event)) return;
+            if (event.key === "ArrowRight" && !open) {
+              event.preventDefault();
+              onToggle();
+            } else if (event.key === "ArrowLeft" && open) {
+              event.preventDefault();
+              onToggle();
+            }
+          }}
         >
           <span className="group-name">{category}</span>
           <span className="group-meta">{meta}</span>
@@ -91,7 +107,11 @@ export function GroupCard({
         />
       )}
 
-      {open && <div className="group-body">{children}</div>}
+      {open && (
+        <div className="group-body" role="list">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -131,9 +151,13 @@ function AmountField({ value, onCommit, onDone }) {
         // even when the row is being driven without focus, and the blur that
         // follows is then a no-op because the draft is already cleared.
         if (e.key === "Enter") {
+          // preventDefault so the layers above (the page-wide Escape/Enter
+          // handling) treat the key as spent and leave the row alone.
+          e.preventDefault();
           commit();
           onDone?.();
         } else if (e.key === "Escape") {
+          e.preventDefault();
           setDraft(null);
           onDone?.();
         }
@@ -152,6 +176,10 @@ function AmountField({ value, onCommit, onDone }) {
 //
 // Editing exists only when the caller passes the matching handler; without them
 // the pencil is not rendered at all.
+//
+// Keyboard-wise the row is a single tab stop (see useListKeyboardNav): the inner
+// buttons carry tabIndex={-1} and are driven by the row's own arrow/Space/Delete
+// handling instead. With the mouse nothing changes.
 //
 // The thumbnail is opportunistic: `pantryImageUrl` builds a conventional path
 // without knowing whether the file exists, and a load failure drops the <img>
@@ -175,7 +203,9 @@ export function ItemRow({
   onDecrement,
   onDelete,
   disableDecrement,
+  navProps,
 }) {
+  const rowRef = useRef(null);
   const [thumbFailed, setThumbFailed] = useState(false);
   const [editing, setEditing] = useState(false);
   const thumbSrc = showThumb ? pantryImageUrl({ nameKey, imageUrl }) : null;
@@ -185,12 +215,65 @@ export function ItemRow({
   // (a read-only list), and it must not be left stuck showing inputs.
   const isEditing = canEdit && editing;
 
+  // Closing the amount field unmounts the input the caret is in, so the focus
+  // has to be handed back explicitly -- otherwise it lands on <body> and the
+  // row the user was working on is lost.
+  const stopEditing = () => {
+    setEditing(false);
+    rowRef.current?.focus();
+  };
+
+  // Row-level shortcuts. `isTypingTarget` guards them because the amount field
+  // lives inside the row: while it is open the arrows belong to the caret, and
+  // Delete to the text, not to the item.
+  const handleKeyDown = (event) => {
+    if (isTypingTarget(event) || !isPlainKey(event)) return;
+
+    const run = (handler) => {
+      if (!handler) return;
+      event.preventDefault();
+      handler();
+    };
+
+    switch (event.key) {
+      case "ArrowRight":
+        run(onIncrement);
+        break;
+      case "ArrowLeft":
+        if (!disableDecrement) run(onDecrement);
+        break;
+      case " ":
+        run(onToggleDone);
+        break;
+      case "Delete":
+      case "Backspace":
+        run(onDelete);
+        break;
+      case "Enter":
+        if (canEdit) {
+          event.preventDefault();
+          setEditing(true);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
-    <div className="item-row">
+    <div
+      ref={rowRef}
+      className="item-row"
+      role="listitem"
+      aria-label={name}
+      onKeyDown={handleKeyDown}
+      {...navProps}
+    >
       {onToggleDone && (
         <button
           type="button"
           className={`item-check${done ? " is-done" : ""}`}
+          tabIndex={-1}
           aria-pressed={Boolean(done)}
           aria-label={`${name} megvéve`}
           onClick={onToggleDone}
@@ -220,6 +303,7 @@ export function ItemRow({
         <button
           type="button"
           className="icon-btn"
+          tabIndex={-1}
           aria-label="Csökkentés"
           disabled={disableDecrement}
           onClick={onDecrement}
@@ -230,7 +314,7 @@ export function ItemRow({
           <AmountField
             value={amount}
             onCommit={onAmountChange}
-            onDone={() => setEditing(false)}
+            onDone={stopEditing}
           />
         ) : (
           <span className="item-qty">{qtyLabel}</span>
@@ -258,6 +342,7 @@ export function ItemRow({
         <button
           type="button"
           className="icon-btn"
+          tabIndex={-1}
           aria-label="Növelés"
           onClick={onIncrement}
         >
@@ -269,9 +354,10 @@ export function ItemRow({
         <button
           type="button"
           className={`icon-btn item-edit${isEditing ? " is-active" : ""}`}
+          tabIndex={-1}
           aria-label={`${name} mennyiségének módosítása`}
           aria-pressed={isEditing}
-          onClick={() => setEditing((prev) => !prev)}
+          onClick={() => (isEditing ? stopEditing() : setEditing(true))}
         >
           <Icon name={isEditing ? "check" : "pen"} size={11} />
         </button>
@@ -280,6 +366,7 @@ export function ItemRow({
       <button
         type="button"
         className="icon-btn danger"
+        tabIndex={-1}
         aria-label={`${name} törlése`}
         onClick={onDelete}
       >
