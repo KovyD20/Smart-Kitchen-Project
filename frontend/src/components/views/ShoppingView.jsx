@@ -300,8 +300,16 @@ export default function ShoppingView({
                       onSetItemAmount &&
                       ((unit) => onSetItemAmount(item, { unit }))
                     }
+                    // The recipes' own total, shown only where it explains the
+                    // amount above it — once rounding to a shop package has
+                    // moved it. "500 g -> 1 kg" is worth a line; "10 db" under
+                    // "10 db" is noise.
                     note={
-                      item.sourceAmount
+                      item.sourceAmount &&
+                      !(
+                        item.sourceAmount === item.amount &&
+                        (item.sourceUnit || "") === (item.unit || "")
+                      )
                         ? `recept: ${item.sourceAmount} ${item.sourceUnit || ""}`.trim()
                         : null
                     }

@@ -48,7 +48,7 @@ export function createCatalog(catalogData) {
           priority: item.priority || null,
           imageUrl: item.imageUrl || null,
           // Smallest purchasable package ({ unit, amount }), or null where the
-          // catalog has no data for it — see toPurchaseAmount in lib/units.
+          // catalog has no data for it — see accumulatePurchase in lib/units.
           purchase: normalizePurchase(item.purchase),
         };
         catalogByKey.set(entry.key, entry);

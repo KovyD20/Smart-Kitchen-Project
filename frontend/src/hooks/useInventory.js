@@ -17,10 +17,9 @@ import {
   convertAmount,
   normalizeUnit,
   stripAmountsAndUnits,
-  toPurchaseAmount,
   unitInfo,
 } from "../lib/units";
-import { upsertInventoryItem } from "../lib/inventory";
+import { upsertInventoryItem, upsertPurchaseItem } from "../lib/inventory";
 
 // Firestore's hard limit on operations in a single writeBatch.
 const BATCH_LIMIT = 500;
@@ -115,27 +114,54 @@ export function useInventory(uid) {
   // Recipes measure in cooking units ("2 tk cukor"); shops sell packages
   // ("1 kg cukor"). Only this path rounds: manual entry and the fridge keep
   // whatever amount the user typed, because there the amount *is* the intent.
+  //
+  // The rounding happens once, on the accumulated raw quantity, never per
+  // ingredient — rounding first and adding the results up would buy a kilo of
+  // salt for every recipe that wanted a pinch. upsertPurchaseItem keeps that
+  // running total on the document so it holds across calls too, one per recipe.
   const addToShoppingList = async (ingredients) => {
+    // Grouped up front: the same item can appear on several lines of one recipe,
+    // and the awaited writes below would otherwise each see the same pre-write
+    // snapshot and open a second row for it.
+    //
+    // An item with package data groups on the name alone — every ask rounds into
+    // the same package. Without one there is nothing to convert through, so the
+    // asks group by what they can actually be added to as well: a teaspoon of
+    // pepper and ten peppercorns stay two rows rather than becoming one wrong
+    // number.
+    const groups = new Map();
     for (const ing of ingredients) {
       const rawName = (ing?.name || "").toString().trim();
       if (!rawName) continue;
       const amount = Number(ing?.amount || 0);
       if (!amount || amount <= 0) continue;
 
-      const unit = normalizeUnit(ing?.unit);
+      const nameKey = normalizeName(rawName);
       const purchase = getCatalogItemByName(rawName)?.purchase;
-      const buy = toPurchaseAmount(amount, unit, purchase);
+      const hasPackage = Boolean(purchase?.unit) && Number(purchase?.amount) > 0;
 
-      await upsertInventoryItem({
+      const unit = normalizeUnit(ing?.unit);
+      const { kind } = unitInfo(unit);
+      // Mirrors areUnitsCompatible: mass and volume convert within themselves,
+      // everything else only matches its own unit.
+      const bucket =
+        kind === "mass" || kind === "volume" ? kind : unit;
+      const key = hasPackage ? nameKey : `${nameKey}|${bucket}`;
+
+      const group = groups.get(key) || { name: rawName, purchase, asks: [] };
+      group.asks.push({ amount, unit });
+      groups.set(key, group);
+    }
+
+    for (const group of groups.values()) {
+      await upsertPurchaseItem({
         db,
         uid,
-        collectionName: "shoppingList",
         list: shoppingList,
-        canonicalName: canonicalizeName(rawName),
-        unit: buy.unit,
-        mergeAmount: buy.amount,
+        canonicalName: canonicalizeName(group.name),
+        asks: group.asks,
+        purchase: group.purchase,
         nameKeyOf: normalizeName,
-        purchaseSource: buy.rounded ? { amount, unit } : null,
       });
     }
   };
@@ -164,6 +190,16 @@ export function useInventory(uid) {
     await updateDoc(doc(db, "users", uid, "shoppingList", item.id), {
       amount: nextAmount,
       name: canonicalName || item?.name,
+      // Nudging the amount by hand makes it the user's number, exactly as typing
+      // it does, so the recipe total behind it stops applying — see
+      // setInventoryItemAmount.
+      ...(item.sourceAmount === undefined && item.sourceLoose === undefined
+        ? {}
+        : {
+            sourceAmount: deleteField(),
+            sourceUnit: deleteField(),
+            sourceLoose: deleteField(),
+          }),
     });
   };
 
@@ -207,10 +243,16 @@ export function useInventory(uid) {
         amount: nextAmount,
         unit: nextUnit,
         // The "recept: 2 tk" note explains a shop-rounded amount. Once the user
-        // sets the amount by hand it explains nothing, so it goes.
-        ...(item.sourceAmount === undefined
+        // sets the amount by hand it explains nothing, so it goes — and with it
+        // the running raw total, so a later recipe add tops this number up
+        // instead of recomputing it away.
+        ...(item.sourceAmount === undefined && item.sourceLoose === undefined
           ? {}
-          : { sourceAmount: deleteField(), sourceUnit: deleteField() }),
+          : {
+              sourceAmount: deleteField(),
+              sourceUnit: deleteField(),
+              sourceLoose: deleteField(),
+            }),
       });
     };
 

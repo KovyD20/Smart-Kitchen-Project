@@ -5,7 +5,7 @@ import {
   areUnitsCompatible,
   convertAmount,
   stripAmountsAndUnits,
-  toPurchaseAmount,
+  accumulatePurchase,
 } from "./units.js";
 
 describe("normalizeUnit", () => {
@@ -84,159 +84,151 @@ describe("stripAmountsAndUnits", () => {
   });
 });
 
-describe("toPurchaseAmount", () => {
+describe("accumulatePurchase", () => {
   const KILO = { unit: "kg", amount: 1 };
+  const TUB = { unit: "g", amount: 330 };
   const TEN_EGGS = { unit: "db", amount: 10 };
-  const BUTTER = { unit: "g", amount: 250 };
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+  afterEach(() => vi.restoreAllMocks());
+
+  it("adds the asks up before rounding, not after", () => {
+    // Three 200 g asks are 600 g, which is two 330 g tubs. Rounding each ask on
+    // its own would have bought three.
+    expect(
+      accumulatePurchase(
+        [
+          { amount: 200, unit: "g" },
+          { amount: 200, unit: "g" },
+          { amount: 200, unit: "g" },
+        ],
+        TUB,
+      ),
+    ).toEqual({
+      amount: 660,
+      unit: "g",
+      source: { amount: 600, unit: "g" },
+      rounded: true,
+    });
   });
 
-  it("rounds a convertible amount up to the next whole package", () => {
-    expect(toPurchaseAmount(500, "g", KILO)).toEqual({
+  it("buys a single package for any number of unmeasurable asks", () => {
+    // The reported bug: eleven pinches of salt bought eleven kilos.
+    const asks = Array.from({ length: 11 }, () => ({ amount: 1, unit: "csipet" }));
+
+    expect(accumulatePurchase(asks, KILO)).toEqual({
       amount: 1,
       unit: "kg",
-      rounded: true,
-    });
-    expect(toPurchaseAmount(1200, "g", KILO)).toEqual({
-      amount: 2,
-      unit: "kg",
-      rounded: true,
-    });
-    expect(toPurchaseAmount(300, "g", BUTTER)).toEqual({
-      amount: 500,
-      unit: "g",
+      source: { amount: 0, unit: "", loose: true },
       rounded: true,
     });
   });
 
-  it("keeps an exact package multiple as-is, and reports it as not rounded", () => {
-    expect(toPurchaseAmount(250, "g", BUTTER)).toEqual({
-      amount: 250,
+  it("carries the running total across calls", () => {
+    const first = accumulatePurchase([{ amount: 200, unit: "g" }], TUB);
+    expect(first.amount).toBe(330);
+
+    const second = accumulatePurchase([{ amount: 200, unit: "g" }], TUB, first.source);
+    expect(second).toEqual({
+      amount: 660,
       unit: "g",
-      rounded: false,
+      source: { amount: 400, unit: "g" },
+      rounded: true,
     });
-    expect(toPurchaseAmount(10, "db", TEN_EGGS)).toEqual({
+  });
+
+  it("keeps a remembered pinch from buying a second package later", () => {
+    const first = accumulatePurchase([{ amount: 1, unit: "csipet" }], KILO);
+    expect(first.amount).toBe(1);
+
+    // 500 g is still under one kilo, and the pinch does not add to it.
+    const second = accumulatePurchase([{ amount: 500, unit: "g" }], KILO, first.source);
+    expect(second).toEqual({
+      amount: 1,
+      unit: "kg",
+      source: { amount: 500, unit: "g", loose: true },
+      rounded: true,
+    });
+  });
+
+  it("converts compatible asks into the unit of the first one", () => {
+    expect(
+      accumulatePurchase(
+        [
+          { amount: 500, unit: "g" },
+          { amount: 1, unit: "kg" },
+        ],
+        KILO,
+      ),
+    ).toEqual({
+      amount: 2,
+      unit: "kg",
+      source: { amount: 1500, unit: "g" },
+      rounded: true,
+    });
+  });
+
+  it("rounds a whole number of packages to exactly that many", () => {
+    expect(accumulatePurchase([{ amount: 1000, unit: "g" }], KILO)).toEqual({
+      amount: 1,
+      unit: "kg",
+      source: { amount: 1000, unit: "g" },
+      rounded: true,
+    });
+  });
+
+  it("reports no rounding when the total already is the package quantity", () => {
+    expect(accumulatePurchase([{ amount: 10, unit: "db" }], TEN_EGGS)).toEqual({
       amount: 10,
       unit: "db",
+      source: { amount: 10, unit: "db" },
       rounded: false,
     });
   });
 
-  it("converts an exact kilo without float dust", () => {
-    expect(toPurchaseAmount(1000, "g", KILO)).toEqual({
-      amount: 1,
-      unit: "kg",
-      rounded: true,
-    });
+  it("sums without rounding when the item has no package data", () => {
+    expect(
+      accumulatePurchase(
+        [
+          { amount: 1, unit: "csokor" },
+          { amount: 2, unit: "csokor" },
+        ],
+        null,
+      ),
+    ).toEqual({ amount: 3, unit: "csokor", source: null, rounded: false });
   });
 
-  it("rounds counts up to a whole package", () => {
-    expect(toPurchaseAmount(3, "db", TEN_EGGS)).toEqual({
-      amount: 10,
-      unit: "db",
-      rounded: true,
-    });
-    expect(toPurchaseAmount(12, "db", TEN_EGGS)).toEqual({
-      amount: 20,
-      unit: "db",
-      rounded: true,
-    });
+  it("ignores asks with no usable quantity", () => {
+    expect(
+      accumulatePurchase(
+        [
+          { amount: 0, unit: "g" },
+          { amount: -5, unit: "g" },
+          { amount: "abc", unit: "g" },
+          { amount: 500, unit: "g" },
+        ],
+        KILO,
+      ).amount,
+    ).toBe(1);
   });
 
-  it("returns a single package for units that cannot be converted", () => {
-    // The shop has no teaspoon of sugar, and no marék of flour either.
-    expect(toPurchaseAmount(2, "tk", KILO)).toEqual({
-      amount: 1,
-      unit: "kg",
-      rounded: true,
-    });
-    expect(toPurchaseAmount(1, "marék", BUTTER)).toEqual({
-      amount: 250,
-      unit: "g",
-      rounded: true,
-    });
-    expect(toPurchaseAmount(3, "", KILO)).toEqual({
-      amount: 1,
-      unit: "kg",
-      rounded: true,
-    });
-  });
-
-  it("normalizes unit aliases on both sides", () => {
-    expect(toPurchaseAmount(500, "gramm", { unit: "KG", amount: 1 })).toEqual({
-      amount: 1,
-      unit: "kg",
-      rounded: true,
-    });
-  });
-
-  it("handles fractional package sizes", () => {
-    // 1.5 l soft drink bottles: 2 l needs two of them.
-    expect(toPurchaseAmount(2, "l", { unit: "l", amount: 1.5 })).toEqual({
-      amount: 3,
-      unit: "l",
-      rounded: true,
-    });
-  });
-
-  it("leaves the amount alone when there is no usable package data", () => {
-    expect(toPurchaseAmount(2, "tk", null)).toEqual({
-      amount: 2,
-      unit: "tk",
-      rounded: false,
-    });
-    expect(toPurchaseAmount(2, "tk", { unit: "kg" })).toEqual({
-      amount: 2,
-      unit: "tk",
-      rounded: false,
-    });
-    expect(toPurchaseAmount(2, "tk", { unit: "", amount: 1 })).toEqual({
-      amount: 2,
-      unit: "tk",
-      rounded: false,
-    });
-    expect(toPurchaseAmount(2, "tk", { unit: "kg", amount: 0 })).toEqual({
-      amount: 2,
-      unit: "tk",
-      rounded: false,
-    });
-  });
-
-  it("leaves non-positive and non-numeric amounts alone", () => {
-    expect(toPurchaseAmount(0, "g", KILO)).toEqual({
+  it("returns nothing for an empty ask list", () => {
+    expect(accumulatePurchase([], KILO)).toEqual({
       amount: 0,
-      unit: "g",
-      rounded: false,
-    });
-    expect(toPurchaseAmount(-5, "g", KILO)).toEqual({
-      amount: -5,
-      unit: "g",
-      rounded: false,
-    });
-    expect(toPurchaseAmount("abc", "g", KILO)).toEqual({
-      amount: "abc",
-      unit: "g",
+      unit: "kg",
+      source: null,
       rounded: false,
     });
   });
 
-  it("refuses to round an implausible number of packages", () => {
+  it("hands back the raw total rather than an implausible package count", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    expect(toPurchaseAmount(25, "kg", KILO)).toEqual({
+    expect(accumulatePurchase([{ amount: 25, unit: "kg" }], KILO)).toEqual({
       amount: 25,
       unit: "kg",
+      source: { amount: 25, unit: "kg" },
       rounded: false,
     });
     expect(warn).toHaveBeenCalledOnce();
-
-    // 20 packages is still within the limit.
-    expect(toPurchaseAmount(20, "kg", KILO)).toEqual({
-      amount: 20,
-      unit: "kg",
-      rounded: false,
-    });
   });
 });

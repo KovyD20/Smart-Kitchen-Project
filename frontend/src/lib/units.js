@@ -66,62 +66,124 @@ export function convertAmount(amount, fromInfo, toInfo) {
   return (Number(amount) || 0) * (fromInfo.factor / toInfo.factor);
 }
 
-// A recipe asks for "2 tk cukor"; the shop sells it by the kilo. Rounds an
-// ingredient quantity up to whole packages of the item's smallest purchasable
-// size (`purchase` = { unit, amount } from the catalog, or null when unknown).
-//
-// Returns { amount, unit, rounded } — `rounded` is false whenever the original
-// quantity is handed back untouched, which is what the shopping list uses to
-// decide if the "recept: 2 tk" note is worth showing.
-//
-// Three cases:
-//   - convertible units (g -> kg, ml -> l, db -> db): convert, then round up to
-//     the next whole package (500 g flour -> 1 kg, 1200 g -> 2 kg);
-//   - non-convertible units (tk, ek, csipet, gerezd... -> kg): there is no
-//     arithmetic between a teaspoon and a kilo, so one package is the answer;
-//   - no package data, no quantity, or an implausible package count: unchanged.
 const MAX_PURCHASE_PACKAGES = 20;
 // Guards the ceil() against float dust: 1000 g -> kg must stay 1 package.
 const PACKAGE_EPSILON = 1e-9;
 
-export function toPurchaseAmount(amount, unit, purchase) {
-  const original = { amount, unit, rounded: false };
+// Trims the float dust a chain of unit conversions leaves behind, without
+// touching quantities that are legitimately fractional (0.5 kg stays 0.5 kg).
+function trimFloat(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
+// Rounding each recipe's ask to a whole package and *then* adding the results up
+// buys eleven kilos of salt for eleven recipes that each wanted a pinch. The sum
+// has to come first and the rounding exactly once, at the end — which is what
+// this does, across calls as well as within one.
+//
+//   asks     - raw recipe quantities to add now, [{ amount, unit }]
+//   purchase - smallest package from the catalog ({ unit, amount }), or null
+//   previous - what the list already accumulated for this item, as returned in
+//              `source` by an earlier call ({ amount, unit, loose }), or null
+//
+// An ask measured in a unit the package cannot be converted to — a pinch against
+// a kilo bag — cannot be added to anything. It only proves the item is needed,
+// and that is one package however often it recurs; `loose` carries that fact
+// forward so a later call does not count it again.
+//
+// Returns { amount, unit, source, rounded }: the quantity to buy, and the
+// running raw total to store alongside it. `source` is null when there is
+// nothing to remember (no package data, or nothing accumulated), and `rounded`
+// says whether `amount` differs from the raw asks — the shopping list uses it to
+// decide if the "recept: 500 g" note is worth showing.
+export function accumulatePurchase(asks, purchase, previous = null) {
+  const list = (Array.isArray(asks) ? asks : [])
+    .map((ask) => ({ amount: Number(ask?.amount), unit: normalizeUnit(ask?.unit) }))
+    .filter((ask) => Number.isFinite(ask.amount) && ask.amount > 0);
 
   const packageAmount = Number(purchase?.amount);
   const packageUnit = normalizeUnit(purchase?.unit);
-  if (!packageUnit || !Number.isFinite(packageAmount) || packageAmount <= 0) {
-    return original;
+  const hasPackage =
+    Boolean(packageUnit) && Number.isFinite(packageAmount) && packageAmount > 0;
+
+  // No package data: there is nothing to round to, so this is a plain sum in the
+  // unit of the first ask. Asks in an incompatible unit cannot join that sum and
+  // are dropped here — the caller has already split them into their own group.
+  if (!hasPackage) {
+    if (list.length === 0) return { amount: 0, unit: "", source: null, rounded: false };
+
+    const target = unitInfo(list[0].unit);
+    let sum = 0;
+    for (const ask of list) {
+      const from = unitInfo(ask.unit);
+      if (!areUnitsCompatible(from, target)) continue;
+      sum += convertAmount(ask.amount, from, target);
+    }
+    return {
+      amount: trimFloat(sum),
+      unit: target.unit,
+      source: null,
+      rounded: false,
+    };
   }
 
-  const numericAmount = Number(amount);
-  if (!Number.isFinite(numericAmount) || numericAmount <= 0) return original;
-
-  const from = unitInfo(unit);
   const to = unitInfo(packageUnit);
 
-  // Nothing to convert between a teaspoon and a kilo — buy a single package.
-  if (!areUnitsCompatible(from, to)) {
-    return { amount: packageAmount, unit: packageUnit, rounded: true };
+  // The running total is kept in the unit the recipes were written in, not in
+  // the package unit, so the "recept: 500 g" note still reads the way the recipe
+  // did rather than as "recept: 0.5 kg".
+  let totalUnit = previous?.amount > 0 ? normalizeUnit(previous.unit) : "";
+  let total = previous?.amount > 0 ? Number(previous.amount) : 0;
+  let loose = Boolean(previous?.loose);
+
+  for (const ask of list) {
+    const from = unitInfo(ask.unit);
+    if (!areUnitsCompatible(from, to)) {
+      loose = true;
+      continue;
+    }
+    if (!totalUnit) {
+      totalUnit = from.unit;
+      total = ask.amount;
+      continue;
+    }
+    total += convertAmount(ask.amount, from, unitInfo(totalUnit));
   }
+  total = trimFloat(total);
 
-  const converted = convertAmount(numericAmount, from, to);
-  const packages = Math.ceil(converted / packageAmount - PACKAGE_EPSILON);
+  const source =
+    total > 0
+      ? { amount: total, unit: totalUnit, ...(loose ? { loose: true } : {}) }
+      : loose
+        ? { amount: 0, unit: "", loose: true }
+        : null;
 
-  // A recipe calling for 20+ packages is far more likely to be bad data than a
-  // real shopping need, so leave it alone rather than put 25 kg on the list.
+  const convertedTotal =
+    total > 0 ? convertAmount(total, unitInfo(totalUnit), to) : 0;
+  let packages =
+    convertedTotal > 0
+      ? Math.ceil(convertedTotal / packageAmount - PACKAGE_EPSILON)
+      : 0;
+  // A pinch of salt is not a measurable fraction of a kilo bag, but it is still
+  // a reason to buy one.
+  if (loose) packages = Math.max(packages, 1);
+
+  if (packages <= 0) return { amount: 0, unit: packageUnit, source, rounded: false };
+
+  // 20+ packages is far more likely to be bad data than a real shopping need, so
+  // hand back the raw total rather than put 25 kg on the list.
   if (packages > MAX_PURCHASE_PACKAGES) {
     console.warn(
-      `toPurchaseAmount: ${numericAmount} ${from.unit} is ${packages} x ${packageAmount} ${packageUnit} — leaving the amount unchanged.`,
+      `accumulatePurchase: ${total} ${totalUnit} is ${packages} x ${packageAmount} ${packageUnit} — leaving the amount unchanged.`,
     );
-    return original;
+    return { amount: total, unit: totalUnit, source, rounded: false };
   }
 
-  // Float dust from the unit conversion (0.1 + 0.2 territory) would otherwise
-  // reach the UI as "1.5000000000000002 kg".
-  const rounded = Math.round(packages * packageAmount * 1000) / 1000;
+  const amount = trimFloat(packages * packageAmount);
   return {
-    amount: rounded,
+    amount,
     unit: packageUnit,
-    rounded: rounded !== numericAmount || packageUnit !== from.unit,
+    source,
+    rounded: amount !== total || packageUnit !== totalUnit,
   };
 }
