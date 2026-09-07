@@ -7,9 +7,11 @@ const { generateJson } = require("../lib/aiClient");
 const {
   RECIPE_SCHEMA,
   FRIDGE_RECIPE_SCHEMA,
+  URL_RECIPE_SCHEMA,
   OPTIONS_SCHEMA,
   SYSTEM_PROMPT,
 } = require("../lib/aiSchemas");
+const { fetchPageHtml, htmlToText } = require("../lib/recipeUrl");
 
 const router = express.Router();
 
@@ -29,6 +31,12 @@ const recipeByNameSchema = z.object({
 
 const suggestFromFridgeSchema = z.object({
   items: z.array(itemSchema).min(1),
+});
+
+// The length cap is the point: a 2000-character URL is not a recipe link, and the
+// value goes straight into a server-side fetch.
+const recipeFromUrlSchema = z.object({
+  url: z.string().trim().min(1).max(2000).url(),
 });
 
 const recipeFromFridgeSchema = z.object({
@@ -114,6 +122,59 @@ router.post("/recipe-from-fridge", validate(recipeFromFridgeSchema), async (req,
     res.json({ recipe });
   } catch (err) {
     sendAiError(res, err, "/recipe-from-fridge");
+  }
+});
+
+router.post("/recipe-from-url", validate(recipeFromUrlSchema), async (req, res) => {
+  const { url } = req.body;
+
+  let pageText;
+  try {
+    pageText = htmlToText(await fetchPageHtml(url));
+  } catch (err) {
+    // Already carries a status and a code from lib/recipeUrl.
+    return sendAiError(res, err, "/recipe-from-url");
+  }
+
+  // A page that reduces to almost nothing is a JS-rendered site or a bot wall.
+  // Sending it to the model would only buy a confidently invented recipe.
+  if (pageText.length < 200) {
+    return res.status(422).json({
+      error: "No readable recipe text on that page",
+      code: "URL_NO_TEXT",
+    });
+  }
+
+  const prompt = [
+    "Az alábbi szöveg egy weboldalról származó recept nyers kivonata.",
+    "Írd át a saját formánkba: csak azt használd fel, ami a szövegben szerepel.",
+    "Ne találj ki hozzávalót, mennyiséget vagy lépést, amit a szöveg nem tartalmaz.",
+    "Ha a szövegben nincs valódi recept (pl. kategórialista, hibaoldal, robotellenőrzés),",
+    'a "found" mező legyen false, a servings és a time_minutes 0, az ingredients és a steps pedig üres lista.',
+    "A lépéseket bontsd külön mondatokra a steps listában, a sorszámozást hagyd el.",
+    "",
+    "Az oldal szövege:",
+    pageText,
+  ].join("\n");
+
+  try {
+    const { found, ...recipe } = await generateJson({
+      system: SYSTEM_PROMPT,
+      prompt,
+      schema: URL_RECIPE_SCHEMA,
+      // A full recipe plus a long page is more than the default budget: cutting
+      // off mid-object surfaces as AI_INVALID_JSON, which reads like a bug.
+      maxTokens: 6144,
+    });
+    if (!found) {
+      return res.status(422).json({
+        error: "No recipe found at that URL",
+        code: "URL_NO_RECIPE",
+      });
+    }
+    res.json({ recipe, sourceUrl: url });
+  } catch (err) {
+    sendAiError(res, err, "/recipe-from-url");
   }
 });
 

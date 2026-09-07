@@ -12,6 +12,21 @@ const MESSAGES = {
   AI_TIMEOUT: "Az AI túl sokáig gondolkodott. Próbáld újra.",
   AI_INVALID_JSON: "Az AI válasza hibás formátumú volt. Próbáld újra.",
   AI_BAD_REQUEST: "Az AI elutasította a kérést. Próbáld újra.",
+  // Link import. These are page problems, not AI problems -- the wording has to
+  // say which side went wrong, or the user retries forever.
+  URL_INVALID: "Ez nem érvényes webcím. Másold be a recept oldalának teljes linkjét.",
+  URL_PRIVATE: "Ez a cím nem érhető el.",
+  URL_TIMEOUT: "Az oldal túl lassan válaszolt. Próbáld újra.",
+  URL_BLOCKED:
+    "Ez az oldal nem engedi a beolvasást. Másold be a recept szövegét kézzel.",
+  URL_FETCH_FAILED: "Az oldalt nem sikerült letölteni. Ellenőrizd a linket.",
+  URL_TOO_MANY_REDIRECTS:
+    "Ez a link túl sokszor irányít tovább. Másold be a recept közvetlen linkjét.",
+  URL_NOT_HTML: "Ez a link nem egy weboldal.",
+  URL_TOO_LARGE: "Ez az oldal túl nagy a beolvasáshoz.",
+  URL_NO_TEXT:
+    "Ezen az oldalon nem találtunk olvasható szöveget. Lehet, hogy bejelentkezés kell hozzá.",
+  URL_NO_RECIPE: "Ezen az oldalon nem találtunk receptet.",
   AI_NOT_FEASIBLE:
     "Ebből a hozzávaló-listából nem készíthető el ez az étel. Válassz másikat.",
 };

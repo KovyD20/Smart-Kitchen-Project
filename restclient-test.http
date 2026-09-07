@@ -66,3 +66,30 @@ Authorization: Bearer {{token}}
 {
   "name": ""
 }
+
+### Recipe from a URL — expect 200 with { recipe, sourceUrl }
+POST {{host}}/api/ai/recipe-from-url
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "url": "https://www.nosalty.hu/recept/gulyasleves"
+}
+
+### Private address — expect 400 URL_PRIVATE (SSRF guard, no fetch is made)
+POST {{host}}/api/ai/recipe-from-url
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "url": "http://169.254.169.254/latest/meta-data/"
+}
+
+### Not a recipe page — expect 422 URL_NO_RECIPE
+POST {{host}}/api/ai/recipe-from-url
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "url": "https://example.com/"
+}

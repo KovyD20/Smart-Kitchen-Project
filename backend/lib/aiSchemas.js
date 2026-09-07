@@ -78,6 +78,16 @@ const FRIDGE_RECIPE_SCHEMA = {
   required: ["feasible", ...RECIPE_REQUIRED],
 };
 
+// Same reason `feasible` exists above: the page behind a user's link may not be a
+// recipe at all (a bot-check page, a category listing, a 404 that answered 200).
+// Without a field to say so, the model's only option is to invent a recipe out of
+// whatever text it was handed.
+const URL_RECIPE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: { found: { type: Type.BOOLEAN }, ...RECIPE_PROPERTIES },
+  required: ["found", ...RECIPE_REQUIRED],
+};
+
 const OPTIONS_SCHEMA = {
   type: Type.OBJECT,
   properties: { options: { type: Type.ARRAY, items: { type: Type.STRING } } },
@@ -99,6 +109,7 @@ module.exports = {
   AI_ALLOWED_UNITS,
   RECIPE_SCHEMA,
   FRIDGE_RECIPE_SCHEMA,
+  URL_RECIPE_SCHEMA,
   OPTIONS_SCHEMA,
   SYSTEM_PROMPT,
 };
