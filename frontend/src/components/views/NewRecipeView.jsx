@@ -1,17 +1,24 @@
 import Icon from "../Icon/Icon";
 import AiRecipePanel from "../AiRecipePanel/AiRecipePanel";
+import ImportRecipePanel from "../ImportRecipePanel/ImportRecipePanel";
 
-// "Új recept" — pick a route in: type it yourself, or let the AI draft it.
+// "Új recept" — pick a route in: paste a link, type it yourself, or let the AI
+// draft it.
 export default function NewRecipeView({
   fridge,
   isMobile,
   onStartManual,
   onSaveAiRecipe,
+  onImported,
 }) {
   return (
     <div className="new-view">
       <div className="new-wrap">
         <div className="new-title">Hogyan kerüljön be az új recept?</div>
+
+        {/* Above the two cards: pasting a link is the shortest route in when the
+            recipe already exists somewhere. */}
+        <ImportRecipePanel onImported={onImported} />
 
         <div className="new-cards">
           <button

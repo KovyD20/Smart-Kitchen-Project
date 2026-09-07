@@ -1,0 +1,79 @@
+/* Link import bar, above the two "new recipe" cards. */
+
+.import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.import-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.import-title {
+  font-family: var(--font-display);
+  font-variant: all-small-caps;
+  letter-spacing: 1.2px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e6e6e6;
+}
+
+.import-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The URL is the long field; the button keeps its natural width. */
+.import-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-btn {
+  flex: none;
+}
+
+.import-hint,
+.import-error {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.import-hint {
+  color: var(--text-dim);
+}
+
+.import-error {
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: rgba(229, 56, 59, 0.12);
+  border: 1px solid rgba(229, 56, 59, 0.5);
+  color: #ff9c9e;
+}
+
+@media (max-width: 760px) {
+  .import-panel {
+    padding: 14px;
+    border-radius: 14px;
+    background: var(--card-inset);
+  }
+
+  /* Stacked: a URL field next to a button leaves neither enough room to be
+     usable on a phone. */
+  .import-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .import-title {
+    font-size: 15px;
+  }
+}

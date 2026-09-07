@@ -154,6 +154,9 @@ export default function Home({ user }) {
   const [selectedId, setSelectedId] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
   const [showManualForm, setShowManualForm] = useState(false);
+  // A recipe read off a link, waiting in the form for a look-over before it is
+  // saved. Holds the source URL too, which is not stored on the recipe (yet).
+  const [importedRecipe, setImportedRecipe] = useState(null);
   const [filterTag, setFilterTag] = useState("all");
   // "name" | "availability". Recipes arrive ordered by name from Firestore, so
   // only "availability" needs sorting here.
@@ -352,6 +355,13 @@ export default function Home({ user }) {
     setSearchOpen(true);
   };
 
+  // Closing the form always drops the imported draft with it: leaving it around
+  // would silently refill the form the next time it opens.
+  const closeManualForm = () => {
+    setShowManualForm(false);
+    setImportedRecipe(null);
+  };
+
   // The tab bar is the app's home base: the one place Escape can always take a
   // keyboard-only user back to, from anywhere, with the arrows leading out of
   // it again.
@@ -384,7 +394,7 @@ export default function Home({ user }) {
     if (editingRecipe || showManualForm) {
       if (isTypingTarget(document.activeElement)) return exitField();
       setEditingRecipe(null);
-      setShowManualForm(false);
+      closeManualForm();
       focusHome();
       return true;
     }
@@ -596,31 +606,53 @@ export default function Home({ user }) {
         <div className="form-view">
           <div className="form-shell" style={{ "--accent": "var(--brand)" }}>
             <header className="form-shell-head">
-              <span className="panel-title">Új saját recept</span>
+              <span className="panel-title">
+                {importedRecipe ? "Beolvasott recept" : "Új saját recept"}
+              </span>
               <button
                 type="button"
                 className="icon-btn"
                 aria-label="Űrlap bezárása"
-                onClick={() => setShowManualForm(false)}
+                onClick={closeManualForm}
               >
                 <Icon name="xmark" size={14} />
               </button>
             </header>
+            {importedRecipe && (
+              // The link is worth showing: it is the only way to tell, at a
+              // glance, whether the form was filled from the page you meant.
+              <div className="form-shell-note">
+                Beolvasva innen: <span>{importedRecipe.sourceUrl}</span> — nézd át,
+                mielőtt mented.
+              </div>
+            )}
             <NewRecipeForm
+              // Remounts when a fresh import arrives: the form seeds its state
+              // from `recipe` once, at mount.
+              key={importedRecipe ? `imported-${importedRecipe.sourceUrl}` : "blank"}
+              recipe={importedRecipe?.recipe}
               existingTags={allTags}
               onAddTag={addTag}
               onDeleteTag={deleteTagGlobally}
               onCreate={async (data, imageOpts) => {
                 try {
-                  await createRecipe(data, imageOpts);
-                  setShowManualForm(false);
+                  // Where an imported recipe came from, kept on the recipe so the
+                  // original stays findable. One extra field, no migration: recipes
+                  // saved by hand simply do not have it.
+                  await createRecipe(
+                    importedRecipe
+                      ? { ...data, sourceUrl: importedRecipe.sourceUrl }
+                      : data,
+                    imageOpts,
+                  );
+                  closeManualForm();
                   showToast("Recept elmentve", "success");
                   goToTab("receptek");
                 } catch (err) {
                   // The recipe itself is already stored in this branch; only the
                   // image failed, so the form is closed either way.
                   if (err?.stage === "image") {
-                    setShowManualForm(false);
+                    closeManualForm();
                     goToTab("receptek");
                   }
                   notifyError(
@@ -643,6 +675,12 @@ export default function Home({ user }) {
         isMobile={isMobile}
         onStartManual={() => setShowManualForm(true)}
         onSaveAiRecipe={createRecipe}
+        onImported={(recipe, sourceUrl) => {
+          // Straight into the recipe form rather than saving: an import can
+          // misread an amount, and this is the moment to catch it.
+          setImportedRecipe({ recipe, sourceUrl });
+          setShowManualForm(true);
+        }}
       />
     );
   };

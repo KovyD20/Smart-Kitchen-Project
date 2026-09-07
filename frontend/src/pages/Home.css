@@ -505,6 +505,24 @@
   color: var(--text-dim);
 }
 
+/* Only on recipes read off a link: where the original lives. */
+.recipe-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recipe-source:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
 /* − 4 adag + stepper */
 .servings {
   display: flex;
@@ -1264,6 +1282,21 @@
 .form-shell-head .icon-btn {
   width: 34px;
   height: 34px;
+}
+
+/* Shown only for a recipe read off a link: which page it came from. */
+.form-shell-note {
+  padding: 10px 18px;
+  border-bottom: 1px solid #333;
+  background: rgba(63, 160, 255, 0.08);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.form-shell-note span {
+  color: var(--blue);
+  /* A long URL must not stretch the shell or push the form sideways. */
+  word-break: break-all;
 }
 
 /* ------------------------------------------------------------- cook mode -- */

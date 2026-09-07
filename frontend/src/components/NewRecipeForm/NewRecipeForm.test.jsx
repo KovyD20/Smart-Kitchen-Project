@@ -487,3 +487,94 @@ describe("NewRecipeForm dragging rows between groups", () => {
     ).toEqual(["paprika", "hagyma"]);
   });
 });
+
+// A recipe read off a link arrives here for a look-over before it is saved. The
+// shape is the backend's (`time_minutes`, an optional `group` per ingredient),
+// and `editMode` stays off: this is still a new recipe.
+describe("NewRecipeForm seeded from an imported recipe", () => {
+  const IMPORTED = {
+    name: "Gulyásleves",
+    servings: 6,
+    time_minutes: 95,
+    ingredients: [
+      { name: "marhalábszár", amount: 50, unit: "dkg" },
+      { name: "vöröshagyma", amount: 2, unit: "db", group: "Az alaphoz" },
+    ],
+    steps: ["Pirítsd meg a hagymát.", "Add hozzá a húst."],
+  };
+
+  const renderImported = (props) =>
+    render(<NewRecipeForm recipe={IMPORTED} onCreate={vi.fn()} {...props} />);
+
+  it("fills the name, servings and time", () => {
+    renderImported();
+    expect(screen.getByPlaceholderText("pl. Négysajtos gnocchi").value).toBe(
+      "Gulyásleves",
+    );
+    expect(screen.getByPlaceholderText("pl. 4").value).toBe("6");
+    // The backend calls it time_minutes; the form's field is `time`.
+    expect(screen.getByPlaceholderText("pl. 25").value).toBe("95");
+  });
+
+  it("fills every ingredient row", () => {
+    renderImported();
+    const names = screen.getAllByPlaceholderText("Név").map((input) => input.value);
+    const amounts = screen.getAllByPlaceholderText("Menny.").map((i) => i.value);
+    expect(names).toEqual(["marhalábszár", "vöröshagyma"]);
+    expect(amounts).toEqual(["50", "2"]);
+  });
+
+  it("puts a grouped ingredient under its heading", () => {
+    renderImported();
+    expect(screen.getByLabelText("Csoport neve").value).toBe("Az alaphoz");
+  });
+
+  it("fills every step", () => {
+    renderImported();
+    expect(screen.getByPlaceholderText("1. lépés").value).toBe(
+      "Pirítsd meg a hagymát.",
+    );
+    expect(screen.getByPlaceholderText("2. lépés").value).toBe("Add hozzá a húst.");
+  });
+
+  // Not an edit: saving has to create a recipe, not update one.
+  it("saves as a new recipe rather than an update", async () => {
+    const onCreate = vi.fn();
+    const onSave = vi.fn();
+    renderImported({ onCreate, onSave });
+
+    expect(screen.getByRole("button", { name: /Recept mentése/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Főétel" }));
+    fireEvent.click(screen.getByRole("button", { name: /Recept mentése/ }));
+
+    await vi.waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onSave).not.toHaveBeenCalled();
+
+    const [data] = onCreate.mock.calls[0];
+    expect(data.name).toBe("Gulyásleves");
+    expect(data.servings).toBe(6);
+    expect(data.time).toBe(95);
+    expect(data.steps).toEqual(["Pirítsd meg a hagymát.", "Add hozzá a húst."]);
+    expect(data.ingredients).toHaveLength(2);
+  });
+
+  it("lets an edit stick before saving", async () => {
+    const onCreate = vi.fn();
+    renderImported({ onCreate });
+
+    // The whole reason the form opens instead of saving directly: a misread
+    // amount is fixed here, not afterwards.
+    fireEvent.change(screen.getAllByPlaceholderText("Menny.")[0], {
+      target: { value: "70" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "Főétel" }));
+    fireEvent.click(screen.getByRole("button", { name: /Recept mentése/ }));
+
+    await vi.waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    // A string, because that is what a typed field gives and the form does not
+    // convert -- the same as any hand-entered recipe. An untouched imported
+    // amount stays the number it arrived as.
+    expect(onCreate.mock.calls[0][0].ingredients[0].amount).toBe("70");
+  });
+});
