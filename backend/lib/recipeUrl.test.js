@@ -6,7 +6,6 @@ import {
   assertPublicUrl,
   isPrivateAddress,
   fetchPageHtml,
-  htmlToText,
   MAX_REDIRECTS,
 } from "./recipeUrl.js";
 
@@ -372,30 +371,5 @@ describe("fetchPageHtml — responses", () => {
     await fetchPageHtml(`${base}/ua`, ALLOW);
     expect(seen).toMatch(/SmartKitchen/);
     expect(seen).not.toMatch(/Mozilla|Chrome|Safari/);
-  });
-});
-
-describe("htmlToText", () => {
-  it("drops scripts, styles and markup", () => {
-    const text = htmlToText(
-      "<html><body><script>var a = 'hozzávaló';</script><style>p{color:red}</style><p>Gulyás</p></body></html>",
-    );
-    expect(text).toBe("Gulyás");
-  });
-
-  it("keeps list items on separate lines", () => {
-    const text = htmlToText("<body><ul><li>2 db hagyma</li><li>50 dkg marha</li></ul></body>");
-    expect(text.split("\n")).toEqual(["2 db hagyma", "50 dkg marha"]);
-  });
-
-  it("decodes entities", () => {
-    expect(
-      htmlToText("<body><p>s&oacute;&nbsp;&amp; bors &#233;s &#x66;&#x6f;</p></body>"),
-    ).toContain("& bors és fo");
-  });
-
-  it("ignores everything outside <body>", () => {
-    const text = htmlToText("<html><head><title>Nem ez</title></head><body><p>Ez</p></body></html>");
-    expect(text).toBe("Ez");
   });
 });

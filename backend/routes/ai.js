@@ -11,7 +11,9 @@ const {
   OPTIONS_SCHEMA,
   SYSTEM_PROMPT,
 } = require("../lib/aiSchemas");
-const { fetchPageHtml, htmlToText } = require("../lib/recipeUrl");
+const { fetchPageHtml } = require("../lib/recipeUrl");
+const { htmlToText } = require("../lib/htmlText");
+const { extractRecipe, recipeToText } = require("../lib/recipeJsonLd");
 
 const router = express.Router();
 
@@ -128,32 +130,49 @@ router.post("/recipe-from-fridge", validate(recipeFromFridgeSchema), async (req,
 router.post("/recipe-from-url", validate(recipeFromUrlSchema), async (req, res) => {
   const { url } = req.body;
 
-  let pageText;
+  let html;
   try {
-    pageText = htmlToText(await fetchPageHtml(url));
+    html = await fetchPageHtml(url);
   } catch (err) {
     // Already carries a status and a code from lib/recipeUrl.
     return sendAiError(res, err, "/recipe-from-url");
   }
 
+  // Prefer the page's own schema.org/Recipe block: labelled fields beat guessing
+  // from a page that is mostly navigation. Falls back to the whole page as text.
+  const structured = extractRecipe(html);
+  const source = structured ? "jsonld" : "text";
+  const pageText = structured ? recipeToText(structured) : htmlToText(html);
+
   // A page that reduces to almost nothing is a JS-rendered site or a bot wall.
-  // Sending it to the model would only buy a confidently invented recipe.
-  if (pageText.length < 200) {
+  // Sending it to the model would only buy a confidently invented recipe. The
+  // structured path is exempt: a short ingredient list is still a real recipe.
+  if (!structured && pageText.length < 200) {
     return res.status(422).json({
       error: "No readable recipe text on that page",
       code: "URL_NO_TEXT",
     });
   }
 
+  const intro = structured
+    ? [
+        "Az alábbi recept egy weboldal strukturált adatából (schema.org) származik.",
+        "A mezők megbízhatóak: a nevet, az adagszámot és az időt vedd át úgy, ahogy van.",
+        "A hozzávalók szabad szövegként érkeztek — ezeket bontsd szét name/amount/unit mezőkre.",
+      ]
+    : [
+        "Az alábbi szöveg egy weboldalról származó recept nyers kivonata.",
+        "Írd át a saját formánkba: csak azt használd fel, ami a szövegben szerepel.",
+      ];
+
   const prompt = [
-    "Az alábbi szöveg egy weboldalról származó recept nyers kivonata.",
-    "Írd át a saját formánkba: csak azt használd fel, ami a szövegben szerepel.",
+    ...intro,
     "Ne találj ki hozzávalót, mennyiséget vagy lépést, amit a szöveg nem tartalmaz.",
     "Ha a szövegben nincs valódi recept (pl. kategórialista, hibaoldal, robotellenőrzés),",
     'a "found" mező legyen false, a servings és a time_minutes 0, az ingredients és a steps pedig üres lista.',
     "A lépéseket bontsd külön mondatokra a steps listában, a sorszámozást hagyd el.",
     "",
-    "Az oldal szövege:",
+    structured ? "A recept adatai:" : "Az oldal szövege:",
     pageText,
   ].join("\n");
 
@@ -172,7 +191,9 @@ router.post("/recipe-from-url", validate(recipeFromUrlSchema), async (req, res) 
         code: "URL_NO_RECIPE",
       });
     }
-    res.json({ recipe, sourceUrl: url });
+    // `source` is for us, not the UI: it says which path produced this, which is
+    // the first thing worth knowing when an import comes back wrong.
+    res.json({ recipe, sourceUrl: url, source });
   } catch (err) {
     sendAiError(res, err, "/recipe-from-url");
   }

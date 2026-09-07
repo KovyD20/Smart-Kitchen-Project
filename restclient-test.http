@@ -67,7 +67,7 @@ Authorization: Bearer {{token}}
   "name": ""
 }
 
-### Recipe from a URL — expect 200 with { recipe, sourceUrl }
+### Recipe from a URL — expect 200 with { recipe, sourceUrl, source }
 POST {{host}}/api/ai/recipe-from-url
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -92,4 +92,13 @@ Authorization: Bearer {{token}}
 
 {
   "url": "https://example.com/"
+}
+
+### Page with no JSON-LD — expect 200 with source: "text" (raw-text fallback)
+POST {{host}}/api/ai/recipe-from-url
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "url": "https://receptneked.hu/husos-etelek/rakott-krumpli/"
 }
