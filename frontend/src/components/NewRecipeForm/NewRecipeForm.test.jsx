@@ -8,6 +8,14 @@ const showToast = vi.fn();
 vi.mock("../../context/ToastContext", () => ({ useToast: () => ({ showToast }) }));
 vi.mock("../../context/ConfirmContext", () => ({ useConfirm: () => async () => true }));
 
+// The form pulls in lib/imageUpload for its pure validation helpers, and that
+// module imports the Firebase handles. Loading the real src/firebase.js would
+// call initializeApp()/getAuth() with the VITE_FIREBASE_* values, which only
+// exist in a local .env.local -- in CI the missing key throws
+// auth/invalid-api-key at import time and takes the whole suite down. Stubbing
+// the module keeps this a test of the form, not of Firebase config.
+vi.mock("../../firebase", () => ({ storage: {} }));
+
 const { default: NewRecipeForm } = await import("./NewRecipeForm");
 
 // jsdom implements neither, and the picker calls both.

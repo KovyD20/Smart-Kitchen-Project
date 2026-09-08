@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seedPantry.js",
+    "seed:reset": "node scripts/seedPantry.js --reset",
     "db:setup": "npm run migrate && npm run seed",
     "test": "vitest run",
     "test:watch": "vitest",

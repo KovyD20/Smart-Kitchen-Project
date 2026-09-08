@@ -27,7 +27,7 @@ Ha valamit hozzáadnál: **per-user, real-time adat → Firestore**; **globális
 backend/
 ├── server.js
 ├── db/            # pool.js, schema.sql
-├── lib/           # normalize.js, aiClient.js, aiError.js, aiSchemas.js, firebaseAdmin.js
+├── lib/           # normalize.js, aiClient.js, aiError.js, aiSchemas.js, firebaseAdmin.js, seedOptions.js
 ├── middleware/     # auth.js, rateLimit.js, validate.js
 ├── routes/         # ai.js, db.js, pantry.js
 └── scripts/         # migrate.js, seedPantry.js, aiSmokeTest.js
@@ -48,7 +48,8 @@ frontend/src/
 # Backend (port 3000)
 cd backend && npm run dev
 npm test              # vitest run
-npm run db:setup       # migrate + seed (seed truncate-eli a katalógust!)
+npm run db:setup       # migrate + seed (a seed upsertel: hozzáad/frissít, nem töröl)
+npm run seed:reset     # TRUNCATE + újratöltés — ez a destruktív út, explicit kérésre
 
 # Frontend (port 5173)
 cd frontend && npm run dev

@@ -207,9 +207,15 @@ cd backend
 npm run db:setup     # applies db/schema.sql, then seeds the catalog
 ```
 
-`npm run migrate` and `npm run seed` can also be run separately. The schema is
-idempotent and safe to re-apply; **seeding truncates the catalog tables** and rebuilds
-them from `scripts/pantrySeedData.js`.
+`npm run migrate` and `npm run seed` can also be run separately, and both are safe
+to re-apply: the schema is idempotent, and seeding **upserts** — it adds and updates
+rows from `scripts/pantrySeedData.js` without deleting anything.
+
+To make the catalog match the seed data exactly (dropping rows that are no longer in
+it), use `npm run seed:reset`, which **truncates the catalog tables** first. That is
+the destructive one, so it is a separate command rather than a default. Both modes
+print the target host, port and database before writing — check that line, because
+these scripts write to whatever `DB_*` points at, including a deployed database.
 
 ### Running the app
 
