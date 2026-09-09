@@ -7,8 +7,13 @@
 // `Type` comes via aiClient so the SDK import stays in one place.
 const { Type } = require("./aiClient");
 
+// Mirrors SYSTEM_UNITS in frontend/src/constants/units.js — the canonical forms
+// only, never an alias like "liter" or "teáskanál", since keeping those out of
+// the model's answers is the whole point of the enum. The two lists cannot be
+// shared across workspaces, so a new unit has to be added in both places.
 const AI_ALLOWED_UNITS = [
   "db",
+  "szem",
   "g",
   "dkg",
   "kg",

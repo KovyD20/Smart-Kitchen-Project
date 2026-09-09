@@ -5,10 +5,32 @@ import { SYSTEM_UNITS, UNIT_ALIASES } from "../constants/units";
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// The lookup key of a unit: lowercase, accent-free, with dots, spaces and
+// hyphens removed. Both the alias table and the incoming value go through this
+// same function, so a table entry can never drift out of reach of the input that
+// is supposed to find it. Exported so the invariant can be tested.
+export function unitLookupKey(value) {
+  const raw = (value || "").toString().trim().toLocaleLowerCase("hu-HU");
+  const ascii = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return ascii.replace(/\./g, "").replace(/[\s-]+/g, "").trim();
+}
+
+// The alias table itself stays readable in constants/units.js, in its accented
+// source form; only the lookup keys are normalized. The *values* keep their
+// accents on purpose — they are what gets displayed, so "2 pohar" is written
+// back out as "2 pohár".
+const UNIT_LOOKUP = Object.fromEntries(
+  Object.entries(UNIT_ALIASES).map(([alias, unit]) => [unitLookupKey(alias), unit]),
+);
+
 // Longest-first so multi-char unit tokens win over shorter prefixes when matched.
+// Normalized too, because stripAmountsAndUnits matches them against text it has
+// already stripped the accents from.
 const UNIT_TOKENS = Array.from(
-  new Set([...SYSTEM_UNITS, ...Object.keys(UNIT_ALIASES)]),
-).sort((a, b) => b.length - a.length);
+  new Set([...SYSTEM_UNITS, ...Object.keys(UNIT_ALIASES)].map(unitLookupKey)),
+)
+  .filter(Boolean)
+  .sort((a, b) => b.length - a.length);
 
 const UNIT_TOKEN_PATTERN = UNIT_TOKENS.map(escapeRegex).join("|");
 
@@ -31,27 +53,39 @@ export function stripAmountsAndUnits(value) {
 }
 
 export function normalizeUnit(value) {
-  const raw = (value || "").toString().trim().toLocaleLowerCase("hu-HU");
-  if (!raw) return "";
-  const ascii = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const cleaned = ascii.replace(/\./g, "").replace(/[\s-]+/g, "").trim();
-  return UNIT_ALIASES[cleaned] || cleaned;
+  const key = unitLookupKey(value);
+  if (!key) return "";
+  return UNIT_LOOKUP[key] || key;
 }
+
+// Only the units that can be converted to one another have a kind and a factor
+// here. The rest — csipet, csokor, gerezd, szelet, fej, szál, marék, bögre,
+// pohár, csomag, konzerv — are left out on purpose: there is no honest factor
+// from a pinch or a clove to a gram, so they merge only with themselves and
+// otherwise count as "one package needed". Do not invent factors for them.
+//
+// "szem" is a kind of counting, so it gets kind: "count", but count units are
+// never compatible across different units (see areUnitsCompatible) — ten
+// peppercorns must not turn into ten pieces of pepper.
+const UNIT_INFO = {
+  g: { kind: "mass", factor: 1 },
+  dkg: { kind: "mass", factor: 10 },
+  kg: { kind: "mass", factor: 1000 },
+  ml: { kind: "volume", factor: 1 },
+  dl: { kind: "volume", factor: 100 },
+  l: { kind: "volume", factor: 1000 },
+  db: { kind: "count", factor: 1 },
+  szem: { kind: "count", factor: 1 },
+};
 
 export function unitInfo(unit) {
   const u = normalizeUnit(unit);
-  const table = {
-    g: { kind: "mass", factor: 1 },
-    dkg: { kind: "mass", factor: 10 },
-    kg: { kind: "mass", factor: 1000 },
-    ml: { kind: "volume", factor: 1 },
-    dl: { kind: "volume", factor: 100 },
-    l: { kind: "volume", factor: 1000 },
-    db: { kind: "count", factor: 1 },
-  };
-  return { unit: u, ...table[u] };
+  return { unit: u, ...UNIT_INFO[u] };
 }
 
+// Mass converts to mass and volume to volume; everything else only merges with
+// its own unit. "count" is deliberately not convertible within its kind — db and
+// szem are both counting, with no rate between them.
 export function areUnitsCompatible(a, b) {
   if (!a || !b) return false;
   if (a.unit === b.unit) return true;

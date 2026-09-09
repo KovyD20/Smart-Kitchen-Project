@@ -1,5 +1,6 @@
 export const SYSTEM_UNITS = [
   "db",
+  "szem",
   "g",
   "dkg",
   "kg",
@@ -21,9 +22,15 @@ export const SYSTEM_UNITS = [
   "marék",
 ];
 
+// Written in the readable, accented source form on both sides. The keys are put
+// through unitLookupKey() (lib/units.js) before any lookup, so an accented key
+// is fine here; the values are what gets displayed, so they must stay accented.
 export const UNIT_ALIASES = {
   db: "db",
   darab: "db",
+  // Counted one by one but not interchangeable with "db": ten peppercorns are
+  // not ten pieces of pepper. See unitInfo() in lib/units.js.
+  szem: "szem",
   g: "g",
   gramm: "g",
   gram: "g",
@@ -32,6 +39,7 @@ export const UNIT_ALIASES = {
   ml: "ml",
   dl: "dl",
   l: "l",
+  liter: "l",
   tk: "tk",
   teáskanál: "tk",
   kiskanál: "tk",
