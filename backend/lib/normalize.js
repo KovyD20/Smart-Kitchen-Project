@@ -1,5 +1,5 @@
 // Normalizes a catalog name or alias to its lookup key. This function exists
-// TWICE — here and in frontend/src/constants/pantryCatalog.js — because the two
+// TWICE — here and in frontend/src/constants/catalogText.js — because the two
 // workspaces cannot import from each other, and the seed writes the keys the
 // browser looks up. The two must stay identical: a one-character drift breaks
 // every alias built from the drifted rule, silently and with no error anywhere.

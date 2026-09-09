@@ -84,6 +84,40 @@ export async function upsertInventoryItem({
   return { status: "created", id: ref.id };
 }
 
+// A row can collect modifiers from several recipes ("reszelt" from one,
+// "olvasztott" from another), so this is a set rather than a string. Compared
+// case-insensitively to keep "Reszelt" and "reszelt" from both landing there.
+function mergeNotes(existing, incoming) {
+  const seen = new Set();
+  const merged = [];
+  for (const note of [...(existing || []), ...(incoming || [])]) {
+    const word = (note || "").toString().trim();
+    const key = word.toLocaleLowerCase("hu-HU");
+    if (!word || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(word);
+  }
+  return merged;
+}
+
+// The secondary line under a shopping row: the modifiers the recipe used, then
+// the recipes' own total where it explains the rounded amount above it.
+// "500 g -> 1 kg" is worth a line; "10 db" under "10 db" is noise.
+export function shoppingRowNote(item) {
+  const parts = [...(item?.notes || [])];
+
+  const source = Number(item?.sourceAmount);
+  const explainsTheAmount =
+    Number.isFinite(source) &&
+    source > 0 &&
+    !(source === Number(item?.amount) && (item?.sourceUnit || "") === (item?.unit || ""));
+  if (explainsTheAmount) {
+    parts.push(`recept: ${source} ${item.sourceUnit || ""}`.trim());
+  }
+
+  return parts.length ? parts.join(" · ") : null;
+}
+
 // The recipe path onto the shopping list, where the amount is *derived* rather
 // than typed: the raw asks accumulate on the document (sourceAmount/sourceUnit/
 // sourceLoose) and the amount is recomputed from that running total on every
@@ -103,6 +137,7 @@ export async function upsertPurchaseItem({
   asks,
   purchase,
   nameKeyOf,
+  notes = [],
 }) {
   const nameKey = nameKeyOf(canonicalName);
   const hasPackage = Boolean(purchase?.unit) && Number(purchase?.amount) > 0;
@@ -145,6 +180,11 @@ export async function upsertPurchaseItem({
   const buy = accumulatePurchase(asks, purchase, previous);
   if (!Number.isFinite(buy.amount) || buy.amount <= 0) return { status: "skipped" };
 
+  // The words the resolver dropped from the recipe's wording ("reszelt"), kept
+  // as a reminder on the row. Deliberately NOT part of the match above: if they
+  // were, "reszelt parmezán" and "parmezán" would be two rows again.
+  const nextNotes = mergeNotes(existing?.notes, notes);
+
   const sourceFields = buy.source
     ? {
         sourceAmount: buy.source.amount,
@@ -172,6 +212,9 @@ export async function upsertPurchaseItem({
       amount: nextAmount,
       name: canonicalName,
       ...(tracked ? { unit: buy.unit, ...sourceFields } : {}),
+      ...(nextNotes.length === (existing.notes?.length || 0)
+        ? {}
+        : { notes: nextNotes }),
     });
     return { status: "merged", id: existing.id };
   }
@@ -187,6 +230,7 @@ export async function upsertPurchaseItem({
           ...(buy.source.loose ? { sourceLoose: true } : {}),
         }
       : {}),
+    ...(nextNotes.length ? { notes: nextNotes } : {}),
   });
   return { status: "created", id: ref.id };
 }

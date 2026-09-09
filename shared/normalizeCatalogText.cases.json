@@ -1,5 +1,5 @@
 {
-  "why": "normalizeCatalogText exists twice — backend/lib/normalize.js and frontend/src/constants/pantryCatalog.js — because the two workspaces cannot import from each other, and the seed writes the keys that the browser looks up. If the two implementations drift by a single character, every alias built from the drifted rule stops matching, silently. Both test suites walk this list, so a drift fails CI on the side that changed. Add a case here whenever the rule changes; never edit only one implementation.",
+  "why": "normalizeCatalogText exists twice — backend/lib/normalize.js and frontend/src/constants/catalogText.js — because the two workspaces cannot import from each other, and the seed writes the keys that the browser looks up. If the two implementations drift by a single character, every alias built from the drifted rule stops matching, silently. Both test suites walk this list, so a drift fails CI on the side that changed. Add a case here whenever the rule changes; never edit only one implementation.",
   "cases": [
     { "in": "Vöröshagyma", "out": "voroshagyma" },
     { "in": "TEJFÖL", "out": "tejfol" },

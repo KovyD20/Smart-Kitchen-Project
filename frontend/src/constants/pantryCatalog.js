@@ -1,23 +1,8 @@
+import { normalizeCatalogText } from "./catalogText";
+import { ingredientNameCandidates } from "../lib/ingredientText";
+
 const UNKNOWN_CATEGORY = "Egyéb";
 
-
-// Normalizes a catalog name or alias to its lookup key. This is a COPY of
-// backend/lib/normalize.js — the seed writes the keys, this reads them, and the
-// two workspaces cannot import from each other. A one-character drift breaks
-// every alias silently, so both sides are pinned by
-// shared/normalizeCatalogText.cases.json, which both test suites walk.
-export function normalizeCatalogText(value) {
-  const base = (value || "").toString().trim().toLocaleLowerCase("hu-HU");
-  if (!base) return "";
-
-  const ascii = base.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return ascii
-    .replace(/[()]/g, " ")
-    .replace(/[\\/]/g, " ")
-    .replace(/[-_,.;:!+]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 
 // The API omits `purchase` for items with no package data; guard the shape here
@@ -73,23 +58,116 @@ export function createCatalog(catalogData) {
 
   const CATALOG_ITEMS = Array.from(catalogByKey.values()).sort(compareEntries);
 
+  // Every lookup key that points at an item -- the items' own keys and their
+  // aliases -- split into tokens, for the two fuzzy levels below.
+  const TOKENIZED_KEYS = [
+    ...Array.from(catalogByKey.values(), (entry) => [entry.key, entry]),
+    ...Array.from(aliasToEntry, ([key, entry]) => [key, entry]),
+  ].map(([key, entry]) => ({ tokens: key.split(" ").filter(Boolean), entry }));
+
+  // Level 3: the input names *less* than a catalog item does -- {bors} inside
+  // {fekete, bors}. Safe in this direction only.
+  //
+  // The reverse ({vanilias, cukor} containing {cukor}) is the naive rule that
+  // has to be refused: it cannot be told apart from a product qualifier without
+  // a second word list, and guessing there is what the plan forbids. Extra words
+  // in the input are handled by the allowlist cleaner instead.
+  //
+  // Ambiguity is refused rather than guessed: {sajt} sits inside both
+  // "Manchego sajt" and "sajt (trappista / felkemeny)", and picking one for the
+  // user is worse than leaving the row in "Egyeb".
+  function bySubsetOfTokens(tokens) {
+    const wanted = new Set(tokens);
+    let best = null;
+    let bestExtra = Infinity;
+    let ambiguous = false;
+
+    for (const { tokens: candidate, entry } of TOKENIZED_KEYS) {
+      if (candidate.length <= tokens.length) continue;
+      if (!tokens.every((token) => candidate.includes(token))) continue;
+
+      const extra = candidate.filter((token) => !wanted.has(token)).length;
+      if (extra < bestExtra) {
+        best = entry;
+        bestExtra = extra;
+        ambiguous = false;
+      } else if (extra === bestExtra && entry.key !== best?.key) {
+        ambiguous = true;
+      }
+    }
+
+    return ambiguous ? null : best;
+  }
+
+  // Level 4: the input starts with a catalog item and trails off -- "tejszin
+  // (30%-os)" -> "tejszin". Matching a *prefix* is what makes this safe in
+  // Hungarian: a qualifier comes before the noun ("vanilias cukor", "teljes
+  // kiorlesu liszt"), so it can never be the part that gets dropped. Only
+  // trailing detail is, and that is where the specs live.
+  function byTokenPrefix(tokens) {
+    let best = null;
+    for (const { tokens: candidate, entry } of TOKENIZED_KEYS) {
+      if (!candidate.length || candidate.length >= tokens.length) continue;
+      if (best && candidate.length <= best.tokens.length) continue;
+      if (candidate.every((token, i) => token === tokens[i])) {
+        best = { tokens: candidate, entry };
+      }
+    }
+    return best?.entry || null;
+  }
+
+  // The resolution ladder -- the first level that hits wins. Levels 1 and 2 are
+  // exact lookups (the name as given, then the cleaned spellings); 3 and 4 are
+  // the deterministic fuzzy ones. A typo level (Levenshtein) deliberately does
+  // not exist: a guess must never be applied on the user's behalf.
+  // Grouping the two lists re-resolves every row on every render, and a row that
+  // resolves at neither exact level pays for two scans of the whole key set. The
+  // cache lives with this catalog instance, so a new catalog payload drops it.
+  const resolved = new Map();
+
+  function resolveEntry(name) {
+    if (resolved.has(name)) return resolved.get(name);
+    const hit = resolveEntryUncached(name);
+    resolved.set(name, hit);
+    return hit;
+  }
+
+  function resolveEntryUncached(name) {
+    const candidates = ingredientNameCandidates(name);
+
+    for (const candidate of candidates) {
+      const key = normalizeCatalogText(candidate);
+      if (!key) continue;
+      const hit = aliasToEntry.get(key) || catalogByKey.get(key);
+      if (hit) return hit;
+    }
+
+    for (const candidate of candidates) {
+      const tokens = normalizeCatalogText(candidate).split(" ").filter(Boolean);
+      if (!tokens.length) continue;
+      const hit = bySubsetOfTokens(tokens) || byTokenPrefix(tokens);
+      if (hit) return hit;
+    }
+
+    return null;
+  }
+
   function resolveCatalogKey(name) {
     const key = normalizeCatalogText(name);
     if (!key) return "";
-    return aliasToEntry.get(key)?.key || key;
+    // An unresolved name keeps its own key: it must not merge with anything, and
+    // it must read back the way it was typed.
+    return resolveEntry(name)?.key || key;
   }
 
   function resolveCanonicalCatalogName(name) {
-    const key = normalizeCatalogText(name);
-    if (!key) return "";
-    const match = aliasToEntry.get(key) || catalogByKey.get(key);
-    return match ? match.name : (name || "").toString().trim();
+    if (!normalizeCatalogText(name)) return "";
+    return resolveEntry(name)?.name || (name || "").toString().trim();
   }
 
   function getCatalogItemByName(name) {
-    const key = resolveCatalogKey(name);
-    if (!key) return null;
-    return catalogByKey.get(key) || null;
+    if (!normalizeCatalogText(name)) return null;
+    return resolveEntry(name);
   }
 
   function groupItemsByCatalog(items) {

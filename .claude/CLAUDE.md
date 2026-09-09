@@ -40,9 +40,10 @@ frontend/src/
 ├── context/        # CatalogContext, ConfirmContext, ToastContext
 ├── hooks/          # useInventory, useRecipes, useCollapsedGroups, useIsMobile,
 │                   useGlobalKeys, useSpatialNav, useListKeyboardNav, useFocusTrap
-├── lib/            # api.js, inventory.js, recipes.js, units.js, keyboard.js
+├── lib/            # api.js, inventory.js, recipes.js, units.js, keyboard.js,
+│                   ingredientText.js
 ├── pages/          # Home.jsx
-└── constants/      # pantryCatalog.js, units.js
+└── constants/      # pantryCatalog.js, catalogText.js, units.js
 ```
 
 ## Commands
@@ -67,7 +68,7 @@ npm test
 - A Gemini API kulcs **soha** nem kerülhet a frontend bundle-be — csak a backend `.env`-jében élhet
 - Két különböző normalizálás van, ne keverd őket:
   - **katalógus-kulcs**: `normalizeCatalogText`. Ez **szándékosan két példányban** él
-    (`backend/lib/normalize.js` és `frontend/src/constants/pantryCatalog.js`), mert a
+    (`backend/lib/normalize.js` és `frontend/src/constants/catalogText.js`), mert a
     két workspace nem importál egymásból, a seed írja a kulcsot és a böngésző olvassa.
     A kettőt a `shared/normalizeCatalogText.cases.json` fogja össze: **mindkét**
     tesztkészlet végigjárja, tehát ha csak az egyiket módosítod, a másik oldal CI-je elhasal.
@@ -77,6 +78,12 @@ npm test
 - A pantry katalógus egységlistája (`frontend/src/constants/units.js` `SYSTEM_UNITS`) és a
   backend AI-enumja (`backend/lib/aiSchemas.js` `AI_ALLOWED_UNITS`) kézi tükör: új egység
   **mindkettőbe** kell, aliast viszont az enumba soha
+- A **bemeneti** hozzávaló-szöveg tisztítása (`frontend/src/lib/ingredientText.js`) más,
+  mint a katalógus-kulcs képzése: az előbbi egy *kérdést* készít elő, csak frontend-oldalon.
+  Szabálya **allowlist**: csak ismert, ártalmatlan szót vág le (`őrölt`, `friss`, cél-toldalék),
+  a termékminősítőt (`vaníliás`, `teljes kiőrlésű`) **soha** — az más termék. A feloldó létra
+  (`createCatalog` → `resolveEntry`) mindig **a teljes nevet próbálja először**; ez védi meg a
+  `darált hús`, `őrölt kávé`, `szárított tárkony` típusú tételeket a saját jelzőjüktől
 - CRUD a recept/hűtő/bevásárlólista adatokon a Firestore-on át megy közvetlenül a kliensről, **nem** az Express API-n keresztül
 
 ## Important Notes

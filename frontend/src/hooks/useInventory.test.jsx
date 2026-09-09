@@ -18,13 +18,18 @@ vi.mock("firebase/firestore", () => firestoreMock);
 // useMemos on every render and obscure what the test is actually asserting.
 // Package sizes per raw ingredient name; filled in by the tests that need one.
 const purchaseByName = new Map();
+// Catalog resolution, for the tests where a name has to land on a differently
+// named row. Identity when a name is absent. Note that the hook asks twice with
+// two spellings — the raw name for the canonical name, the amount/unit-stripped
+// one for the merge key — so both have to be registered.
+const canonicalByName = new Map();
 const catalog = {
   getCatalogItemByName: (name) =>
     purchaseByName.has(name) ? { purchase: purchaseByName.get(name) } : null,
   getMissingCatalogRecommendations: () => [],
   groupItemsByCatalog: (items) => [{ key: "all", items }],
-  resolveCanonicalCatalogName: (value) => value,
-  resolveCatalogKey: (value) => value,
+  resolveCanonicalCatalogName: (value) => canonicalByName.get(value) || value,
+  resolveCatalogKey: (value) => canonicalByName.get(value) || value,
 };
 vi.mock("../context/CatalogContext", () => ({ useCatalog: () => catalog }));
 
@@ -108,6 +113,7 @@ describe("useInventory loading flag", () => {
 describe("useInventory shop-package rounding", () => {
   beforeEach(() => {
     purchaseByName.clear();
+    canonicalByName.clear();
     firestoreMock.addDoc.mockResolvedValue({ id: "new" });
   });
 
@@ -293,6 +299,78 @@ describe("useInventory shop-package rounding", () => {
       { path: shopPath("u1") },
       { name: "bors", amount: 10, unit: "szem" },
     );
+  });
+
+  it("keeps the dropped modifier as a note on the row", async () => {
+    // "Reszelt parmezán sajt" is bought as parmezán; the instruction survives as
+    // a note rather than as part of the name, so the row still merges.
+    purchaseByName.set("Reszelt parmezán", { unit: "g", amount: 100 });
+    canonicalByName.set("Reszelt parmezán", "parmezán");
+    canonicalByName.set("reszelt parmezan", "parmezan");
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addToShoppingList([
+        { name: "Reszelt parmezán", amount: 50, unit: "g" },
+      ]);
+    });
+
+    expect(firestoreMock.addDoc.mock.calls[0][1]).toMatchObject({
+      name: "parmezán",
+      notes: ["Reszelt"],
+    });
+  });
+
+  it("collects the modifiers of several lines onto one row, without repeats", async () => {
+    for (const name of ["olvasztott vaj", "Olvasztott vaj", "langyos vaj"]) {
+      purchaseByName.set(name, { unit: "g", amount: 250 });
+      canonicalByName.set(name, "vaj");
+    }
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addToShoppingList([
+        { name: "olvasztott vaj", amount: 50, unit: "g" },
+        { name: "Olvasztott vaj", amount: 30, unit: "g" },
+        { name: "langyos vaj", amount: 20, unit: "g" },
+      ]);
+    });
+
+    expect(firestoreMock.addDoc).toHaveBeenCalledTimes(1);
+    expect(firestoreMock.addDoc.mock.calls[0][1].notes).toEqual([
+      "olvasztott",
+      "langyos",
+    ]);
+  });
+
+  it("writes no notes field for a plain ingredient", async () => {
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addToShoppingList([
+        { name: "liszt", amount: 500, unit: "g" },
+      ]);
+    });
+
+    expect(firestoreMock.addDoc.mock.calls[0][1]).not.toHaveProperty("notes");
+  });
+
+  it("keeps water off the shopping list, but adds the rest of the recipe", async () => {
+    // 92 dl of water had accumulated on the list from a dozen recipes. It stays
+    // in the recipe, where it is a real ingredient — only the list refuses it.
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addToShoppingList([
+        { name: "Víz", amount: 5, unit: "dl" },
+        { name: "csapvíz", amount: 2, unit: "l" },
+        { name: "jég", amount: 4, unit: "db" },
+        { name: "liszt", amount: 500, unit: "g" },
+      ]);
+    });
+
+    expect(firestoreMock.addDoc).toHaveBeenCalledTimes(1);
+    expect(firestoreMock.addDoc.mock.calls[0][1]).toMatchObject({ name: "liszt" });
   });
 
   it("merges unaddable units into one row once the item has a package", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeCatalogText } from "../constants/pantryCatalog.js";
+import { normalizeCatalogText } from "../constants/catalogText.js";
 import {
   availabilityLevel,
   FAVORITES_FILTER,
