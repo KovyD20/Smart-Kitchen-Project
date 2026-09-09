@@ -14,9 +14,10 @@ const { RAW_CATALOG_ROWS } = await import(
   "../../../backend/scripts/pantrySeedData.js"
 );
 
-// Mirrors normalizeCategory() in backend/scripts/seedPantry.js.
-const normalizeCategory = (value) =>
-  (value || "").toString().trim().replace(/^\d+\.\s*/, "").trim();
+// The same function the seeder uses, imported rather than mirrored.
+const { normalizeCategory } = await import(
+  "../../../backend/lib/buildPantryCatalog.js"
+);
 
 const seedCategories = [
   ...new Set(RAW_CATALOG_ROWS.map((row) => normalizeCategory(row.category))),

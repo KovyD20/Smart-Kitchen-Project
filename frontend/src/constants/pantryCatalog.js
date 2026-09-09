@@ -1,6 +1,11 @@
 const UNKNOWN_CATEGORY = "Egyéb";
 
 
+// Normalizes a catalog name or alias to its lookup key. This is a COPY of
+// backend/lib/normalize.js — the seed writes the keys, this reads them, and the
+// two workspaces cannot import from each other. A one-character drift breaks
+// every alias silently, so both sides are pinned by
+// shared/normalizeCatalogText.cases.json, which both test suites walk.
 export function normalizeCatalogText(value) {
   const base = (value || "").toString().trim().toLocaleLowerCase("hu-HU");
   if (!base) return "";

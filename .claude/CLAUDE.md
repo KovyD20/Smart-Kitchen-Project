@@ -27,10 +27,13 @@ Ha valamit hozzáadnál: **per-user, real-time adat → Firestore**; **globális
 backend/
 ├── server.js
 ├── db/            # pool.js, schema.sql
-├── lib/           # normalize.js, aiClient.js, aiError.js, aiSchemas.js, firebaseAdmin.js, seedOptions.js
+├── lib/           # normalize.js, buildPantryCatalog.js, aiClient.js, aiError.js,
+│                   aiSchemas.js, firebaseAdmin.js, seedOptions.js
 ├── middleware/     # auth.js, rateLimit.js, validate.js
 ├── routes/         # ai.js, db.js, pantry.js
-└── scripts/         # migrate.js, seedPantry.js, aiSmokeTest.js
+└── scripts/         # migrate.js, seedPantry.js, pantrySeedData.js, aiSmokeTest.js
+
+shared/             # amit mindkét workspace tesztje bejár (normalizeCatalogText.cases.json)
 
 frontend/src/
 ├── components/     # AiRecipePanel, AuthPanel, Background, Icon, NewRecipeForm, ShortcutsHelp, views
@@ -62,7 +65,18 @@ npm test
 - Backend: CommonJS, request body validáció **mindig** `zod`-dal
 - Frontend: funkcionális komponensek, hookok (`use*.js`) a state logikára, komponensek csak megjelenítésre
 - A Gemini API kulcs **soha** nem kerülhet a frontend bundle-be — csak a backend `.env`-jében élhet
-- Mértékegység-normalizálás (`backend/lib/normalize.js`) az egyetlen hely, ahol az ékezet-eltávolítás/kisbetűsítés történik — ne duplikáld máshol, seed és runtime ugyanazt a modult használja
+- Két különböző normalizálás van, ne keverd őket:
+  - **katalógus-kulcs**: `normalizeCatalogText`. Ez **szándékosan két példányban** él
+    (`backend/lib/normalize.js` és `frontend/src/constants/pantryCatalog.js`), mert a
+    két workspace nem importál egymásból, a seed írja a kulcsot és a böngésző olvassa.
+    A kettőt a `shared/normalizeCatalogText.cases.json` fogja össze: **mindkét**
+    tesztkészlet végigjárja, tehát ha csak az egyiket módosítod, a másik oldal CI-je elhasal.
+    Új példányt **ne** hozz létre.
+  - **mértékegység-kulcs**: `unitLookupKey` (`frontend/src/lib/units.js`) — ez az egyetlen
+    hely, ahol egységnév normalizálódik; a `UNIT_ALIASES` kulcsai is ezen mennek át
+- A pantry katalógus egységlistája (`frontend/src/constants/units.js` `SYSTEM_UNITS`) és a
+  backend AI-enumja (`backend/lib/aiSchemas.js` `AI_ALLOWED_UNITS`) kézi tükör: új egység
+  **mindkettőbe** kell, aliast viszont az enumba soha
 - CRUD a recept/hűtő/bevásárlólista adatokon a Firestore-on át megy közvetlenül a kliensről, **nem** az Express API-n keresztül
 
 ## Important Notes

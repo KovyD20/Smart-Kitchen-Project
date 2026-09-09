@@ -17,139 +17,8 @@ require("dotenv").config();
 const pool = require("../db/pool");
 const { migrate } = require("./migrate");
 const { parseSeedArgs, describeTarget } = require("../lib/seedOptions");
-const { normalizeCatalogText } = require("../lib/normalize");
-const {
-  PRIORITY_RANK,
-  RAW_CATALOG_ROWS,
-  MANUAL_SYNONYMS,
-} = require("./pantrySeedData");
-
-function normalizeCategory(value) {
-  return (value || "")
-    .toString()
-    .trim()
-    .replace(/^\d+\.\s*/, "")
-    .trim();
-}
-
-function collectAliases(name) {
-  const source = (name || "").toString().trim();
-  if (!source) return [];
-
-  const aliases = new Set([source]);
-  const withoutParentheses = source.replace(/\([^)]*\)/g, "").trim();
-  if (withoutParentheses) {
-    aliases.add(withoutParentheses);
-  }
-
-  source
-    .split("/")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .forEach((part) => aliases.add(part));
-
-  const groupMatches = source.match(/\(([^)]+)\)/);
-  if (groupMatches && groupMatches[1]) {
-    groupMatches[1]
-      .split("/")
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .forEach((part) => aliases.add(part));
-  }
-
-  return Array.from(aliases);
-}
-
-// Package size ("1 kg", "10 db") for the shopping list's rounding. Both fields
-// are optional and only usable together, so a half-filled row is dropped rather
-// than stored as a unit with no amount.
-function readPurchase(row) {
-  const unit = (row.purchaseUnit || "").toString().trim();
-  const amount = Number(row.purchaseAmount);
-  if (!unit || !Number.isFinite(amount) || amount <= 0) return null;
-  return { unit, amount };
-}
-
-// Build the in-memory catalog (categories in first-seen order, canonical items
-// with priority tie-breaking, aliases) exactly as the frontend used to.
-function buildCatalog() {
-  const categoryOrder = [];
-  const categoryIndex = new Map();
-  const catalogByKey = new Map();
-  const aliasToEntry = new Map();
-
-  function ensureCategory(category) {
-    if (categoryIndex.has(category)) return;
-    categoryIndex.set(category, categoryOrder.length);
-    categoryOrder.push(category);
-  }
-
-  for (const row of RAW_CATALOG_ROWS) {
-    const category = normalizeCategory(row.category);
-    ensureCategory(category);
-
-    const key = normalizeCatalogText(row.name);
-    if (!key) continue;
-
-    const priority = row.priority || "extra";
-    const purchase = readPurchase(row);
-    const existing = catalogByKey.get(key);
-    if (!existing) {
-      catalogByKey.set(key, {
-        key,
-        name: row.name,
-        category,
-        priority,
-        purchase,
-      });
-      continue;
-    }
-
-    const incomingRank = PRIORITY_RANK[priority] || 0;
-    const existingRank = PRIORITY_RANK[existing.priority] || 0;
-    if (incomingRank > existingRank) {
-      existing.priority = priority;
-    }
-    // Duplicate names are merged; the first row that carries package data wins.
-    if (!existing.purchase && purchase) {
-      existing.purchase = purchase;
-    }
-  }
-
-  function registerAlias(alias, entry) {
-    const aliasKey = normalizeCatalogText(alias);
-    if (!aliasKey || !entry) return;
-
-    const existing = aliasToEntry.get(aliasKey);
-    if (!existing) {
-      aliasToEntry.set(aliasKey, entry);
-      return;
-    }
-
-    const existingRank = PRIORITY_RANK[existing.priority] || 0;
-    const incomingRank = PRIORITY_RANK[entry.priority] || 0;
-    if (incomingRank > existingRank) {
-      aliasToEntry.set(aliasKey, entry);
-    }
-  }
-
-  for (const row of RAW_CATALOG_ROWS) {
-    const entry = catalogByKey.get(normalizeCatalogText(row.name));
-    if (!entry) continue;
-    collectAliases(row.name).forEach((alias) => registerAlias(alias, entry));
-  }
-
-  for (const [alias, canonical] of Object.entries(MANUAL_SYNONYMS)) {
-    const targetKey = normalizeCatalogText(canonical);
-    const targetEntry =
-      aliasToEntry.get(targetKey) || catalogByKey.get(targetKey) || null;
-    if (targetEntry) {
-      registerAlias(alias, targetEntry);
-    }
-  }
-
-  return { categoryOrder, catalogByKey, aliasToEntry };
-}
+const { buildPantryCatalog } = require("../lib/buildPantryCatalog");
+const { RAW_CATALOG_ROWS, MANUAL_SYNONYMS } = require("./pantrySeedData");
 
 // `xmax = 0` is true only for a row this statement inserted, so one RETURNING
 // tells insert and update apart. Worth it here: "3 new, 300 updated" is the
@@ -257,7 +126,10 @@ async function seedAliases(client, aliasToEntry, itemIdByKey, { reset }) {
 
 async function run() {
   const { reset } = parseSeedArgs(process.argv.slice(2));
-  const { categoryOrder, catalogByKey, aliasToEntry } = buildCatalog();
+  const { categoryOrder, catalogByKey, aliasToEntry } = buildPantryCatalog(
+    RAW_CATALOG_ROWS,
+    MANUAL_SYNONYMS,
+  );
 
   console.log(
     `Seeding pantry catalog -> ${describeTarget()}  [${reset ? "RESET: truncate + reload" : "upsert: additive"}]`,

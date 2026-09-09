@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizeCatalogText } from "./normalize.js";
+import sharedCases from "../../shared/normalizeCatalogText.cases.json";
 
 describe("normalizeCatalogText", () => {
   it("strips accents and lowercases", () => {
@@ -24,5 +25,13 @@ describe("normalizeCatalogText", () => {
     expect(normalizeCatalogText("   ")).toBe("");
     expect(normalizeCatalogText(null)).toBe("");
     expect(normalizeCatalogText(undefined)).toBe("");
+  });
+
+  // The frontend has its own copy of this function and walks the very same
+  // list. See shared/normalizeCatalogText.cases.json for why.
+  describe("agrees with the shared cases", () => {
+    it.each(sharedCases.cases)("$in -> $out", ({ in: input, out }) => {
+      expect(normalizeCatalogText(input)).toBe(out);
+    });
   });
 });
