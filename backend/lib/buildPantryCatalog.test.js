@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  PRIORITY_RANK,
   buildPantryCatalog,
   collectAliases,
   normalizeCategory,
@@ -288,9 +289,14 @@ describe("the real seed data", () => {
   it("keeps the celery and parsley products apart", () => {
     expect(resolve("zellerszár").name).toBe("zellerszár");
     expect(resolve("zellergumó").name).toBe("zellergumó");
-    expect(resolve("zeller").name).toBe("zeller");
+    // "zeller" is the bulb, not a fourth product: it used to be its own row and
+    // opened a second line on the list whenever a recipe measured it in "fej"
+    // rather than "db". It is an alias of the bulb now.
+    expect(resolve("zeller").name).toBe("zellergumó");
     expect(resolve("petrezselyemgyökér").name).toBe("fehérrépa");
-    expect(resolve("petrezselyem").name).toBe("petrezselyem (zöldség)");
+    // The bare name belongs to the dried spice; the bunch answers to "friss".
+    expect(resolve("petrezselyem").category).toBe("Fűszerek, ízesítők");
+    expect(resolve("friss petrezselyem").name).toBe("petrezselyem (zöldség)");
   });
 
   // Without package data the shopping list has nothing to round to, so it can
@@ -389,7 +395,7 @@ describe("the real seed data", () => {
       rókagomba: "rókagomba",
       "sertés rövidkaraj": "sertéskaraj",
       "szárított kakukkfű": "kakukkfű",
-      "szárított petrezselyem": "szárított petrezselyem",
+      "szárított petrezselyem": "petrezselyem",
       szárzeller: "zellerszár",
       "teljeskiőrlésű liszt": "teljeskiőrlésű liszt",
       Tök: "tök",
@@ -442,6 +448,49 @@ describe("the real seed data", () => {
       expect(
         Object.keys(RESOLVES).length + WAITS_FOR_THE_INPUT_CLEANER.length,
       ).toBe(41);
+    });
+  });
+
+  // Four herbs are sold both as a fresh bunch and as a dried sachet, and the
+  // catalog carries both rows. A recipe that just names the herb should buy the
+  // sachet — it keeps, and it is what a spoonful of dried herb means.
+  //
+  // This is not obvious from the rows alone: collectAliases() registers
+  // "kapor" for "kapor (zöldség)" too, so both rows claim the bare name and
+  // registerAlias() settles it by stock level. The spice row therefore has to
+  // outrank the vegetable row, and this test is what says so out loud.
+  describe("herbs that are both a vegetable and a spice", () => {
+    const HERBS = ["petrezselyem", "kapor", "koriander", "bazsalikom"];
+
+    it("gives the bare name to the dried spice", () => {
+      const wrong = HERBS.map((herb) => [herb, resolve(herb)])
+        .filter(([, hit]) => hit?.category !== "Fűszerek, ízesítők")
+        .map(([herb, hit]) => `${herb}: ${hit?.name} (${hit?.category})`);
+      expect(wrong).toEqual([]);
+    });
+
+    it("sells that spice by the sachet", () => {
+      const wrong = HERBS.filter(
+        (herb) => resolve(herb)?.purchase?.unit !== "csomag",
+      );
+      expect(wrong).toEqual([]);
+    });
+
+    it("keeps the fresh form reachable under a 'friss' alias", () => {
+      const wrong = HERBS.map((herb) => [herb, resolve(`friss ${herb}`)])
+        .filter(([, hit]) => hit?.category !== "Zöldségek")
+        .map(([herb, hit]) => `friss ${herb}: ${hit?.name} (${hit?.category})`);
+      expect(wrong).toEqual([]);
+    });
+
+    it("outranks the vegetable row, which is what breaks the tie", () => {
+      const rows = new Map(RAW_CATALOG_ROWS.map((row) => [row.name, row]));
+      const wrong = HERBS.filter(
+        (herb) =>
+          PRIORITY_RANK[rows.get(herb)?.priority] <=
+          PRIORITY_RANK[rows.get(`${herb} (zöldség)`)?.priority],
+      );
+      expect(wrong).toEqual([]);
     });
   });
 

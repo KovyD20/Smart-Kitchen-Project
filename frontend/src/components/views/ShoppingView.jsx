@@ -318,7 +318,17 @@ export default function ShoppingView({
             essential={recommendations.essential}
             goodToHave={recommendations.goodToHave}
             extra={recommendations.extra}
-            onAdd={(item) => onAddItem({ name: item.name, amount: 1, unit: "db" })}
+            // A recommendation is a catalog row, so it knows the package it is
+            // sold in — adding it as "1 db" put a piece of loose spinach on the
+            // list for an item the catalog measures in 200 g bags. Only rows
+            // with no package data fall back to a single piece.
+            onAdd={(item) =>
+              onAddItem({
+                name: item.name,
+                amount: item.purchase?.amount || 1,
+                unit: item.purchase?.unit || "db",
+              })
+            }
             isOpen={isOpen}
             toggle={toggle}
           />

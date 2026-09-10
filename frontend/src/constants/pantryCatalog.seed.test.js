@@ -47,6 +47,8 @@ function catalogFromSeed() {
 
 const catalog = createCatalog(catalogFromSeed());
 const nameOf = (input) => catalog.getCatalogItemByName(input)?.name || null;
+const categoryOf = (input) =>
+  catalog.getCatalogItemByName(input)?.category || null;
 
 describe("the ladder on the real catalog", () => {
   // The rows still sitting in "Egyéb" after the catalog data was fixed. Every
@@ -79,9 +81,13 @@ describe("the ladder on the real catalog", () => {
     expect(nameOf("darált hús")).toBe("darált hús");
     expect(nameOf("darált sertés")).toBe("darált sertés");
     expect(nameOf("szárított tárkony")).toBe("szárított tárkony");
-    expect(nameOf("szárított petrezselyem")).toBe("szárított petrezselyem");
     expect(nameOf("fagyasztott spenót")).toBe("fagyasztott spenót");
-    expect(nameOf("friss koriander")).toBe("koriander");
+    // The dried spice owns the bare herb name, so "szárított petrezselyem" is
+    // an alias of it rather than a row of its own. What the rule still has to
+    // protect is the category: stripping "szárított" must not land on the
+    // fresh bunch.
+    expect(categoryOf("szárított petrezselyem")).toBe("Fűszerek, ízesítők");
+    expect(nameOf("friss koriander")).toBe("koriander (zöldség)");
   });
 
   it("refuses to turn a product qualifier into another product", () => {
