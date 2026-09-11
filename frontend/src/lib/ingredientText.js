@@ -39,7 +39,9 @@ const STATE_WORDS = [
   "száraz",
   "fagyasztott",
   "konyhakész",
-  // A size says nothing about which product to buy ("nagy marha velőscsont").
+  // A size has to come off the name for "nagy marha velőscsont" to resolve, but
+  // it is not noise: which one to pick off the shelf is worth knowing, so it
+  // survives the stripping as a note on the row.
   "nagy",
   "kicsi",
   // A cut, not a product: "csirkemell filé" is chicken breast.
@@ -94,10 +96,24 @@ function withoutStateWords(value) {
 // The state words this name carries, in the order they appear. The resolver
 // throws the words away; the shopping list keeps them as a note on the row, so
 // "reszelt" is not lost when the row is named after the product you buy.
-export function strippedModifiers(name) {
-  return words(withoutPurposeSuffix(name)).filter((word) =>
-    STATE_WORD_KEYS.has(normalizeCatalogText(word)),
-  );
+//
+// Two things decide what a note may look like, and both belong here rather than
+// in the hook that collects them:
+//
+//   - it is always lowercase. The word is lifted out of a name, not written as
+//     a sentence, so "Reszelt parmezán sajt" leaves "reszelt" under the row.
+//   - a word the row's own name already says is not a reminder of anything.
+//     Pass `canonicalName` and "darált" drops off "darált sertés", while "nagy"
+//     stays on "velőscsont" — the size is the one that still tells you which
+//     one to pick up.
+export function strippedModifiers(name, canonicalName = "") {
+  const alreadySaid = new Set(words(canonicalName).map(normalizeCatalogText));
+  return words(withoutPurposeSuffix(name))
+    .filter((word) => {
+      const key = normalizeCatalogText(word);
+      return STATE_WORD_KEYS.has(key) && !alreadySaid.has(key);
+    })
+    .map((word) => word.toLocaleLowerCase("hu-HU"));
 }
 
 // The spellings to try in the catalog, in order, **the untouched name first**.

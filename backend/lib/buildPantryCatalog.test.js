@@ -271,7 +271,7 @@ describe("the real seed data", () => {
       "szárított tárkony",
       "tyúk",
       "vaníliaaroma",
-      "zöldségzöld",
+      "leveszöldségcsomag",
       "fehérrépa",
       "Manchego sajt",
       "főzőtejszín",
@@ -297,6 +297,38 @@ describe("the real seed data", () => {
     // The bare name belongs to the dried spice; the bunch answers to "friss".
     expect(resolve("petrezselyem").category).toBe("Fűszerek, ízesítők");
     expect(resolve("friss petrezselyem").name).toBe("petrezselyem (zöldség)");
+    // The greens sold for soup are the parsley bunch under another name; the
+    // bagged soup mix is a different purchase and keeps its own row.
+    expect(resolve("zöldségzöld").name).toBe("petrezselyem (zöldség)");
+    expect(resolve("leveszöldség").name).toBe("leveszöldségcsomag");
+  });
+
+  // A2 — the two rows that used to be one "either/or" item each.
+  it("sells the two salads as two products", () => {
+    expect(resolve("fejes saláta").name).toBe("fejes saláta");
+    expect(resolve("jégsaláta").name).toBe("jégsaláta");
+    // A recipe that does not say which one means the butterhead.
+    expect(resolve("saláta").name).toBe("fejes saláta");
+    expect(resolve("madársaláta").name).toBe("madársaláta");
+  });
+
+  it("sells butter and margarine as two products", () => {
+    expect(resolve("vaj").name).toBe("vaj");
+    expect(resolve("margarin").name).toBe("margarin");
+    expect(resolve("vaj").purchase).toEqual({ unit: "g", amount: 250 });
+    expect(resolve("margarin").purchase).toEqual({ unit: "g", amount: 500 });
+    // The one name that must not slide onto the butter row now that "vaj" is
+    // an item of its own.
+    expect(resolve("mogyoróvaj").name).toBe("mogyoróvaj");
+  });
+
+  // A1 — the six rows that had no package size, so the list showed the recipe's
+  // own unit with nothing to round to.
+  it("gives every row a package size", () => {
+    const missing = Array.from(catalog.catalogByKey.values())
+      .filter((entry) => !entry.purchase)
+      .map((entry) => entry.name);
+    expect(missing).toEqual([]);
   });
 
   // Without package data the shopping list has nothing to round to, so it can
@@ -400,7 +432,7 @@ describe("the real seed data", () => {
       "teljeskiőrlésű liszt": "teljeskiőrlésű liszt",
       Tök: "tök",
       vörösborecet: "vörösborecet",
-      zellerzöld: "zöldségzöld",
+      zellerzöld: "petrezselyem (zöldség)",
     };
 
     // Every one of these is a state modifier hiding a name the catalog already

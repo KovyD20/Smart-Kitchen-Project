@@ -5,7 +5,7 @@ import { normalizeCatalogText } from "./catalogText.js";
 // The resolution ladder against the REAL catalog, built from the backend seed
 // data the same way the seeder builds it. The hand-made fixture in
 // pantryCatalog.test.js proves the mechanics; this file proves the outcome on
-// the 261 rows that actually ship, which is where a rule that looks safe in
+// the 263 rows that actually ship, which is where a rule that looks safe in
 // isolation turns out to hijack a real item.
 const { buildPantryCatalog } = await import(
   "../../../backend/lib/buildPantryCatalog.js"
@@ -100,6 +100,21 @@ describe("the ladder on the real catalog", () => {
     // "tojás" or "liszt".
     expect(nameOf("tojássárgája")).toBeNull();
     expect(nameOf("füstölt tofu")).toBeNull();
+  });
+
+  it("keeps the split products apart", () => {
+    // "vaj" and "saláta" used to be halves of an either/or row; now each is a
+    // product with its own package size. What the split puts at risk is the
+    // longer name that ends in one of them.
+    expect(nameOf("mogyoróvaj")).toBe("mogyoróvaj");
+    expect(nameOf("vaj")).toBe("vaj");
+    expect(nameOf("margarin")).toBe("margarin");
+    expect(nameOf("saláta")).toBe("fejes saláta");
+    expect(nameOf("jégsaláta")).toBe("jégsaláta");
+    expect(nameOf("madársaláta")).toBe("madársaláta");
+    // The bagged soup mix is a product, not the parsley bunch it contains.
+    expect(nameOf("leveszöldség")).toBe("leveszöldségcsomag");
+    expect(nameOf("zöldségzöld")).toBe("petrezselyem (zöldség)");
   });
 
   it("resolves a name that is less specific than the item (level 3)", () => {

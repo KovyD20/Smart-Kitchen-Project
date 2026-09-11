@@ -76,12 +76,36 @@ describe("ingredientNameCandidates", () => {
 
 describe("strippedModifiers", () => {
   it("reports the words the resolver drops, in order", () => {
-    expect(strippedModifiers("Reszelt parmezán sajt")).toEqual(["Reszelt"]);
+    expect(strippedModifiers("Reszelt parmezán sajt")).toEqual(["reszelt"]);
     expect(strippedModifiers("olvasztott langyos vaj")).toEqual([
       "olvasztott",
       "langyos",
     ]);
     expect(strippedModifiers("paprika")).toEqual([]);
+  });
+
+  it("writes the note in lowercase, whatever the recipe shouted", () => {
+    // The word is lifted out of a name, not written as a sentence.
+    expect(strippedModifiers("Száraz fehérbor")).toEqual(["száraz"]);
+    expect(strippedModifiers("Szárított morzsolt oregánó")).toEqual([
+      "szárított",
+      "morzsolt",
+    ]);
+  });
+
+  it("drops a word the row's own name already says", () => {
+    expect(strippedModifiers("darált sertés", "darált sertés")).toEqual([]);
+    expect(strippedModifiers("szárított tárkony", "szárított tárkony")).toEqual([]);
+    // Still a note when the row is named after something else.
+    expect(strippedModifiers("Reszelt parmezán sajt", "parmezán")).toEqual([
+      "reszelt",
+    ]);
+  });
+
+  it("keeps the size, because it says which one to pick up", () => {
+    expect(strippedModifiers("nagy marha velőscsont", "velőscsont")).toEqual([
+      "nagy",
+    ]);
   });
 
   it("ignores the purpose suffix rather than reporting it", () => {

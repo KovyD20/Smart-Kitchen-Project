@@ -106,8 +106,43 @@ const PACKAGE_EPSILON = 1e-9;
 
 // Trims the float dust a chain of unit conversions leaves behind, without
 // touching quantities that are legitimately fractional (0.5 kg stays 0.5 kg).
-function trimFloat(value) {
+// Exported because every branch that sums two amounts needs it: a merge that
+// skips it is how "passata 3.8000000000000007 l" reached the list.
+export function trimFloat(value) {
   return Math.round(value * 1000) / 1000;
+}
+
+// Units that come one at a time: half a "db" is not a quantity a shop will sell
+// you. Spoons are deliberately absent — "fél tk só" is a real ask — and so are
+// mass and volume, where 0,5 kg is exactly what the user meant.
+const WHOLE_ONLY_UNITS = new Set(
+  [
+    "db",
+    "szem",
+    "csomag",
+    "konzerv",
+    "fej",
+    "szál",
+    "csokor",
+    "gerezd",
+    "szelet",
+    "csipet",
+    "bögre",
+    "pohár",
+    "marék",
+  ].map(unitLookupKey),
+);
+
+// Rounds a hand-entered amount up to something buyable. The recipe path already
+// rounds to whole packages in accumulatePurchase(); this is the manual path,
+// where the number the user typed stands as their intent and only an indivisible
+// unit is nudged: "0,5 db" is not a purchase, "0,5 kg" is.
+export function roundToBuyableAmount(amount, unit) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0) return value;
+  // Through normalizeUnit first, so "darab" is the same answer as "db".
+  if (!WHOLE_ONLY_UNITS.has(unitLookupKey(normalizeUnit(unit)))) return value;
+  return Math.ceil(trimFloat(value));
 }
 
 // Rounding each recipe's ask to a whole package and *then* adding the results up

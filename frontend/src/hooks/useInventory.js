@@ -16,6 +16,7 @@ import {
   areUnitsCompatible,
   convertAmount,
   normalizeUnit,
+  roundToBuyableAmount,
   stripAmountsAndUnits,
   unitInfo,
 } from "../lib/units";
@@ -162,7 +163,9 @@ export function useInventory(uid) {
       group.asks.push({ amount, unit });
       // "Reszelt parmezán sajt" is bought as "parmezán"; the word the resolver
       // dropped is kept as a note on the row so the instruction is not lost.
-      group.notes.push(...strippedModifiers(rawName));
+      // The canonical name goes with it: a word the row already carries
+      // ("darált sertés") is not worth repeating underneath it.
+      group.notes.push(...strippedModifiers(rawName, canonicalizeName(rawName)));
       groups.set(key, group);
     }
 
@@ -185,14 +188,19 @@ export function useInventory(uid) {
     const amount = Number(item?.amount || 0);
     if (!rawName || amount <= 0) return;
 
+    // The number is the user's own, so it is not rounded to a shop package the
+    // way a recipe's ask is — only up to a whole one where half of it cannot be
+    // bought ("0,5 db").
+    const unit = normalizeUnit(item?.unit);
+
     await upsertInventoryItem({
       db,
       uid,
       collectionName: "shoppingList",
       list: shoppingList,
       canonicalName: canonicalizeName(rawName),
-      unit: normalizeUnit(item?.unit),
-      mergeAmount: amount,
+      unit,
+      mergeAmount: roundToBuyableAmount(amount, unit),
       nameKeyOf: normalizeName,
     });
   };
@@ -336,6 +344,10 @@ export function useInventory(uid) {
     if (!rawName) return;
     const amount = Number(item?.amount || 0);
     const change = Number(delta || 0);
+    const unit = normalizeUnit(item?.unit);
+    // Only the typed quantity is rounded up to a whole one; `change` is a step
+    // the UI already chose, and a negative one passes through untouched.
+    const typed = roundToBuyableAmount(amount, unit);
 
     await upsertInventoryItem({
       db,
@@ -343,9 +355,9 @@ export function useInventory(uid) {
       collectionName: "fridge",
       list: fridge,
       canonicalName: canonicalizeName(rawName),
-      unit: normalizeUnit(item?.unit),
-      mergeAmount: change !== 0 ? change : amount,
-      createAmount: amount,
+      unit,
+      mergeAmount: change !== 0 ? change : typed,
+      createAmount: typed,
       nameKeyOf: normalizeName,
     });
   };

@@ -7,6 +7,8 @@ import {
   convertAmount,
   stripAmountsAndUnits,
   accumulatePurchase,
+  roundToBuyableAmount,
+  trimFloat,
 } from "./units.js";
 import { SYSTEM_UNITS, UNIT_ALIASES } from "../constants/units.js";
 
@@ -349,5 +351,50 @@ describe("accumulatePurchase", () => {
       rounded: false,
     });
     expect(warn).toHaveBeenCalledOnce();
+  });
+});
+
+describe("roundToBuyableAmount", () => {
+  it("rounds a unit that comes one at a time up to a whole one", () => {
+    expect(roundToBuyableAmount(0.5, "db")).toBe(1);
+    expect(roundToBuyableAmount(2.5, "csokor")).toBe(3);
+    expect(roundToBuyableAmount(1.2, "csomag")).toBe(2);
+    expect(roundToBuyableAmount(3, "db")).toBe(3);
+  });
+
+  it("leaves mass and volume alone, because half of them is a real request", () => {
+    expect(roundToBuyableAmount(0.5, "kg")).toBe(0.5);
+    expect(roundToBuyableAmount(2.5, "dl")).toBe(2.5);
+    expect(roundToBuyableAmount(150.5, "g")).toBe(150.5);
+  });
+
+  it("leaves the spoons alone too", () => {
+    expect(roundToBuyableAmount(0.5, "tk")).toBe(0.5);
+    expect(roundToBuyableAmount(1.5, "ek")).toBe(1.5);
+  });
+
+  it("reads the unit the same way the rest of the layer does", () => {
+    expect(roundToBuyableAmount(0.5, "darab")).toBe(1);
+    expect(roundToBuyableAmount(0.5, "Bögre")).toBe(1);
+    // Float dust must not buy an extra package: 2.0000000001 db is 2.
+    expect(roundToBuyableAmount(2.0000000001, "db")).toBe(2);
+  });
+
+  it("hands back anything that is not a positive number untouched", () => {
+    expect(roundToBuyableAmount(0, "db")).toBe(0);
+    expect(roundToBuyableAmount(-1.5, "db")).toBe(-1.5);
+    expect(roundToBuyableAmount(Number.NaN, "db")).toBeNaN();
+  });
+});
+
+describe("trimFloat", () => {
+  it("clears the dust a chain of conversions leaves behind", () => {
+    expect(trimFloat(3.8000000000000007)).toBe(3.8);
+    expect(trimFloat(0.1 + 0.2)).toBe(0.3);
+  });
+
+  it("leaves a quantity that is legitimately fractional alone", () => {
+    expect(trimFloat(0.5)).toBe(0.5);
+    expect(trimFloat(2.125)).toBe(2.125);
   });
 });

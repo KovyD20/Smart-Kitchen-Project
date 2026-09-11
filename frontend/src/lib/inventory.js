@@ -10,6 +10,7 @@ import {
   unitInfo,
   areUnitsCompatible,
   convertAmount,
+  trimFloat,
 } from "./units";
 
 // Shared "find compatible existing item -> merge amounts (converting units) or
@@ -58,7 +59,7 @@ export async function upsertInventoryItem({
       incomingUnitInfo,
       unitInfo(existing.unit),
     );
-    const nextAmount = Number(existing.amount || 0) + converted;
+    const nextAmount = trimFloat(Number(existing.amount || 0) + converted);
     if (nextAmount <= 0) return { status: "skipped" };
     await updateDoc(doc(db, "users", uid, collectionName, existing.id), {
       amount: nextAmount,
@@ -202,10 +203,12 @@ export async function upsertPurchaseItem({
   if (existing) {
     // An untracked row's number belongs to the user, so this call's packages are
     // added to it rather than replacing it; from then on it stays untracked.
-    const nextAmount = tracked
-      ? buy.amount
-      : Number(existing.amount || 0) +
-        convertAmount(buy.amount, unitInfo(buy.unit), unitInfo(existing.unit));
+    const nextAmount = trimFloat(
+      tracked
+        ? buy.amount
+        : Number(existing.amount || 0) +
+            convertAmount(buy.amount, unitInfo(buy.unit), unitInfo(existing.unit)),
+    );
     if (nextAmount <= 0) return { status: "skipped" };
 
     await updateDoc(doc(db, "users", uid, "shoppingList", existing.id), {

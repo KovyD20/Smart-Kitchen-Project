@@ -180,6 +180,62 @@ describe("useInventory shop-package rounding", () => {
     );
   });
 
+  it("still rounds a manual amount up where half of the unit cannot be bought", async () => {
+    // The number stays the user's own; "2,5 csokor" simply is not a purchase.
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addSingleShoppingItem({
+        name: "kapor",
+        amount: 2.5,
+        unit: "csokor",
+      });
+    });
+
+    expect(firestoreMock.addDoc).toHaveBeenCalledWith(
+      { path: shopPath("u1") },
+      { name: "kapor", amount: 3, unit: "csokor" },
+    );
+  });
+
+  it("leaves a manual mass or volume fractional", async () => {
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addSingleShoppingItem({
+        name: "liszt",
+        amount: 0.5,
+        unit: "kg",
+      });
+    });
+
+    expect(firestoreMock.addDoc).toHaveBeenCalledWith(
+      { path: shopPath("u1") },
+      { name: "liszt", amount: 0.5, unit: "kg" },
+    );
+  });
+
+  it("keeps the float dust of a unit conversion out of a merged amount", async () => {
+    // 1.1 l + 7 dl is 1.8000000000000003 in floating point. That number is how
+    // "passata 3.8000000000000007 l" reached the list.
+    const { result } = mountLoaded([
+      { id: "s1", name: "passata", amount: 1.1, unit: "l" },
+    ]);
+
+    await act(async () => {
+      await result.current.addSingleShoppingItem({
+        name: "passata",
+        amount: 7,
+        unit: "dl",
+      });
+    });
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${shopPath("u1")}/s1` },
+      { amount: 1.8, name: "passata" },
+    );
+  });
+
   it("rounds the accumulated total once, not each recipe on its own", async () => {
     // A row this path already wrote: 2 tk of flour, which cannot be measured
     // against a kilo bag, so it bought one. Another recipe now wants 500 g.
@@ -317,8 +373,22 @@ describe("useInventory shop-package rounding", () => {
 
     expect(firestoreMock.addDoc.mock.calls[0][1]).toMatchObject({
       name: "parmezán",
-      notes: ["Reszelt"],
+      notes: ["reszelt"],
     });
+  });
+
+  it("does not repeat under the row a word the row's own name says", async () => {
+    purchaseByName.set("darált sertés", { unit: "g", amount: 500 });
+    canonicalByName.set("daralt sertes", "darált sertés");
+    const { result } = mountLoaded();
+
+    await act(async () => {
+      await result.current.addToShoppingList([
+        { name: "darált sertés", amount: 600, unit: "g" },
+      ]);
+    });
+
+    expect(firestoreMock.addDoc.mock.calls[0][1].notes).toBeUndefined();
   });
 
   it("collects the modifiers of several lines onto one row, without repeats", async () => {
