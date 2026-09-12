@@ -506,11 +506,11 @@ export default function Home({ user }) {
           onAddAllToCart={() =>
             handleAddIngredients(
               scaledIngredients,
-              "A hozzávalók a bevásárlólistán",
+              "A teljes recept a bevásárlólistán",
             )
           }
           onAddMissingToCart={(missing) =>
-            handleAddIngredients(missing, "A hiányzók a bevásárlólistán")
+            handleAddIngredients(missing, "A hiányzó tételek a bevásárlólistán")
           }
           onToggleFavorite={() => handleToggleFavorite(selectedRecipe)}
           onEdit={() => setEditingRecipe(selectedRecipe)}

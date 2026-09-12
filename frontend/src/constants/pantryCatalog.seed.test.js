@@ -10,7 +10,7 @@ import { normalizeCatalogText } from "./catalogText.js";
 const { buildPantryCatalog } = await import(
   "../../../backend/lib/buildPantryCatalog.js"
 );
-const { RAW_CATALOG_ROWS, MANUAL_SYNONYMS } = await import(
+const { RAW_CATALOG_ROWS, MANUAL_SYNONYMS, CATEGORY_ORDER } = await import(
   "../../../backend/scripts/pantrySeedData.js"
 );
 
@@ -19,7 +19,7 @@ function catalogFromSeed() {
   const { categoryOrder, catalogByKey, aliasToEntry } = buildPantryCatalog(
     RAW_CATALOG_ROWS,
     MANUAL_SYNONYMS,
-    () => {},
+    { categoryOrder: CATEGORY_ORDER, warn: () => {} },
   );
 
   const aliasesByItem = new Map();

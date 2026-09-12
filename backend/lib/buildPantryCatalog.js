@@ -75,20 +75,69 @@ function readPurchase(row) {
   return { unit, amount };
 }
 
+// Puts the categories in the order the shop is walked.
+//
+// `declared` is the seed's CATEGORY_ORDER; without one the categories keep the
+// order they were first seen in, which is all a fixture needs. Both sides are
+// normalized, so a declared name may carry the same "9. " prefix the rows do.
+//
+// A mismatch is reported rather than ignored: a category that the rows use but
+// the list forgets would otherwise slide to the end in silence, and nobody finds
+// that out until they are standing in the shop with the aisles in the wrong
+// order. Unlisted categories keep their first-seen order, after the listed ones.
+function orderCategories(seen, declared, warn) {
+  if (!declared) return seen;
+
+  const rank = new Map(declared.map((name, index) => [normalizeCategory(name), index]));
+  const LAST = Number.MAX_SAFE_INTEGER;
+
+  const unlisted = seen.filter((name) => !rank.has(name));
+  if (unlisted.length) {
+    warn(
+      `buildPantryCatalog: ${unlisted
+        .map((name) => `"${name}"`)
+        .join(", ")} missing from CATEGORY_ORDER — put at the end.`,
+    );
+  }
+
+  const unused = [...rank.keys()].filter((name) => !seen.includes(name));
+  if (unused.length) {
+    warn(
+      `buildPantryCatalog: CATEGORY_ORDER lists ${unused
+        .map((name) => `"${name}"`)
+        .join(", ")}, which no row uses.`,
+    );
+  }
+
+  return [...seen].sort(
+    (a, b) =>
+      (rank.get(a) ?? LAST) - (rank.get(b) ?? LAST) ||
+      seen.indexOf(a) - seen.indexOf(b),
+  );
+}
+
 // `rows` are the raw seed rows, `manualSynonyms` the alias -> canonical-name map.
-// `warn` is where an unresolvable synonym is reported; a synonym whose target no
-// longer exists used to be skipped in silence, which is exactly what happens
-// when an item gets renamed, so it has to be loud.
-function buildPantryCatalog(rows, manualSynonyms = {}, warn = console.warn) {
-  const categoryOrder = [];
+//
+// Options:
+//   warn           where an unresolvable synonym or a category-order mismatch is
+//                  reported; a synonym whose target no longer exists used to be
+//                  skipped in silence, which is exactly what happens when an item
+//                  gets renamed, so it has to be loud.
+//   categoryOrder  the display order of the categories (see orderCategories).
+function buildPantryCatalog(
+  rows,
+  manualSynonyms = {},
+  { warn = console.warn, categoryOrder = null } = {},
+) {
+  const seenOrder = [];
   const categoryIndex = new Map();
   const catalogByKey = new Map();
   const aliasToEntry = new Map();
 
   function ensureCategory(category) {
     if (categoryIndex.has(category)) return;
-    categoryIndex.set(category, categoryOrder.length);
-    categoryOrder.push(category);
+    categoryIndex.set(category, seenOrder.length);
+    seenOrder.push(category);
   }
 
   for (const row of rows) {
@@ -159,12 +208,17 @@ function buildPantryCatalog(rows, manualSynonyms = {}, warn = console.warn) {
     registerAlias(alias, targetEntry);
   }
 
-  return { categoryOrder, catalogByKey, aliasToEntry };
+  return {
+    categoryOrder: orderCategories(seenOrder, categoryOrder, warn),
+    catalogByKey,
+    aliasToEntry,
+  };
 }
 
 module.exports = {
   PRIORITY_RANK,
   buildPantryCatalog,
+  orderCategories,
   collectAliases,
   normalizeCategory,
   readPurchase,

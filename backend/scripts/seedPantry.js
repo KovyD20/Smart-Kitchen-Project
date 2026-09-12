@@ -18,7 +18,11 @@ const pool = require("../db/pool");
 const { migrate } = require("./migrate");
 const { parseSeedArgs, describeTarget } = require("../lib/seedOptions");
 const { buildPantryCatalog } = require("../lib/buildPantryCatalog");
-const { RAW_CATALOG_ROWS, MANUAL_SYNONYMS } = require("./pantrySeedData");
+const {
+  RAW_CATALOG_ROWS,
+  MANUAL_SYNONYMS,
+  CATEGORY_ORDER,
+} = require("./pantrySeedData");
 
 // `xmax = 0` is true only for a row this statement inserted, so one RETURNING
 // tells insert and update apart. Worth it here: "3 new, 300 updated" is the
@@ -129,6 +133,7 @@ async function run() {
   const { categoryOrder, catalogByKey, aliasToEntry } = buildPantryCatalog(
     RAW_CATALOG_ROWS,
     MANUAL_SYNONYMS,
+    { categoryOrder: CATEGORY_ORDER },
   );
 
   console.log(

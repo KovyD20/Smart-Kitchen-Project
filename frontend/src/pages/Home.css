@@ -261,6 +261,19 @@
 .grid-4 {
   grid-template-columns: repeat(4, 1fr);
 }
+
+/* Category cards. A plain row-major grid, because the category order is
+   meaningful -- it walks the shop -- and a grid is the only layout that keeps it
+   readable: row 1 is the first three categories, row 2 the next three.
+
+   What makes that affordable is the cap on .group-body below. A grid row is as
+   tall as its tallest card, so with categories running from 7 items to 50 the
+   short cards used to leave a column of dead space beside the long one. Capped
+   lists make the rows nearly even instead.
+
+   Masonry (CSS multi-column, or dealing the cards into columns by hand) closes
+   those gaps without a cap, but both scramble the reading order -- which is the
+   one thing that cannot be traded away here. */
 .grid-3 {
   grid-template-columns: repeat(3, 1fr);
 }
@@ -760,6 +773,8 @@
   background: var(--card);
   border: 1px solid var(--line);
   overflow: hidden;
+  /* Its own height, not the row's: a short card should end where its last item
+     does, leaving the gap outside the card rather than inside it. */
   align-self: start;
 }
 
@@ -856,9 +871,25 @@
   color: #8d8d8d;
 }
 
+/* The item list scrolls inside the card once it gets long. This is what lets the
+   cards sit in a plain row-major grid (see .grid-3): the categories run from 7
+   items to 50, and without a cap the tallest card in a row set the row's height
+   and every shorter card beside it left a column of dead space.
+
+   Only the list is capped, not the card, so the category name and its count stay
+   put while its items scroll -- and a collapsed card is unaffected.
+
+   The vh half of the cap keeps roughly a screenful in view on a laptop, where a
+   flat 420px would be most of the window. */
 .group-body {
   display: flex;
   flex-direction: column;
+  max-height: min(420px, 50vh);
+  overflow-y: auto;
+  /* Reaching the end of one card's list must not start scrolling the page
+     underneath it -- with a dozen nested scrollers that is how you lose your
+     place. */
+  overscroll-behavior: contain;
 }
 
 .item-row {
@@ -1071,6 +1102,8 @@
   background: var(--card);
   border: 1px dashed var(--line-dashed);
   overflow: hidden;
+  /* Its own height, not the row's: a short card should end where its last item
+     does, leaving the gap outside the card rather than inside it. */
   align-self: start;
 }
 .rec-list {
@@ -1578,6 +1611,12 @@
   .grid-3 {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+  /* A single column has no row to line up with, so the cap buys nothing here --
+     and a scroller inside a scroller is worse on a phone than a long page. */
+  .group-body {
+    max-height: none;
+    overflow-y: visible;
   }
 
   .view-head {

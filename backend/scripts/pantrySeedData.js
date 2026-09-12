@@ -300,4 +300,28 @@ const MANUAL_SYNONYMS = {
   szotyi: "napraforgómag (szotyi)",
 };
 
-module.exports = { RAW_CATALOG_ROWS, MANUAL_SYNONYMS };
+// The order the category cards are shown in, top-left to bottom-right: the order
+// the shop is walked, produce first and the non-food aisles last.
+//
+// Declared here rather than inferred from the row order below, which is how it
+// used to work: the rows are grouped for editing convenience, so moving a single
+// row to a tidier place silently reshuffled the whole shopping list. Adding a
+// category means adding it here too — buildPantryCatalog warns if the two drift.
+const CATEGORY_ORDER = [
+  "Zöldségek",
+  "Gyümölcsök",
+  "Pékáruk",
+  "Húsfélék",
+  "Felvágottak",
+  "Fagyasztott termékek",
+  "Tejtermékek, tojás",
+  "Üdítők, italok",
+  "Snackek",
+  "Fűszerek, ízesítők",
+  "Szárazáru",
+  // Not food; these close the list wherever the edible aisles end.
+  "Háztartási alapcikkek (konyha)",
+  "Háztartási alapcikkek (fürdő)",
+];
+
+module.exports = { RAW_CATALOG_ROWS, MANUAL_SYNONYMS, CATEGORY_ORDER };
