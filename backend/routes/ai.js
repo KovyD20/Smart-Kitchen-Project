@@ -11,6 +11,7 @@ const {
   OPTIONS_SCHEMA,
   SYSTEM_PROMPT,
 } = require("../lib/aiSchemas");
+const { catalogNamePrompt } = require("../lib/catalogNames");
 const { fetchPageHtml } = require("../lib/recipeUrl");
 const { htmlToText } = require("../lib/htmlText");
 const { extractRecipe, recipeToText } = require("../lib/recipeJsonLd");
@@ -46,6 +47,20 @@ const recipeFromFridgeSchema = z.object({
   items: z.array(itemSchema).min(1),
 });
 
+// Appends the pantry catalog's own ingredient names, so a generated ingredient
+// lands on a row the catalog already knows instead of a near-miss the frontend
+// resolver has to guess at later.
+//
+// Only the three endpoints that produce ingredients get it. /suggest-from-fridge
+// answers with dish names ("rakott krumpli"), where a list of ingredient names
+// would be ~3 kB of prompt that cannot change a character of the output.
+//
+// catalogNamePrompt never throws and returns "" when the catalog is unreachable,
+// so a sleeping database costs the hint and not the request.
+async function withCatalogNames(prompt) {
+  return `${prompt}${await catalogNamePrompt()}`;
+}
+
 function describeItems(items) {
   return items
     .map((item) => `${item.name} (${item.amount ?? ""} ${item.unit ?? ""})`.trim())
@@ -71,7 +86,9 @@ router.post("/recipe-by-name", validate(recipeByNameSchema), async (req, res) =>
   try {
     const recipe = await generateJson({
       system: SYSTEM_PROMPT,
-      prompt: `Készíts receptet az alábbi ételnév alapján: "${name}"`,
+      prompt: await withCatalogNames(
+        `Készíts receptet az alábbi ételnév alapján: "${name}"`,
+      ),
       schema: RECIPE_SCHEMA,
     });
     res.json({ recipe });
@@ -112,7 +129,9 @@ router.post("/recipe-from-fridge", validate(recipeFromFridgeSchema), async (req,
   try {
     const { feasible, ...recipe } = await generateJson({
       system: SYSTEM_PROMPT,
-      prompt,
+      // The names steer the *wording* here; the "only what is listed" rule in the
+      // prompt above still decides what may appear at all.
+      prompt: await withCatalogNames(prompt),
       schema: FRIDGE_RECIPE_SCHEMA,
     });
     if (!feasible) {
@@ -179,7 +198,11 @@ router.post("/recipe-from-url", validate(recipeFromUrlSchema), async (req, res) 
   try {
     const { found, ...recipe } = await generateJson({
       system: SYSTEM_PROMPT,
-      prompt,
+      // ~3 kB of names on top of a page capped at 20 kB (MAX_TEXT_CHARS): a fifth
+      // more input on the largest prompt here, which the model's context takes
+      // comfortably. If it ever has to shrink, catalogNamePrompt takes
+      // { preferredOnly: true } -- narrow the list, never truncate it.
+      prompt: await withCatalogNames(prompt),
       schema: URL_RECIPE_SCHEMA,
       // A full recipe plus a long page is more than the default budget: cutting
       // off mid-object surfaces as AI_INVALID_JSON, which reads like a bug.
