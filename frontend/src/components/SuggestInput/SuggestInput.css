@@ -1,0 +1,144 @@
+/* Catalog typeahead under the add-item field. The panel floats: unlike the
+   colour picker it cannot grow its container, because the add row is a fixed
+   40px pill and the views place it either in the header (desktop) or at the
+   very bottom of the screen (mobile). */
+
+.suggest {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.suggest input {
+  width: 100%;
+}
+
+.suggest-list {
+  position: absolute;
+  /* Below the field by default; `is-up` flips it for the mobile add row, which
+     sits at the bottom of the viewport with nothing under it. */
+  top: calc(100% + 8px);
+  left: -6px;
+  z-index: 30;
+  /* A fixed width rather than one sized to the rows: the field is far narrower
+     than the names it offers, and `width: max-content` on an absolutely
+     positioned box gets clamped to the space left of its container anyway --
+     which on a phone is the 160px the amount and unit leave over.
+     `min-width` covers the other direction, a field wider than the panel. */
+  width: 288px;
+  min-width: 100%;
+  /* Never wider than the phone it is on, whatever the field's own width. */
+  max-width: calc(100vw - 24px);
+  /* About six rows; the eighth is reachable by scrolling or by wrapping around
+     with the arrow keys. */
+  max-height: 272px;
+  overflow-y: auto;
+  padding: 5px;
+  border-radius: 12px;
+  background: var(--card-solid);
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+  animation: suggest-in 0.12s ease-out;
+}
+
+.suggest.is-up .suggest-list {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+@keyframes suggest-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.suggest.is-up .suggest-list {
+  animation-name: suggest-in-up;
+}
+
+@keyframes suggest-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.suggest-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-body);
+}
+
+/* Hover and the arrow-key highlight look the same on purpose -- they mean the
+   same thing, "this is the one Enter or a tap takes". The accent bar is what
+   tells them apart from each other when both are true. */
+.suggest-option:hover {
+  background: var(--card-inset);
+}
+
+.suggest-option.is-active {
+  background: var(--card-inset-2);
+  box-shadow: inset 2px 0 0 var(--accent, var(--brand-bright));
+}
+
+.suggest-thumb {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.suggest-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The alias that matched, when it was not the item's own name. Folded spelling
+   ("voros hagyma"), so it is set apart from the name rather than read as one. */
+.suggest-alias {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+.suggest-cat {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+@media (max-width: 767px) {
+  .suggest-option {
+    min-height: 42px;
+    padding: 9px 10px;
+  }
+
+  .suggest-thumb {
+    width: 26px;
+    height: 26px;
+  }
+}

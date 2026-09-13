@@ -134,6 +134,7 @@ export default function Home({ user }) {
 
   const {
     resolveCatalogKey,
+    searchCatalog,
     ready: catalogReady,
     loading: catalogLoading,
     error: catalogError,
@@ -528,6 +529,7 @@ export default function Home({ user }) {
           openCount={openCount}
           doneCount={doneCount}
           units={SYSTEM_UNITS}
+          suggest={searchCatalog}
           recommendations={missingRecommendations}
           isMobile={isMobile}
           colorFor={categoryColorFor}
@@ -570,6 +572,7 @@ export default function Home({ user }) {
           groups={visibleFridgeGroups}
           itemCount={fridge.length}
           units={SYSTEM_UNITS}
+          suggest={searchCatalog}
           isMobile={isMobile}
           colorFor={categoryColorFor}
           isCustomColor={isCustomCategoryColor}

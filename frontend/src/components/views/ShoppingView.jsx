@@ -114,6 +114,7 @@ export default function ShoppingView({
   openCount,
   doneCount,
   units,
+  suggest,
   recommendations,
   isMobile,
   colorFor,
@@ -218,7 +219,7 @@ export default function ShoppingView({
           <div className="view-spacer" />
           {collapseToggle}
           {colorToggle}
-          <AddItemRow units={units} onAdd={onAddItem} />
+          <AddItemRow units={units} onAdd={onAddItem} suggest={suggest} />
           <button
             type="button"
             className="btn-pill btn-outline"
@@ -356,7 +357,14 @@ export default function ShoppingView({
         </div>
       </div>
 
-      {isMobile && <AddItemRow units={units} onAdd={onAddItem} />}
+      {isMobile && (
+        <AddItemRow
+          units={units}
+          onAdd={onAddItem}
+          suggest={suggest}
+          dropUp
+        />
+      )}
     </div>
   );
 }

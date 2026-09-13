@@ -1,5 +1,9 @@
 import { normalizeCatalogText } from "./catalogText";
 import { ingredientNameCandidates } from "../lib/ingredientText";
+import {
+  buildSuggestionIndex,
+  searchSuggestions,
+} from "../lib/catalogSearch";
 
 const UNKNOWN_CATEGORY = "Egyéb";
 
@@ -57,6 +61,15 @@ export function createCatalog(catalogData) {
   }
 
   const CATALOG_ITEMS = Array.from(catalogByKey.values()).sort(compareEntries);
+
+  // Typeahead rows for the add-item field: every item under its own key plus one
+  // per alias, built once here because the keys only change with the payload.
+  // The query is the only moving part, so the search itself stays a scan.
+  const SUGGESTION_INDEX = buildSuggestionIndex(CATALOG_ITEMS, aliasToEntry);
+
+  function searchCatalog(query, limit) {
+    return searchSuggestions(SUGGESTION_INDEX, query, limit);
+  }
 
   // Every lookup key that points at an item -- the items' own keys and their
   // aliases -- split into tokens, for the two fuzzy levels below.
@@ -240,6 +253,7 @@ export function createCatalog(catalogData) {
 
   return {
     CATALOG_ITEMS,
+    searchCatalog,
     resolveCatalogKey,
     resolveCanonicalCatalogName,
     getCatalogItemByName,

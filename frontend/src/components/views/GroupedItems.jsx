@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import Icon from "../Icon/Icon";
 import { isPlainKey, isTypingTarget } from "../../lib/keyboard";
 import ColorPicker from "../ColorPicker/ColorPicker";
+import SuggestInput from "../SuggestInput/SuggestInput";
 import { pantryImageUrl } from "../../lib/pantryImages";
 
 // One control for every card at once, instead of clicking through a dozen headers.
@@ -510,7 +511,14 @@ export function ItemRow({
 }
 
 // Dashed inline "Tétel hozzáadása" row.
-export function AddItemRow({ units, onAdd }) {
+//
+// With a `suggest` function the name field offers matching catalog items while
+// it is typed into (see SuggestInput); without one it is the plain text field it
+// always was, and the row still works exactly as before.
+//
+// `dropUp` is for the mobile copy of this row, which sits at the bottom edge of
+// the screen where a panel below the field would be off-screen.
+export function AddItemRow({ units, onAdd, suggest, dropUp }) {
   const [draft, setDraft] = useState({ name: "", amount: "", unit: "db" });
 
   const submit = () => {
@@ -521,14 +529,32 @@ export function AddItemRow({ units, onAdd }) {
     setDraft({ name: "", amount: "", unit: "db" });
   };
 
+  // A picked suggestion brings its package size with it, the way the
+  // recommendations card already adds one: spinach is sold in a 200 g bag, and
+  // "1 db" of it is not a thing you can buy. An amount the user has already
+  // typed is their own decision and survives the pick untouched.
+  const applySuggestion = (entry) => {
+    setDraft((prev) => {
+      if (prev.amount) return { ...prev, name: entry.name };
+      return {
+        name: entry.name,
+        amount: String(entry.purchase?.amount || 1),
+        unit: entry.purchase?.unit || prev.unit,
+      };
+    });
+  };
+
   return (
     <div className="add-item">
       <Icon name="plus" size={12} color="#7a7a7a" />
-      <input
+      <SuggestInput
         className="add-name"
         placeholder="Tétel hozzáadása"
+        suggest={suggest}
+        dropUp={dropUp}
         value={draft.name}
         onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
+        onSelect={applySuggestion}
         onKeyDown={(e) => e.key === "Enter" && submit()}
       />
       <input
@@ -546,6 +572,12 @@ export function AddItemRow({ units, onAdd }) {
         aria-label="Mértékegység"
         onChange={(e) => setDraft((p) => ({ ...p, unit: e.target.value }))}
       >
+        {/* A catalog package can name a unit the system list does not have (the
+            same guard ItemRow carries): without an option for it the select
+            would show something else and silently rewrite the pick. */}
+        {units.includes(draft.unit) ? null : (
+          <option value={draft.unit}>{draft.unit}</option>
+        )}
         {units.map((unit) => (
           <option key={unit} value={unit}>
             {unit}

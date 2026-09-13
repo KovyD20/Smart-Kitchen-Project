@@ -111,3 +111,39 @@ describe("createCatalog package data", () => {
     expect(items.find((i) => i.id === "1").purchase).toBeNull();
   });
 });
+
+describe("createCatalog().searchCatalog", () => {
+  const catalog = createCatalog(catalogData);
+  const names = (query) =>
+    catalog.searchCatalog(query).map((match) => match.entry.name);
+
+  it("finds an item from the first letters of its name", () => {
+    expect(names("vör")).toEqual(["vöröshagyma"]);
+    // The accents are optional in both directions.
+    expect(names("vor")).toEqual(["vöröshagyma"]);
+  });
+
+  it("reaches an item through an alias, and says which one", () => {
+    const [match] = catalog.searchCatalog("krum");
+    expect(match.entry.name).toBe("burgonya");
+    expect(match.alias).toBe("krumpli");
+  });
+
+  it("matches a later word of an alias too", () => {
+    expect(names("hagyma")).toEqual(["vöröshagyma"]);
+  });
+
+  it("hands back the whole entry, so the caller can fill the package size", () => {
+    const [match] = catalog.searchCatalog("vör");
+    expect(match.entry.purchase).toEqual({ unit: "kg", amount: 1 });
+    expect(match.entry.category).toBe("Zöldségek");
+  });
+
+  it("offers nothing for an empty query", () => {
+    expect(catalog.searchCatalog("")).toEqual([]);
+  });
+
+  it("offers nothing from an empty catalog", () => {
+    expect(createCatalog({ categories: [] }).searchCatalog("te")).toEqual([]);
+  });
+});

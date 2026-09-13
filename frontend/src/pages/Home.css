@@ -1181,8 +1181,14 @@
 .add-item input::placeholder {
   color: var(--text-mute);
 }
-.add-item .add-name {
+/* The name field is wrapped by the typeahead's relative container, so the width
+   belongs to the wrapper now and the input just fills it. */
+.add-item .suggest {
   width: 130px;
+  flex: none;
+}
+.add-item .add-name {
+  width: 100%;
 }
 .add-item .add-amount {
   width: 58px;
@@ -2027,7 +2033,7 @@
     height: 46px;
     border-radius: 12px;
   }
-  .add-item .add-name {
+  .add-item .suggest {
     width: auto;
     flex: 1;
     min-width: 0;
