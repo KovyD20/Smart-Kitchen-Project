@@ -346,7 +346,7 @@ describe("the real seed data", () => {
     expect(resolve("marhahús (szegy vagy lábszár)").name).toBe("marhahús");
     expect(resolve("tejszín (30%-os)").name).toBe("tejszín");
     expect(resolve("serrano sonka").name).toBe("sonka");
-    expect(resolve("holland kakaópor").name).toBe("kakaópor");
+    expect(resolve("cukrozatlan kakaópor").name).toBe("holland kakaópor");
     expect(resolve("ciabatta kenyér").name).toBe("kenyér");
     expect(resolve("bors").name).toBe("fekete bors");
     expect(resolve("csiperkegomba").name).toBe("gomba");
@@ -366,7 +366,6 @@ describe("the real seed data", () => {
       "paradicsompüré",
       "sertészsír",
       "szárított tárkony",
-      "tyúk",
       "vaníliaaroma",
       "leveszöldségcsomag",
       "fehérrépa",
@@ -505,8 +504,8 @@ describe("the real seed data", () => {
       alaplé: "alaplé",
       balzsamecet: "balzsamecet",
       "barna cukor": "barna cukor",
-      "cayenne bors": "cayenne bors",
-      "cukrozatlan kakaópor": "cukrozatlan kakaópor",
+      "cayenne bors": "chili cayenne",
+      "cukrozatlan kakaópor": "holland kakaópor",
       "darált sertéshús": "darált sertés",
       "dijoni mustár": "dijoni mustár",
       finomliszt: "liszt",
@@ -518,6 +517,7 @@ describe("the real seed data", () => {
       kukoricakeményítő: "keményítő",
       marhalábszár: "marhahús",
       "nagy marha velőscsont": "velőscsont",
+      "őrölt kömény": "őrölt kömény",
       passata: "paradicsompüré",
       "piros chilipaprika": "chili paprika",
       pulykamellfilé: "pulykamell",
@@ -540,7 +540,6 @@ describe("the real seed data", () => {
       "őrölt fahéj",
       "őrölt fekete bors",
       "őrölt kardamom",
-      "őrölt kömény",
       "Szárított oregánó",
       "morzsolt oregánó",
       "Száraz fehérbor",
@@ -551,13 +550,13 @@ describe("the real seed data", () => {
       "víz",
     ];
 
-    it("resolves 29 of them, each to the item named here", () => {
+    it("resolves 30 of them, each to the item named here", () => {
       const wrong = Object.entries(RESOLVES)
         .map(([input, expected]) => [input, expected, resolve(input)?.name])
         .filter(([, expected, actual]) => actual !== expected)
         .map(([input, expected, actual]) => `${input}: ${actual} != ${expected}`);
       expect(wrong).toEqual([]);
-      expect(Object.keys(RESOLVES)).toHaveLength(29);
+      expect(Object.keys(RESOLVES)).toHaveLength(30);
     });
 
     it("gives every one of them a package size, so no ask splits the row", () => {
@@ -570,7 +569,7 @@ describe("the real seed data", () => {
     it("leaves the state-modifier spellings for the input cleaner", () => {
       const leaked = WAITS_FOR_THE_INPUT_CLEANER.filter((input) => resolve(input));
       expect(leaked).toEqual([]);
-      expect(WAITS_FOR_THE_INPUT_CLEANER).toHaveLength(12);
+      expect(WAITS_FOR_THE_INPUT_CLEANER).toHaveLength(11);
     });
 
     it("accounts for all 41 rows", () => {

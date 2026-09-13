@@ -122,7 +122,6 @@ const RAW_CATALOG_ROWS = [
   { category: "Húsfélék", priority: "good_to_have", name: "darált hús", purchaseAmount: 500, purchaseUnit: "g", aliases: ["darálthús"] },
   { category: "Húsfélék", priority: "extra", name: "garnéla", purchaseAmount: 500, purchaseUnit: "g", aliases: ["garnélarák"] },
   { category: "Húsfélék", priority: "good_to_have", name: "hal", purchaseAmount: 500, purchaseUnit: "g" },
-  { category: "Húsfélék", priority: "extra", name: "tyúk", purchaseAmount: 1, purchaseUnit: "db" },
   { category: "Húsfélék", priority: "extra", name: "velőscsont", purchaseAmount: 1, purchaseUnit: "db", aliases: ["marha velőscsont", "nagy marha velőscsont", "csontleves csont"] },
   { category: "Felvágottak", priority: "good_to_have", name: "szalonna", purchaseAmount: 250, purchaseUnit: "g" },
   { category: "Húsfélék", priority: "good_to_have", name: "sertéskaraj", purchaseAmount: 500, purchaseUnit: "g", aliases: ["sertés rövidkaraj", "rövidkaraj"] },
@@ -142,7 +141,10 @@ const RAW_CATALOG_ROWS = [
   { category: "Tejtermékek, tojás", priority: "essential", name: "tojás", purchaseAmount: 10, purchaseUnit: "db" },
   { category: "Tejtermékek, tojás", priority: "extra", name: "túró", purchaseAmount: 250, purchaseUnit: "g" },
   { category: "Tejtermékek, tojás", priority: "good_to_have", name: "tejszín", purchaseAmount: 200, purchaseUnit: "ml", aliases: ["tejszín (30%-os)", "habtejszín"] },
-  { category: "Tejtermékek, tojás", priority: "extra", name: "krémsajt", purchaseAmount: 1, purchaseUnit: "db" },
+  // Not the same product as "sajtkrém" below, however interchangeably the two
+  // words get used: krémsajt is a fresh cheese set from cream (Philadelphia),
+  // sajtkrém is processed cheese brought back together with emulsifying salts.
+  { category: "Tejtermékek, tojás", priority: "extra", name: "krémsajt", purchaseAmount: 1, purchaseUnit: "db", aliases: ["natúr krémsajt"] },
   { category: "Tejtermékek, tojás", priority: "extra", name: "kefir", purchaseAmount: 1, purchaseUnit: "db" },
   { category: "Tejtermékek, tojás", priority: "extra", name: "író", purchaseAmount: 1, purchaseUnit: "db" },
   { category: "Tejtermékek, tojás", priority: "extra", name: "mascarpone", purchaseAmount: 250, purchaseUnit: "g" },
@@ -152,8 +154,7 @@ const RAW_CATALOG_ROWS = [
   { category: "Tejtermékek, tojás", priority: "extra", name: "parmezán", purchaseAmount: 100, purchaseUnit: "g", aliases: ["pamezán", "parmezan sajt"] },
   { category: "Tejtermékek, tojás", priority: "extra", name: "camembert", purchaseAmount: 1, purchaseUnit: "db", aliases: ["camambert", "camembert sajt"] },
   { category: "Tejtermékek, tojás", priority: "extra", name: "brie", purchaseAmount: 1, purchaseUnit: "db" },
-  { category: "Tejtermékek, tojás", priority: "extra", name: "sajtkrém", purchaseAmount: 1, purchaseUnit: "db" },
-  { category: "Tejtermékek, tojás", priority: "extra", name: "desszertkrém", purchaseAmount: 1, purchaseUnit: "db" },
+  { category: "Tejtermékek, tojás", priority: "extra", name: "sajtkrém", purchaseAmount: 1, purchaseUnit: "db", aliases: ["ömlesztett sajtkrém"] },
   { category: "Tejtermékek, tojás", priority: "extra", name: "főzőtejszín", purchaseAmount: 200, purchaseUnit: "ml" },
   { category: "Tejtermékek, tojás", priority: "extra", name: "mandulatej", purchaseAmount: 1, purchaseUnit: "l" },
   { category: "Tejtermékek, tojás", priority: "extra", name: "Manchego sajt", purchaseAmount: 150, purchaseUnit: "g", aliases: ["manchego"] },
@@ -190,7 +191,7 @@ const RAW_CATALOG_ROWS = [
   { category: "Szárazáru", priority: "good_to_have", name: "méz", purchaseAmount: 500, purchaseUnit: "g", aliases: ["akácméz", "virágméz"] },
   { category: "Szárazáru", priority: "extra", name: "mogyoróvaj", purchaseAmount: 350, purchaseUnit: "g" },
   { category: "Szárazáru", priority: "good_to_have", name: "nutella", purchaseAmount: 400, purchaseUnit: "g" },
-  { category: "Szárazáru", priority: "extra", name: "kakaópor", purchaseAmount: 100, purchaseUnit: "g", aliases: ["holland kakaópor", "kakaó"] },
+  { category: "Szárazáru", priority: "extra", name: "kakaópor", purchaseAmount: 100, purchaseUnit: "g", aliases: ["kakaó"] },
   { category: "Szárazáru", priority: "extra", name: "élesztő", purchaseAmount: 1, purchaseUnit: "csomag" },
   { category: "Szárazáru", priority: "extra", name: "keményítő", purchaseAmount: 200, purchaseUnit: "g", aliases: ["kukoricakeményítő", "étkezési keményítő"] },
   { category: "Szárazáru", priority: "extra", name: "köles", purchaseAmount: 500, purchaseUnit: "g" },
@@ -201,7 +202,11 @@ const RAW_CATALOG_ROWS = [
   { category: "Szárazáru", priority: "extra", name: "sertészsír", purchaseAmount: 500, purchaseUnit: "g" },
   { category: "Szárazáru", priority: "extra", name: "alaplé", purchaseAmount: 1, purchaseUnit: "l", aliases: ["húsleves alaplé", "csontleves alaplé"] },
   { category: "Szárazáru", priority: "extra", name: "teljeskiőrlésű liszt", purchaseAmount: 1, purchaseUnit: "kg", aliases: ["teljes kiőrlésű liszt"] },
-  { category: "Szárazáru", priority: "extra", name: "cukrozatlan kakaópor", purchaseAmount: 100, purchaseUnit: "g" },
+  // The alkalised one, which used to be an alias of plain "kakaópor". It is a
+  // different product on the shelf and bakes differently, so it owns its name
+  // and keeps the old spelling as an alias.
+  { category: "Szárazáru", priority: "extra", name: "holland kakaópor", purchaseAmount: 100, purchaseUnit: "g", aliases: ["cukrozatlan kakaópor"] },
+  { category: "Szárazáru", priority: "extra", name: "zabliszt", purchaseAmount: 500, purchaseUnit: "g" },
   { category: "Fűszerek, ízesítők", priority: "essential", name: "cukor", purchaseAmount: 1, purchaseUnit: "kg", aliases: ["kristálycukor"] },
   { category: "Fűszerek, ízesítők", priority: "essential", name: "porcukor", purchaseAmount: 500, purchaseUnit: "g" },
   { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "vaníliás cukor", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["vaníliáscukor", "vanilliacukor", "vaníliacukor"] },
@@ -213,7 +218,15 @@ const RAW_CATALOG_ROWS = [
   { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "bazsalikom", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["szárított bazsalikom", "morzsolt bazsalikom"] },
   { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "fahéj", purchaseAmount: 1, purchaseUnit: "csomag" },
   { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "babérlevél", purchaseAmount: 1, purchaseUnit: "csomag" },
-  { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "kömény", purchaseAmount: 1, purchaseUnit: "csomag" },
+  // Two different plants, and the Hungarian names cross over. "kömény" and
+  // "fűszerkömény" are both Carum carvi (caraway) — the gulyás and sauerkraut
+  // spice. "római kömény" is Cuminum cyminum (cumin), the curry and chili one;
+  // they cannot stand in for each other. Whole and ground caraway are one
+  // plant in two forms, but they are bought separately, so both get a row and
+  // the "full name first" rule keeps "őrölt kömény" off the whole-seed row.
+  { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "kömény", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["köménymag", "egész kömény", "fűszerkömény", "konyhakömény"] },
+  { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "őrölt kömény", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["őrölt fűszerkömény", "darált kömény", "őrölt köménymag"] },
+  { category: "Fűszerek, ízesítők", priority: "extra", name: "római kömény", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["cumin", "kumin", "római köménymag", "őrölt római kömény"] },
   { category: "Fűszerek, ízesítők", priority: "extra", name: "szójaszósz", purchaseAmount: 1, purchaseUnit: "db" },
   { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "mustár", purchaseAmount: 200, purchaseUnit: "g" },
   { category: "Fűszerek, ízesítők", priority: "essential", name: "ketchup", purchaseAmount: 500, purchaseUnit: "g" },
@@ -229,7 +242,7 @@ const RAW_CATALOG_ROWS = [
   { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "petrezselyem", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["szárított petrezselyem", "morzsolt petrezselyem"] },
   { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "kapor", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["szárított kapor", "morzsolt kapor"] },
   { category: "Fűszerek, ízesítők", priority: "good_to_have", name: "koriander", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["szárított koriander", "koriandermag", "koriander mag"] },
-  { category: "Fűszerek, ízesítők", priority: "extra", name: "cayenne bors", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["cayenne", "cayenne paprika"] },
+  { category: "Fűszerek, ízesítők", priority: "extra", name: "chili cayenne", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["cayenne bors", "cayenne", "cayenne paprika"] },
   { category: "Fűszerek, ízesítők", priority: "extra", name: "barna cukor", purchaseAmount: 500, purchaseUnit: "g", aliases: ["nádcukor"] },
   { category: "Fűszerek, ízesítők", priority: "extra", name: "balzsamecet", purchaseAmount: 250, purchaseUnit: "ml", aliases: ["balzsamikó", "balzsamikó ecet"] },
   { category: "Fűszerek, ízesítők", priority: "extra", name: "vörösborecet", purchaseAmount: 500, purchaseUnit: "ml" },
@@ -253,17 +266,30 @@ const RAW_CATALOG_ROWS = [
   { category: "Üdítők, italok", priority: "good_to_have", name: "őrölt kávé", purchaseAmount: 250, purchaseUnit: "g", aliases: ["presszó kávé", "presszókávé", "darált kávé"] },
   { category: "Üdítők, italok", priority: "extra", name: "3in1 kávé", purchaseAmount: 1, purchaseUnit: "csomag", aliases: ["3 in 1 kávé", "3in1"] },
   { category: "Üdítők, italok", priority: "good_to_have", name: "tea", purchaseAmount: 1, purchaseUnit: "csomag" },
-  { category: "9. Snackek", priority: "good_to_have", name: "keksz", purchaseAmount: 200, purchaseUnit: "g" },
+  // The plain word goes to the sweet one: that is what "keksz" means on its
+  // own, and the salty side now has a row of its own to be asked for by name.
+  { category: "9. Snackek", priority: "good_to_have", name: "háztartási keksz", purchaseAmount: 200, purchaseUnit: "g", aliases: ["keksz", "édes keksz"] },
+  { category: "9. Snackek", priority: "extra", name: "sós keksz", purchaseAmount: 100, purchaseUnit: "g" },
   { category: "9. Snackek", priority: "good_to_have", name: "csokoládé", purchaseAmount: 100, purchaseUnit: "g" },
   { category: "9. Snackek", priority: "extra", name: "étcsokoládé", purchaseAmount: 100, purchaseUnit: "g" },
   { category: "9. Snackek", priority: "good_to_have", name: "chips", purchaseAmount: 150, purchaseUnit: "g" },
-  { category: "9. Snackek", priority: "good_to_have", name: "sós ropogtatni való", purchaseAmount: 100, purchaseUnit: "g" },
-  { category: "9. Snackek", priority: "good_to_have", name: "mogyoró", purchaseAmount: 200, purchaseUnit: "g" },
+  // What used to be one "sós ropogtatni való" row. A shopping list that says
+  // "salty snack" tells you nothing at the shelf, and the AI could not pick a
+  // package size for it either; each of these is a product you can actually buy.
+  { category: "9. Snackek", priority: "good_to_have", name: "földimogyoró", purchaseAmount: 200, purchaseUnit: "g", aliases: ["mogyoró", "sós mogyoró", "pörkölt földimogyoró"] },
+  { category: "9. Snackek", priority: "extra", name: "pörkölt pisztácia", purchaseAmount: 100, purchaseUnit: "g", aliases: ["pisztácia"] },
+  { category: "9. Snackek", priority: "extra", name: "kesudió", purchaseAmount: 100, purchaseUnit: "g", aliases: ["kesu"] },
+  { category: "9. Snackek", priority: "good_to_have", name: "perec", purchaseAmount: 100, purchaseUnit: "g", aliases: ["sós perec", "kisperec"] },
+  { category: "9. Snackek", priority: "good_to_have", name: "ropi", purchaseAmount: 100, purchaseUnit: "g", aliases: ["sós ropi"] },
+  { category: "9. Snackek", priority: "extra", name: "popcorn", purchaseAmount: 100, purchaseUnit: "g", aliases: ["pattogatott kukorica"] },
+  { category: "9. Snackek", priority: "extra", name: "bake rolls", purchaseAmount: 80, purchaseUnit: "g", aliases: ["bake roll", "kenyérchips"] },
+  { category: "9. Snackek", priority: "extra", name: "kréker", purchaseAmount: 100, purchaseUnit: "g", aliases: ["cracker", "krekker"] },
+  { category: "9. Snackek", priority: "extra", name: "tallér", purchaseAmount: 100, purchaseUnit: "g", aliases: ["sós tallér"] },
   { category: "9. Snackek", priority: "extra", name: "dió", purchaseAmount: 200, purchaseUnit: "g" },
   { category: "9. Snackek", priority: "extra", name: "mandula", purchaseAmount: 200, purchaseUnit: "g" },
   { category: "9. Snackek", priority: "good_to_have", name: "napraforgómag (szotyi)", purchaseAmount: 200, purchaseUnit: "g" },
   { category: "9. Snackek", priority: "extra", name: "tökmag", purchaseAmount: 200, purchaseUnit: "g" },
-  { category: "9. Snackek", priority: "good_to_have", name: "müzli", purchaseAmount: 500, purchaseUnit: "g" },
+  { category: "9. Snackek", priority: "good_to_have", name: "gabonapehely", purchaseAmount: 500, purchaseUnit: "g", aliases: ["müzli", "muesli", "reggeliző pehely"] },
   { category: "9. Snackek", priority: "good_to_have", name: "müzli szelet", purchaseAmount: 1, purchaseUnit: "db" },
   { category: "9. Snackek", priority: "extra", name: "kukoricapehely", purchaseAmount: 375, purchaseUnit: "g" },
   { category: "10. Háztartási alapcikkek (konyha)", priority: "essential", name: "papírtörlő", purchaseAmount: 1, purchaseUnit: "csomag" },

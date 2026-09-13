@@ -6,6 +6,10 @@
 // when a row has one, which is the migration path to a CDN or user uploads
 // without touching this module's callers.
 //
+// PNG because the set is cut out against transparency rather than sitting on a
+// white plate, and the row shows it over `--pill`. Indexed colour keeps that
+// affordable — see public/pantry/README.md.
+//
 // One extension for the whole set, deliberately: probing several would either
 // cost an extra request per miss or need a manifest to keep in sync. Changing
 // PANTRY_IMAGE_EXT means re-encoding every file in the directory.
@@ -23,7 +27,7 @@ export function pantryImageSlug(nameKey) {
   return nameKey.toString().trim().replace(/\s+/g, "-");
 }
 
-export const PANTRY_IMAGE_EXT = "avif";
+export const PANTRY_IMAGE_EXT = "png";
 
 // Resolved thumbnail URL for an enriched inventory item, or null when there is
 // no key to build one from (an item the catalog does not know at all).

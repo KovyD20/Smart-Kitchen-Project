@@ -933,14 +933,17 @@
 
 /* Product thumbnail, 24px to match .item-check so the two line up. Sized in CSS
    rather than via width/height attributes because the asset is 2x (48px) for
-   retina; a failed load unmounts the element, so there is no broken-image box. */
+   retina; a failed load unmounts the element, so there is no broken-image box.
+
+   No background: the assets are cut out against transparency, so a fill here
+   would put a tile behind every product - and --pill is darker than the card
+   the row sits on, which made each one read as a black square. */
 .item-thumb {
   width: 24px;
   height: 24px;
   flex: none;
   border-radius: 6px;
   object-fit: cover;
-  background: var(--pill);
 }
 
 /* Name and its optional note stack in the flexible middle column, so both keep

@@ -34,12 +34,12 @@ afterEach(cleanup);
 describe("ItemRow thumbnail", () => {
   it("renders the conventional path for a catalog key", () => {
     render(<ItemRow {...baseProps} nameKey="tej" />);
-    expect(thumb().getAttribute("src")).toBe("/pantry/tej.avif");
+    expect(thumb().getAttribute("src")).toBe("/pantry/tej.png");
   });
 
   it("slugs a multi-word key", () => {
     render(<ItemRow {...baseProps} name="vaj / margarin" nameKey="vaj margarin" />);
-    expect(thumb().getAttribute("src")).toBe("/pantry/vaj-margarin.avif");
+    expect(thumb().getAttribute("src")).toBe("/pantry/vaj-margarin.png");
   });
 
   it("prefers an explicit imageUrl", () => {
