@@ -20,7 +20,11 @@ import {
   stripAmountsAndUnits,
   unitInfo,
 } from "../lib/units";
-import { upsertInventoryItem, upsertPurchaseItem } from "../lib/inventory";
+import {
+  upsertInventoryItem,
+  upsertPurchaseItem,
+  USER_NOTE_MAX,
+} from "../lib/inventory";
 import { isIgnoredIngredient, strippedModifiers } from "../lib/ingredientText";
 
 // Firestore's hard limit on operations in a single writeBatch.
@@ -281,6 +285,25 @@ export function useInventory(uid) {
   const setShoppingItemAmount = setInventoryItemAmount("shoppingList");
   const setFridgeItemAmount = setInventoryItemAmount("fridge");
 
+  // The user's own note on a row. Its own field, kept apart from `notes` (the
+  // words the resolver dropped from a recipe's wording) precisely because the
+  // next recipe that wants this item rewrites those -- and must never rewrite
+  // what the user typed.
+  //
+  // Unlike the amount edit above this deliberately leaves sourceAmount alone: a
+  // note says nothing about the quantity, so the "recept: 2 tk" line it explains
+  // still stands, and a later recipe add still tops the row up correctly.
+  const setShoppingItemNote = async (item, note) => {
+    if (!uid || !item?.id) return;
+    const next = (note ?? "").toString().trim().slice(0, USER_NOTE_MAX);
+    if (next === (item.userNote || "")) return;
+    await updateDoc(doc(db, "users", uid, "shoppingList", item.id), {
+      // Cleared rather than stored empty, so a row carries the field only while
+      // it has something to say.
+      userNote: next || deleteField(),
+    });
+  };
+
   // The redesigned list lets you tick items off as you shop; `done` is persisted
   // so the state survives a reload and syncs across devices.
   const toggleShoppingItemDone = (item) =>
@@ -376,6 +399,7 @@ export function useInventory(uid) {
     addSingleShoppingItem,
     updateShoppingItem,
     setShoppingItemAmount,
+    setShoppingItemNote,
     setFridgeItemAmount,
     toggleShoppingItemDone,
     deleteShoppingItem,

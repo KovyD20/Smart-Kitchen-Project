@@ -36,6 +36,30 @@ describe("shoppingRowNote", () => {
     ).toBe("reszelt · olvasztott · recept: 500 g");
   });
 
+  it("puts the user's own note last, after both automatic parts", () => {
+    expect(
+      shoppingRowNote({
+        amount: 1,
+        unit: "kg",
+        sourceAmount: 500,
+        sourceUnit: "g",
+        notes: ["reszelt"],
+        userNote: "a nagyobb kiszerelést",
+      }),
+    ).toBe("reszelt · recept: 500 g · a nagyobb kiszerelést");
+  });
+
+  it("carries a user note on its own, with nothing automatic to say", () => {
+    expect(
+      shoppingRowNote({ amount: 3, unit: "db", userNote: "akciós" }),
+    ).toBe("akciós");
+  });
+
+  it("ignores a blank user note", () => {
+    expect(shoppingRowNote({ amount: 3, unit: "db", userNote: "   " })).toBeNull();
+    expect(shoppingRowNote({ amount: 3, unit: "db", userNote: "" })).toBeNull();
+  });
+
   it("ignores a zero or unusable source amount", () => {
     expect(shoppingRowNote({ amount: 1, unit: "kg", sourceAmount: 0 })).toBeNull();
     expect(

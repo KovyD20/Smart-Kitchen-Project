@@ -101,9 +101,20 @@ function mergeNotes(existing, incoming) {
   return merged;
 }
 
-// The secondary line under a shopping row: the modifiers the recipe used, then
-// the recipes' own total where it explains the rounded amount above it.
-// "500 g -> 1 kg" is worth a line; "10 db" under "10 db" is noise.
+// A shopping-row note is a reminder to yourself in a shop ("a nagyobb kiszerelést"),
+// not a document. The cap keeps a pasted wall of text out of a line that renders
+// ellipsised anyway; the input carries the same maxLength, so the two agree.
+export const USER_NOTE_MAX = 120;
+
+// The secondary line under a shopping row, in three parts: the modifiers the
+// recipe used, then the recipes' own total where it explains the rounded amount
+// above it ("500 g -> 1 kg" is worth a line; "10 db" under "10 db" is noise),
+// then whatever the user wrote themselves.
+//
+// The user's note goes last, and is the only part they control: the first two
+// are rewritten by the next recipe that wants this item, so anything typed by
+// hand has to live in its own field (userNote) to survive that. See
+// upsertPurchaseItem, which writes `notes` and never touches `userNote`.
 export function shoppingRowNote(item) {
   const parts = [...(item?.notes || [])];
 
@@ -115,6 +126,9 @@ export function shoppingRowNote(item) {
   if (explainsTheAmount) {
     parts.push(`recept: ${source} ${item.sourceUnit || ""}`.trim());
   }
+
+  const own = (item?.userNote || "").toString().trim();
+  if (own) parts.push(own);
 
   return parts.length ? parts.join(" · ") : null;
 }

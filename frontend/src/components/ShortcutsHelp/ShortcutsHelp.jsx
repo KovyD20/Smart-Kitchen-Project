@@ -55,7 +55,7 @@ const SECTIONS = [
       { keys: [["Space"]], label: "„Megvéve” pipa (bevásárlólista)" },
       {
         keys: [["Enter"]],
-        label: "Sor szerkesztése — mennyiség, mértékegység, törlés",
+        label: "Sor szerkesztése — mennyiség, egység, megjegyzés, törlés",
       },
       {
         keys: [["Delete"]],

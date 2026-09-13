@@ -121,6 +121,7 @@ export default function Home({ user }) {
     addSingleShoppingItem,
     updateShoppingItem,
     setShoppingItemAmount,
+    setShoppingItemNote,
     setFridgeItemAmount,
     toggleShoppingItemDone,
     deleteShoppingItem,
@@ -541,6 +542,9 @@ export default function Home({ user }) {
           }
           onSetItemAmount={(item, patch) =>
             setShoppingItemAmount(item, patch).catch(notifyError)
+          }
+          onSetItemNote={(item, note) =>
+            setShoppingItemNote(item, note).catch(notifyError)
           }
           onDeleteItem={async (item) => {
             if (

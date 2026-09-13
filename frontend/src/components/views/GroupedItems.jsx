@@ -205,6 +205,50 @@ function AmountField({ value, onCommit, onDone }) {
   );
 }
 
+// The row's own note, when the row is open. Same contract as AmountField above:
+// typing is local, Firestore is written on blur or Enter, Escape abandons -- one
+// note costs one write instead of one per keystroke.
+//
+// No autoFocus here, unlike AmountField: the pencil opens the row for the amount
+// far more often than for a note, and the caret can only be in one of them.
+function NoteField({ value, maxLength, onCommit, onDone }) {
+  const [draft, setDraft] = useState(null);
+
+  const commit = () => {
+    if (draft === null) return;
+    const next = draft.trim();
+    setDraft(null);
+    if (next === (value || "")) return;
+    onCommit(next);
+  };
+
+  return (
+    <input
+      className="item-note-input"
+      type="text"
+      aria-label="Saját megjegyzés"
+      placeholder="saját megjegyzés"
+      maxLength={maxLength}
+      // draft ?? value: with nothing being typed the field follows Firestore, so
+      // another device's edit shows up here the way it does in the amount.
+      value={draft ?? (value || "")}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+          onDone?.();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          setDraft(null);
+          onDone?.();
+        }
+      }}
+    />
+  );
+}
+
 // One inventory line: optional bought-checkbox, thumbnail, name (with an
 // optional secondary note under it), the amount, and the pencil that opens it.
 //
@@ -242,6 +286,9 @@ export function ItemRow({
   onAmountChange,
   onUnitChange,
   note,
+  userNote,
+  onNoteChange,
+  noteMaxLength,
   done,
   onToggleDone,
   onIncrement,
@@ -255,7 +302,7 @@ export function ItemRow({
   const [editing, setEditing] = useState(false);
   const thumbSrc = showThumb ? pantryImageUrl({ nameKey, imageUrl }) : null;
 
-  const canEdit = Boolean(onAmountChange || onUnitChange);
+  const canEdit = Boolean(onAmountChange || onUnitChange || onNoteChange);
   // Guarded by canEdit as well: a row can lose its handlers between renders
   // (a read-only list), and it must not be left stuck showing inputs.
   const isEditing = canEdit && editing;
@@ -345,7 +392,21 @@ export function ItemRow({
 
       <div className="item-label">
         <span className={`item-name${done ? " is-done" : ""}`}>{name}</span>
-        {note && <span className="item-note">{note}</span>}
+        {/* The field takes the secondary line rather than sitting beside it: the
+            note *is* that line, and showing both would print the user's own words
+            twice -- `note` already ends with them. What it hides meanwhile is the
+            automatic half ("recept: 1400 g"), which is back the moment the row
+            closes and is not editable anyway. */}
+        {isEditing && onNoteChange ? (
+          <NoteField
+            value={userNote}
+            maxLength={noteMaxLength}
+            onCommit={onNoteChange}
+            onDone={stopEditing}
+          />
+        ) : (
+          note && <span className="item-note">{note}</span>
+        )}
       </div>
 
       {/* One box for the amount and everything that acts on it, so a phone can

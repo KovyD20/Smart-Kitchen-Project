@@ -9,7 +9,7 @@ import {
 } from "./GroupedItems";
 import { useCollapsedGroups } from "../../hooks/useCollapsedGroups";
 import { useListKeyboardNav } from "../../hooks/useListKeyboardNav";
-import { shoppingRowNote } from "../../lib/inventory";
+import { shoppingRowNote, USER_NOTE_MAX } from "../../lib/inventory";
 
 const ACCENT = "var(--yellow)";
 // Collapse key for the recommendations card, which is not a real category.
@@ -123,6 +123,7 @@ export default function ShoppingView({
   onToggleDone,
   onUpdateItem,
   onSetItemAmount,
+  onSetItemNote,
   onDeleteItem,
   onAddItem,
   onClearDone,
@@ -317,6 +318,11 @@ export default function ShoppingView({
                       ((unit) => onSetItemAmount(item, { unit }))
                     }
                     note={shoppingRowNote(item)}
+                    userNote={item.userNote}
+                    onNoteChange={
+                      onSetItemNote && ((note) => onSetItemNote(item, note))
+                    }
+                    noteMaxLength={USER_NOTE_MAX}
                     done={item.done}
                     onToggleDone={() => onToggleDone(item)}
                     onIncrement={() => onUpdateItem(item, 1)}

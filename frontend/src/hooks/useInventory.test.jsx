@@ -34,6 +34,7 @@ const catalog = {
 vi.mock("../context/CatalogContext", () => ({ useCatalog: () => catalog }));
 
 const { useInventory } = await import("./useInventory");
+const { USER_NOTE_MAX } = await import("../lib/inventory");
 
 const shopPath = (uid) => `users/${uid}/shoppingList`;
 const fridgePath = (uid) => `users/${uid}/fridge`;
@@ -625,6 +626,80 @@ describe("useInventory batched shopping-list deletion", () => {
     expect(batches[0].ops).toHaveLength(500);
     expect(batches[1].ops).toHaveLength(1);
     expect(deletedPaths()).toHaveLength(501);
+  });
+});
+
+describe("setShoppingItemNote", () => {
+  const withItem = (item) => {
+    const { result } = renderHook(() => useInventory("u1"));
+    act(() => emitSnapshot(shopPath("u1"), [item]));
+    return result;
+  };
+
+  it("writes a trimmed note to that row", async () => {
+    const item = { id: "s1", name: "liszt", amount: 2, unit: "kg" };
+    const result = withItem(item);
+
+    await act(() => result.current.setShoppingItemNote(item, "  a teljes kiőrlésűt  "));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${shopPath("u1")}/s1` },
+      { userNote: "a teljes kiőrlésűt" },
+    );
+  });
+
+  it("clears the field rather than storing an empty note", async () => {
+    const item = { id: "s1", name: "liszt", amount: 2, unit: "kg", userNote: "régi" };
+    const result = withItem(item);
+
+    await act(() => result.current.setShoppingItemNote(item, "   "));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${shopPath("u1")}/s1` },
+      { userNote: DELETE_FIELD },
+    );
+  });
+
+  it("writes nothing when the note has not changed", async () => {
+    const item = { id: "s1", name: "liszt", amount: 2, unit: "kg", userNote: "akciós" };
+    const result = withItem(item);
+
+    await act(() => result.current.setShoppingItemNote(item, "akciós"));
+    await act(() => result.current.setShoppingItemNote({ ...item, userNote: "" }, ""));
+
+    expect(firestoreMock.updateDoc).not.toHaveBeenCalled();
+  });
+
+  it("caps a pasted wall of text", async () => {
+    const item = { id: "s1", name: "liszt", amount: 2, unit: "kg" };
+    const result = withItem(item);
+
+    await act(() => result.current.setShoppingItemNote(item, "a".repeat(400)));
+
+    const [, payload] = firestoreMock.updateDoc.mock.calls[0];
+    expect(payload.userNote).toHaveLength(USER_NOTE_MAX);
+  });
+
+  // The point of the separate field: the amount edit drops the rounding note,
+  // and a recipe add rewrites `notes`. Neither may touch what the user typed.
+  it("leaves the amount and the rounding note alone", async () => {
+    const item = {
+      id: "s1",
+      name: "cukor",
+      amount: 1,
+      unit: "kg",
+      sourceAmount: 2,
+      sourceUnit: "tk",
+      notes: ["reszelt"],
+    };
+    const result = withItem(item);
+
+    await act(() => result.current.setShoppingItemNote(item, "akciós"));
+
+    expect(firestoreMock.updateDoc).toHaveBeenCalledWith(
+      { path: `${shopPath("u1")}/s1` },
+      { userNote: "akciós" },
+    );
   });
 });
 

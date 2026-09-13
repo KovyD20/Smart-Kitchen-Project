@@ -986,6 +986,37 @@
   flex: none;
 }
 
+/* The user's own note, in place of that secondary line while the row is open.
+   Full width of the label column rather than a slot beside the amount: a note is
+   a sentence, and on a phone the label already has the line to itself. */
+.item-note-input {
+  display: block;
+  width: 100%;
+  /* A note is a few words, not a paragraph. Left to fill the label column it
+     would stretch to ~600px on a wide card and read as a form field; capped, it
+     still shows about 65 characters at once, well past what these notes are.
+     Below the cap (a phone, a narrow card) it simply takes the width it has. */
+  max-width: 340px;
+  height: 22px;
+  margin-top: 3px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-body);
+  background: var(--card-inset-2);
+  border: 1px solid #3d3d3d;
+  border-radius: 7px;
+}
+.item-note-input::placeholder {
+  color: var(--text-mute);
+  font-weight: 400;
+}
+.item-note-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .item-stepper {
   display: flex;
   align-items: center;
@@ -1976,6 +2007,13 @@
   }
   .item-qty-input {
     width: 46px;
+  }
+  /* Tall enough to tap; the label owns the whole line here anyway (see
+     .item-row.is-editing above), so the field has the width to match. */
+  .item-note-input {
+    height: 30px;
+    margin-top: 5px;
+    font-size: 12px;
   }
   /* No max-width on .item-unit: the box is sized from the unit in it now, and a
      cap would only ever bite on the longest names it is meant to fit. */
