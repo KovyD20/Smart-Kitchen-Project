@@ -151,16 +151,23 @@ button {
   filter: brightness(1.1);
 }
 
-/* Outline variants; the accent is passed in via --accent. */
+/* Outline variants; the accent is passed in via --accent.
+
+   "Outline" names the border, not the fill: they all sit on the same --chip the
+   filter chips use. Transparent looked clean on a card but vanished on the view
+   toolbars, which sit straight on the near-black page background -- a row of
+   thin outlines with nothing behind them reads as decoration, not as buttons.
+   One shared fill also means a toggle can carry its state in its border and its
+   tick alone, without the background moving underneath it. */
 .btn-outline {
-  background: transparent;
+  background: var(--chip);
   border: 2px solid var(--accent, var(--line-dashed));
   color: var(--accent, #a8a8a8);
   padding: 9px 18px;
   font-size: 12px;
 }
 .btn-outline:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent, #4a4a4a) 12%, transparent);
+  background: color-mix(in srgb, var(--accent, #4a4a4a) 22%, var(--chip));
 }
 
 /* Opts out of the surrounding view's inherited --accent for a neutral button. */
@@ -169,7 +176,7 @@ button {
   color: #a8a8a8;
 }
 .btn-outline-neutral:hover:not(:disabled) {
-  background: var(--card-inset);
+  background: #3a3a3a;
 }
 
 /* Small-caps Archivo headings used on every panel header in the mock. */

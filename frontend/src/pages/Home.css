@@ -792,9 +792,13 @@
   align-items: center;
   gap: 8px;
   flex: none;
+  /* The phone-width tools row holds up to four pills; it wraps to a second line
+     rather than pushing one of them off the screen. */
+  flex-wrap: wrap;
 }
 
-.collapse-all {
+.collapse-all,
+.color-edit-toggle {
   flex: none;
   padding: 9px 14px;
 }
@@ -814,8 +818,15 @@
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   cursor: pointer;
 }
-.group-color:hover {
+.group-color:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+/* Outside colour-edit mode the dot still reads the card's colour -- that is the
+   half of its job that never goes away -- it just stops being a target. Left at
+   full strength on purpose: dimming it would look like a broken control rather
+   than a label. */
+.group-color:disabled {
+  cursor: default;
 }
 .group-color-dot {
   width: 14px;

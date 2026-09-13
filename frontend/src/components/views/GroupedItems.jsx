@@ -25,12 +25,42 @@ export function CollapseAllToggle({ keys, anyClosed, onOpenAll, onCloseAll }) {
   );
 }
 
+// Colour editing is a mode, not a per-card control. The dot sits in every card
+// header, right where the thumb lands when scrolling a long list on a phone, so
+// leaving it always live meant opening colour panels by accident. One switch for
+// the whole view, off by default, and the dots go quiet.
+//
+// The dots stay visible while the mode is off: a dot is also what says a card's
+// colour can be changed at all.
+export function ColorEditToggle({ groupCount, active, onToggle }) {
+  // Nothing to arm while no card is on screen.
+  if (!groupCount) return null;
+
+  return (
+    <button
+      type="button"
+      // Two signals, no moving background: the tick says on or off outright, and
+      // dropping the neutral override hands the pill the view's own accent
+      // (yellow on the list, blue in the fridge) while it is armed.
+      className={`btn-pill btn-outline${
+        active ? "" : " btn-outline-neutral"
+      } color-edit-toggle`}
+      aria-pressed={active}
+      onClick={onToggle}
+    >
+      <Icon name={active ? "check" : "xmark"} size={11} />
+      Színek szerkesztése
+    </button>
+  );
+}
+
 // Collapsible category card — the shared shape behind the shopping list and the
 // fridge in the design (accent stripe on the left, count on the right).
 //
-// The colour dot only appears when the caller passes onColorChange. It has to sit
-// beside the header rather than inside it: the header is itself a <button>, and a
-// button cannot contain another one.
+// The colour dot appears whenever the caller passes onColorChange, but it only
+// reacts while colorEditing is on (see ColorEditToggle). It has to sit beside the
+// header rather than inside it: the header is itself a <button>, and a button
+// cannot contain another one.
 export function GroupCard({
   accent,
   category,
@@ -40,10 +70,18 @@ export function GroupCard({
   navProps,
   onColorChange,
   onColorReset,
+  colorEditing,
   isCustomColor,
   children,
 }) {
   const [picking, setPicking] = useState(false);
+
+  const canPickColor = Boolean(onColorChange) && Boolean(colorEditing);
+  // Leaving colour-edit mode closes the panel it opened — the dot that would
+  // close it is disabled by then. It has to be reset rather than merely hidden,
+  // or switching the mode back on would pop the panel open again on a card the
+  // user has long since scrolled past.
+  if (picking && !canPickColor) setPicking(false);
 
   return (
     <div className="group-card" style={{ "--accent": accent }}>
@@ -83,6 +121,7 @@ export function GroupCard({
             className="group-color"
             aria-label={`${category} színének módosítása`}
             aria-expanded={picking}
+            disabled={!canPickColor}
             onClick={() => setPicking((prev) => !prev)}
           >
             <span className="group-color-dot" />

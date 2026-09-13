@@ -1,7 +1,9 @@
+import { useState } from "react";
 import Icon from "../Icon/Icon";
 import {
   AddItemRow,
   CollapseAllToggle,
+  ColorEditToggle,
   GroupCard,
   ItemRow,
 } from "./GroupedItems";
@@ -28,6 +30,8 @@ export default function FridgeView({
   onGoToNew,
 }) {
   const { isOpen, toggle, openAll, closeAll, anyClosed } = useCollapsedGroups();
+  // Off until asked for, same as the shopping list.
+  const [colorEditing, setColorEditing] = useState(false);
   // Same arrow-key navigation as the shopping list (phase 6.3).
   const {
     containerRef: navContainerRef,
@@ -58,6 +62,14 @@ export default function FridgeView({
     />
   );
 
+  const colorToggle = onCategoryColorChange && (
+    <ColorEditToggle
+      groupCount={groups.length}
+      active={colorEditing}
+      onToggle={() => setColorEditing((prev) => !prev)}
+    />
+  );
+
   return (
     <div className="view" style={{ "--accent": ACCENT }}>
       {isMobile ? (
@@ -79,6 +91,7 @@ export default function FridgeView({
           <span className="view-pill">{summary}</span>
           <div className="view-spacer" />
           {collapseToggle}
+          {colorToggle}
           <AddItemRow units={units} onAdd={onAddItem} />
           <button
             type="button"
@@ -92,7 +105,10 @@ export default function FridgeView({
       )}
 
       {isMobile && groups.length > 0 && (
-        <div className="list-tools">{collapseToggle}</div>
+        <div className="list-tools">
+          {collapseToggle}
+          {colorToggle}
+        </div>
       )}
 
       <div
@@ -120,6 +136,7 @@ export default function FridgeView({
               open={isOpen(group.category)}
               onToggle={() => toggle(group.category)}
               isCustomColor={isCustomColor?.(group.category)}
+              colorEditing={colorEditing}
               onColorChange={
                 onCategoryColorChange &&
                 ((hex) => onCategoryColorChange(group.category, hex))

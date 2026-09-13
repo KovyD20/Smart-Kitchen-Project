@@ -3,6 +3,7 @@ import Icon from "../Icon/Icon";
 import {
   AddItemRow,
   CollapseAllToggle,
+  ColorEditToggle,
   GroupCard,
   ItemRow,
 } from "./GroupedItems";
@@ -129,6 +130,9 @@ export default function ShoppingView({
   onMoveToFridge,
 }) {
   const { isOpen, toggle, openAll, closeAll, anyClosed } = useCollapsedGroups();
+  // Colour editing is off until asked for, and only for as long as this view is
+  // on screen -- it is a one-off touch-up, not a setting worth remembering.
+  const [colorEditing, setColorEditing] = useState(false);
   // Arrow-key navigation over the card headers and rows below (phase 6.3).
   const {
     containerRef: navContainerRef,
@@ -182,6 +186,14 @@ export default function ShoppingView({
     />
   );
 
+  const colorToggle = onCategoryColorChange && (
+    <ColorEditToggle
+      groupCount={groups.length}
+      active={colorEditing}
+      onToggle={() => setColorEditing((prev) => !prev)}
+    />
+  );
+
   return (
     <div className="view" style={{ "--accent": ACCENT }}>
       {isMobile ? (
@@ -204,6 +216,7 @@ export default function ShoppingView({
           <span className="view-pill">{summary}</span>
           <div className="view-spacer" />
           {collapseToggle}
+          {colorToggle}
           <AddItemRow units={units} onAdd={onAddItem} />
           <button
             type="button"
@@ -241,6 +254,7 @@ export default function ShoppingView({
           </button>
           {clearAllButton}
           {collapseToggle}
+          {colorToggle}
         </div>
       )}
 
@@ -272,6 +286,7 @@ export default function ShoppingView({
                 open={isOpen(group.category)}
                 onToggle={() => toggle(group.category)}
                 isCustomColor={isCustomColor?.(group.category)}
+                colorEditing={colorEditing}
                 onColorChange={
                   onCategoryColorChange &&
                   ((hex) => onCategoryColorChange(group.category, hex))
