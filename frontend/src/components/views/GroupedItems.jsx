@@ -206,19 +206,25 @@ function AmountField({ value, onCommit, onDone }) {
 }
 
 // One inventory line: optional bought-checkbox, thumbnail, name (with an
-// optional secondary note under it), −/qty/+ stepper, delete.
+// optional secondary note under it), the amount, and the pencil that opens it.
 //
-// The amount reads as plain text ("2 dl") until the row's own pencil is pressed,
-// which swaps that one row -- not the list -- for an amount field and a unit
-// picker. A dozen rows of inputs would turn a shopping list into a form, and the
-// amount is read far more often than it is corrected.
+// Everything that changes the row -- the −/+ stepper, the amount field, the unit
+// picker, the bin -- lives behind that pencil, and only the row whose pencil was
+// pressed opens. Two reasons. A dozen rows of live inputs and buttons make a
+// shopping list read as a form, when the amount is looked at far more often than
+// it is corrected. And on a phone those controls were taking the width the name
+// needed: "sajt (trappista / félkemény)" had nowhere to go but an ellipsis.
+// Desktop follows the same rule instead of keeping a second layout -- one code
+// path, and the keys below still adjust an amount without opening anything.
 //
 // Editing exists only when the caller passes the matching handler; without them
-// the pencil is not rendered at all.
+// the pencil is not rendered at all -- and then the stepper and the bin stay on
+// show, since there would be nothing left to bring them back.
 //
 // Keyboard-wise the row is a single tab stop (see useListKeyboardNav): the inner
 // buttons carry tabIndex={-1} and are driven by the row's own arrow/Space/Delete
-// handling instead. With the mouse nothing changes.
+// handling instead. Those keys work in both modes, so hiding the buttons costs
+// the keyboard nothing. With the mouse nothing changes.
 //
 // The thumbnail is opportunistic: `pantryImageUrl` builds a conventional path
 // without knowing whether the file exists, and a load failure drops the <img>
@@ -253,6 +259,10 @@ export function ItemRow({
   // Guarded by canEdit as well: a row can lose its handlers between renders
   // (a read-only list), and it must not be left stuck showing inputs.
   const isEditing = canEdit && editing;
+  // The stepper and the bin are edit-mode controls -- but only on a row that has
+  // a pencil to reveal them again. Without one they stay put, or a row with no
+  // amount handlers would have no reachable way to delete itself.
+  const showControls = isEditing || !canEdit;
 
   // Closing the amount field unmounts the input the caret is in, so the focus
   // has to be handed back explicitly -- otherwise it lands on <body> and the
@@ -302,7 +312,7 @@ export function ItemRow({
   return (
     <div
       ref={rowRef}
-      className="item-row"
+      className={`item-row${isEditing ? " is-editing" : ""}`}
       role="listitem"
       aria-label={name}
       onKeyDown={handleKeyDown}
@@ -338,79 +348,102 @@ export function ItemRow({
         {note && <span className="item-note">{note}</span>}
       </div>
 
-      <div className="item-stepper">
-        <button
-          type="button"
-          className="icon-btn"
-          tabIndex={-1}
-          aria-label="Csökkentés"
-          disabled={disableDecrement}
-          onClick={onDecrement}
-        >
-          <Icon name="minus" size={11} />
-        </button>
-        {isEditing && onAmountChange ? (
-          <AmountField
-            value={amount}
-            onCommit={onAmountChange}
-            onDone={stopEditing}
-          />
-        ) : (
-          <span className="item-qty">{qtyLabel}</span>
-        )}
-        {isEditing && onUnitChange && (
-          <select
-            className="item-unit"
-            aria-label="Mértékegység"
-            value={unit}
-            onChange={(e) => onUnitChange(e.target.value)}
+      {/* One box for the amount and everything that acts on it, so a phone can
+          drop the whole group onto its own line while the row is open and give
+          the name back the full width. */}
+      <div className="item-controls">
+        {/* has-steps is what the −/+ frame hangs off on mobile: without the
+            buttons there is nothing to frame, and a pill drawn around a bare
+            "5 db" reads as a control the row does not have. */}
+        <div className={`item-stepper${showControls ? " has-steps" : ""}`}>
+          {showControls && (
+            <button
+              type="button"
+              className="icon-btn"
+              tabIndex={-1}
+              aria-label="Csökkentés"
+              disabled={disableDecrement}
+              onClick={onDecrement}
+            >
+              <Icon name="minus" size={11} />
+            </button>
+          )}
+          {isEditing && onAmountChange ? (
+            <AmountField
+              value={amount}
+              onCommit={onAmountChange}
+              onDone={stopEditing}
+            />
+          ) : (
+            <span className="item-qty">{qtyLabel}</span>
+          )}
+          {isEditing && onUnitChange && (
+            // data-unit is not decoration: the stylesheet draws a hidden copy of
+            // it beside the select and takes the box's width from that, so "l"
+            // gets an "l"-sized box instead of a "konzerv"-sized one. See
+            // .item-unit-wrap in Home.css.
+            <span className="item-unit-wrap" data-unit={unit || ""}>
+              <select
+                className="item-unit"
+                aria-label="Mértékegység"
+                value={unit}
+                onChange={(e) => onUnitChange(e.target.value)}
+              >
+                {/* A unit already on the item but missing from the list (an older
+                    entry, or one the catalog seeded) still has to be selectable,
+                    otherwise the select would silently rewrite it on mount. */}
+                {(units || []).includes(unit) ? null : (
+                  <option value={unit}>{unit}</option>
+                )}
+                {(units || []).map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </span>
+          )}
+          {showControls && (
+            <button
+              type="button"
+              className="icon-btn"
+              tabIndex={-1}
+              aria-label="Növelés"
+              onClick={onIncrement}
+            >
+              <Icon name="plus" size={11} />
+            </button>
+          )}
+        </div>
+
+        {canEdit && (
+          <button
+            type="button"
+            className={`icon-btn item-edit${isEditing ? " is-active" : ""}`}
+            tabIndex={-1}
+            // Not "mennyiségének módosítása" any more: the button now opens the
+            // unit and the bin as well, and a label that names only the amount
+            // would send a screen reader looking for a delete that is not there.
+            aria-label={`${name} szerkesztése`}
+            aria-pressed={isEditing}
+            onClick={() => (isEditing ? stopEditing() : setEditing(true))}
           >
-            {/* A unit already on the item but missing from the list (an older
-                entry, or one the catalog seeded) still has to be selectable,
-                otherwise the select would silently rewrite it on mount. */}
-            {(units || []).includes(unit) ? null : (
-              <option value={unit}>{unit}</option>
-            )}
-            {(units || []).map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            <Icon name={isEditing ? "check" : "pen"} size={11} />
+          </button>
         )}
-        <button
-          type="button"
-          className="icon-btn"
-          tabIndex={-1}
-          aria-label="Növelés"
-          onClick={onIncrement}
-        >
-          <Icon name="plus" size={11} />
-        </button>
+
+        {showControls && (
+          <button
+            type="button"
+            className="icon-btn danger"
+            tabIndex={-1}
+            aria-label={`${name} törlése`}
+            onClick={onDelete}
+          >
+            <Icon name="trash" size={11} />
+          </button>
+        )}
       </div>
-
-      {canEdit && (
-        <button
-          type="button"
-          className={`icon-btn item-edit${isEditing ? " is-active" : ""}`}
-          tabIndex={-1}
-          aria-label={`${name} mennyiségének módosítása`}
-          aria-pressed={isEditing}
-          onClick={() => (isEditing ? stopEditing() : setEditing(true))}
-        >
-          <Icon name={isEditing ? "check" : "pen"} size={11} />
-        </button>
-      )}
-
-      <button
-        type="button"
-        className="icon-btn danger"
-        tabIndex={-1}
-        aria-label={`${name} törlése`}
-        onClick={onDelete}
-      >
-        <Icon name="trash" size={11} />
-      </button>
     </div>
   );
 }

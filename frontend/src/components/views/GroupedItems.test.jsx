@@ -76,8 +76,9 @@ const editable = (props) => ({
 
 const amountField = () => screen.getByLabelText("Mennyiség");
 const unitSelect = () => screen.getByLabelText("Mértékegység");
-const editButton = () =>
-  screen.getByLabelText("tej mennyiségének módosítása");
+const editButton = () => screen.getByLabelText("tej szerkesztése");
+const stepper = () => screen.queryByLabelText("Növelés");
+const bin = () => screen.queryByLabelText("tej törlése");
 // Every editing assertion goes through the pencil: the fields do not exist
 // until the row is switched into edit mode.
 const startEdit = () => fireEvent.click(editButton());
@@ -86,7 +87,7 @@ describe("ItemRow edit toggle", () => {
   it("offers no pencil when the row has no edit handler", () => {
     render(<ItemRow {...baseProps} />);
     expect(screen.getByText("1 l")).toBeTruthy();
-    expect(screen.queryByLabelText("tej mennyiségének módosítása")).toBeNull();
+    expect(screen.queryByLabelText("tej szerkesztése")).toBeNull();
   });
 
   it("shows the plain label until the pencil is pressed", () => {
@@ -128,6 +129,48 @@ describe("ItemRow edit toggle", () => {
     startEdit();
     fireEvent.keyDown(amountField(), { key: "Escape" });
     expect(screen.queryByLabelText("Mennyiség")).toBeNull();
+  });
+
+  // The point of the mode: a closed row is a name and an amount, so the name
+  // gets the width the stepper and the bin were taking.
+  it("keeps the stepper and the bin out of a closed row", () => {
+    render(<ItemRow {...editable({ onAmountChange: vi.fn() })} />);
+
+    expect(stepper()).toBeNull();
+    expect(screen.queryByLabelText("Csökkentés")).toBeNull();
+    expect(bin()).toBeNull();
+    // The amount stays readable -- with its unit, since "5" alone says nothing.
+    expect(screen.getByText("1 l")).toBeTruthy();
+
+    startEdit();
+
+    expect(stepper()).toBeTruthy();
+    expect(screen.getByLabelText("Csökkentés")).toBeTruthy();
+    expect(bin()).toBeTruthy();
+  });
+
+  // Hiding them behind a pencil only works while there is a pencil. A row the
+  // caller made read-only has none, so its controls must stay reachable.
+  it("leaves the stepper and the bin on show without a pencil", () => {
+    render(<ItemRow {...baseProps} />);
+
+    expect(stepper()).toBeTruthy();
+    expect(bin()).toBeTruthy();
+  });
+
+  it("still steps and deletes from the keyboard while closed", () => {
+    const onIncrement = vi.fn();
+    const onDelete = vi.fn();
+    const { container } = render(
+      <ItemRow {...editable({ onAmountChange: vi.fn(), onIncrement, onDelete })} />,
+    );
+    const row = container.querySelector(".item-row");
+
+    fireEvent.keyDown(row, { key: "ArrowRight" });
+    fireEvent.keyDown(row, { key: "Delete" });
+
+    expect(onIncrement).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
   it("edits only the row whose pencil was pressed", () => {
@@ -216,6 +259,26 @@ describe("ItemRow amount and unit editing", () => {
 
     fireEvent.change(unitSelect(), { target: { value: "g" } });
     expect(onUnitChange).toHaveBeenCalledWith("g");
+  });
+
+  // The unit box is sized from a hidden copy of the selected unit, so "l" does
+  // not get a box built for "konzerv". jsdom does no layout, so what is asserted
+  // is the contract the stylesheet measures: the attribute that copy comes from.
+  it("hands the unit box the selected unit to size itself by", () => {
+    const { rerender } = render(
+      <ItemRow {...editable({ unit: "l", onUnitChange: vi.fn() })} />,
+    );
+    startEdit();
+
+    const sizerUnit = () =>
+      document.querySelector(".item-unit-wrap")?.getAttribute("data-unit");
+    expect(sizerUnit()).toBe("l");
+
+    rerender(<ItemRow {...editable({ unit: "konzerv", onUnitChange: vi.fn() })} />);
+    expect(sizerUnit()).toBe("konzerv");
+    // The copy has to track the longest names too, not just the list's own.
+    rerender(<ItemRow {...editable({ unit: "zacskó", onUnitChange: vi.fn() })} />);
+    expect(sizerUnit()).toBe("zacskó");
   });
 
   it("keeps a unit that is not on the list selectable", () => {

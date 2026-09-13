@@ -53,7 +53,10 @@ const SECTIONS = [
       },
       { keys: [["←"], ["→"]], label: "Mennyiség csökkentése / növelése" },
       { keys: [["Space"]], label: "„Megvéve” pipa (bevásárlólista)" },
-      { keys: [["Enter"]], label: "Mennyiség szerkesztése" },
+      {
+        keys: [["Enter"]],
+        label: "Sor szerkesztése — mennyiség, mértékegység, törlés",
+      },
       {
         keys: [["Delete"]],
         label: "Törlés — a megerősítő kérdésre Enter a válasz",

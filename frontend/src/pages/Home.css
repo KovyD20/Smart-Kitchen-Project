@@ -975,6 +975,17 @@
   text-overflow: ellipsis;
 }
 
+/* The amount and everything that acts on it. One box rather than three more
+   children of the row, so the mobile breakpoint can move the whole group onto a
+   line of its own while the row is open. `gap: inherit` takes the row's own
+   spacing at both breakpoints, so the two never drift apart. */
+.item-controls {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+  flex: none;
+}
+
 .item-stepper {
   display: flex;
   align-items: center;
@@ -1022,14 +1033,66 @@
   appearance: textfield;
 }
 
-.item-unit {
+/* A <select> is as wide as its longest option, so every row got a box sized for
+   "konzerv" -- "l" then sat in a field that was four fifths empty, and a column
+   of those reads as ragged. The width comes from the *selected* unit instead: a
+   hidden copy of it shares one grid cell with the select, the copy sets the
+   column width, the select fills it.
+   `attr()` is what makes this hold for all 21 units and for any older unit an
+   item still carries, without a table of per-unit widths that a new unit would
+   quietly fall out of -- the browser measures the real glyphs in the real font.
+   The catch is that the copy has to match the select's own metrics exactly, so
+   the four that decide the width live here as variables and both sides read
+   them. Change one and the box stops fitting its text. */
+.item-unit-wrap {
+  --unit-pad-l: 6px;
+  /* 5px inset + 7px chevron + 5px clear of the text. */
+  --unit-pad-r: 17px;
+  --unit-font-size: 12px;
+  --unit-font-weight: 600;
+  position: relative;
+  display: inline-block;
   height: 26px;
-  padding: 0 2px 0 5px;
-  font-size: 12px;
-  font-weight: 600;
+  flex: none;
+}
+/* The hidden copy is the only thing left in flow, so the box is as wide as it
+   is. This is load-bearing: a select sizes itself to its longest option, and an
+   in-flow one drags that width straight back in -- with both in the same box,
+   every unit gets a "konzerv"-sized field again. */
+.item-unit-wrap::after {
+  content: attr(data-unit);
+  display: block;
+  padding: 0 var(--unit-pad-r) 0 var(--unit-pad-l);
+  font-size: var(--unit-font-size);
+  font-weight: var(--unit-font-weight);
+  /* Transparent, but 1px: the select's border counts toward its border-box
+     width, so the copy has to carry the same two pixels. */
+  border: 1px solid transparent;
+  white-space: pre;
+  /* Hidden, not display:none -- it still has to take part in the sizing. */
+  visibility: hidden;
+}
+
+.item-unit {
+  /* Out of flow so it contributes nothing to the width above, and stretched over
+     the copy that does. The height comes from the wrapper for the same reason. */
+  position: absolute;
+  inset: 0;
+  /* Our own chevron rather than the native one, whose width is a UA detail and
+     differs per browser. Drawing it ourselves is what turns the room it needs
+     into a number the sizer above can reserve exactly. */
+  appearance: none;
+  padding: 0 var(--unit-pad-r, 17px) 0 var(--unit-pad-l, 6px);
+  font-size: var(--unit-font-size, 12px);
+  font-weight: var(--unit-font-weight, 600);
   font-family: inherit;
   color: var(--text-body);
-  background: var(--card-inset-2);
+  /* background-color, not the shorthand: the shorthand would drop the chevron. */
+  background-color: var(--card-inset-2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%238a8a8a' d='M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 5px center;
+  background-size: 7px 7px;
   border: 1px solid #3d3d3d;
   border-radius: 7px;
 }
@@ -1867,7 +1930,20 @@
     padding: 10px 13px;
     border-top-color: #303030;
   }
-  .item-stepper {
+  /* An open row needs more width for the fields, the stepper and the bin than
+     is left beside the name, and the name is what says which item is being
+     edited -- so the controls drop to a line of their own and the name keeps
+     the full one above. */
+  .item-row.is-editing {
+    flex-wrap: wrap;
+  }
+  .item-row.is-editing .item-controls {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+  /* The frame belongs to the −/+ buttons; a closed row shows a bare "5 db",
+     which a pill would dress up as a control it is not. */
+  .item-stepper.has-steps {
     background: var(--pill);
     border: 1px solid var(--line);
     border-radius: 999px;
@@ -1885,19 +1961,24 @@
     min-width: 52px;
   }
   /* The pill around the stepper supplies the frame on mobile, so the fields
-     inside it drop their own borders. */
+     inside it drop their own borders. background-color rather than the
+     background shorthand: the shorthand would take the unit chevron with it. */
   .item-qty-input,
   .item-unit {
-    height: 28px;
-    background: transparent;
+    background-color: transparent;
     border-color: transparent;
+  }
+  /* The select is stretched over its wrapper, so the height belongs to the
+     wrapper; setting it on the select as well would over-constrain the two. */
+  .item-qty-input,
+  .item-unit-wrap {
+    height: 28px;
   }
   .item-qty-input {
     width: 46px;
   }
-  .item-unit {
-    max-width: 68px;
-  }
+  /* No max-width on .item-unit: the box is sized from the unit in it now, and a
+     cap would only ever bite on the longest names it is meant to fit. */
   .item-row .icon-btn.danger,
   .item-row .item-edit {
     width: 28px;
