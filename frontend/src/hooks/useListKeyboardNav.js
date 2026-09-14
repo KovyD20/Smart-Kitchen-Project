@@ -1,8 +1,8 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { isTypingTarget } from "../lib/keyboard";
+import { isTypingTarget, ROVING_ITEM_ATTR } from "../lib/keyboard";
 import { bestInDirection } from "../lib/spatialFocus";
 
-const ITEM_ATTR = "data-kbd-item";
+const ITEM_ATTR = ROVING_ITEM_ATTR;
 const ITEM_SELECTOR = `[${ITEM_ATTR}]`;
 // Where focus goes when the last item disappears. Falls back to the container
 // itself, which callers render with tabIndex={-1}.
@@ -108,15 +108,32 @@ export function useListKeyboardNav({ layout = "list" } = {}) {
       const index = items.indexOf(current);
       if (index === -1) return;
 
-      // Nothing that way is left unhandled on purpose: the arrow then belongs
-      // to the page-wide navigation, which carries the focus out of the list.
-      if (layout === "grid") {
-        const next = bestInDirection(current, direction, items);
-        if (!next) return;
+      // Geometry first, in both layouts. The shopping list is a grid of cards on
+      // anything wider than a phone, so what lies below the last row of a card
+      // is the card *under* it -- while document order runs card by card and
+      // would send Down from the last vegetable across to the fruit beside it,
+      // skipping everything actually below.
+      const byGeometry = bestInDirection(current, direction, items);
+      if (byGeometry) {
         event.preventDefault();
-        next.focus();
+        byGeometry.focus();
         return;
       }
+
+      // Nothing that way is left unhandled on purpose: the arrow then belongs
+      // to the page-wide navigation, which carries the focus out of the list.
+      // The recipe grid stops here -- document order among cards laid out by
+      // geometry means nothing.
+      if (layout === "grid") return;
+
+      // Document order is the fallback only where nothing can be measured at
+      // all (jsdom, a list not laid out yet). Once there is real geometry,
+      // "nothing that way" is a real answer and the key belongs to the
+      // page-wide navigation, which can reach what this list cannot: from the
+      // top row of a card in the second column, that is the card's own header
+      // and the "Tétel hozzáadása" row above the grid -- not, as document order
+      // would have it, the last row of the card written before this one.
+      if (current.getBoundingClientRect().height > 0) return;
 
       const moved = focusAt(items, index + (direction === "down" ? 1 : -1));
       if (moved) event.preventDefault();

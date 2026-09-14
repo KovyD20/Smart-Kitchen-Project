@@ -37,6 +37,26 @@ function findRetryDelaySeconds(value) {
   return null;
 }
 
+// Which limit was actually hit. The retry hint alone is a trap: on the free
+// tier's *daily* quota the provider still answers "please retry in 14s", and a
+// caller that believes it sends the user round a loop that cannot succeed until
+// tomorrow -- 15s, then 55s, then 14s again, with no recipe ever arriving.
+//
+// The violation's quotaId is the honest signal. It reads like
+// "GenerateRequestsPerDayPerProjectPerModel-FreeTier", and the "PerDay" in the
+// middle is the part that matters; anything else (per minute, per-minute tokens)
+// really does clear in about a minute. Walked recursively for the same reason as
+// the retry delay: details[] varies in shape by error type.
+function findQuotaId(value) {
+  if (!value || typeof value !== "object") return null;
+  if (typeof value.quotaId === "string") return value.quotaId;
+  for (const child of Object.values(value)) {
+    const found = findQuotaId(child);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
 // Network-level failure: no HTTP status was ever received, so the SDK wrapped a
 // raw fetch rejection or an abort from the request timeout. The dominant cause
 // is a thinking model holding the connection open with no response headers until
@@ -75,8 +95,13 @@ function classifyAiError(err) {
       // Quota is billed per project, not per user, so this hits everyone at once.
       // Deliberately not retried anywhere: on a daily quota, retrying only burns
       // through the remainder faster.
+      const body = parseErrorBody(message);
+      const quotaId = findQuotaId(body);
       return aiError("AI quota exceeded", 429, "AI_QUOTA", {
-        retryAfterSeconds: findRetryDelaySeconds(parseErrorBody(message)),
+        retryAfterSeconds: findRetryDelaySeconds(body),
+        // Only ever set to "daily", never guessed: without a quotaId the caller
+        // is no worse off than before and falls back to reading the hint.
+        quotaScope: /PerDay/i.test(quotaId || "") ? "daily" : null,
       });
     }
 

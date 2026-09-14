@@ -460,6 +460,29 @@
   color: var(--text-mute);
 }
 
+/* The course badge and the user's own tags share one wrapping row, so a second
+   tag lands beside the first rather than under it. */
+.recipe-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+/* A tag the user invented: same shape, no colour of its own. The course is the
+   one that gets to be loud. */
+.tag-pill.is-own {
+  background: var(--card-inset);
+  border-color: var(--line-soft);
+  color: var(--text-mute);
+  font-weight: 600;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tag-pill {
   align-self: flex-start;
   margin-top: 4px;
@@ -1020,6 +1043,15 @@
   border-color: var(--accent);
 }
 
+/* Reachable-but-inert rows (recipe steps, the fridge match list): the ring has
+   to sit inside the row the way it does on a list row, not float around it. */
+.step-row:focus-visible,
+.stock-have:focus-visible,
+.stock-missing:focus-visible {
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
 .item-stepper {
   display: flex;
   align-items: center;
@@ -1177,9 +1209,17 @@
   color: var(--text-body);
   min-width: 0;
 }
-.add-item input:focus,
-.add-item select:focus {
+/* No ring from a mouse click -- the dashed pill is frame enough -- but
+   :focus-visible has to get through, or a keyboard user cannot tell which of
+   the three fields they are in. Suppressing plain :focus killed both. */
+.add-item input:focus:not(:focus-visible),
+.add-item select:focus:not(:focus-visible) {
   outline: none;
+}
+.add-item input:focus-visible,
+.add-item select:focus-visible {
+  outline-offset: 1px;
+  border-radius: 6px;
 }
 .add-item input::placeholder {
   color: var(--text-mute);
@@ -1232,6 +1272,16 @@
   border-top: 1px solid var(--line-soft);
   font-size: 15px;
   color: #d2d2d2;
+}
+/* Same size as .item-thumb on the list rows below: the two lists sit in one
+   grid, and a recommendation that is one tap from becoming a real row should not
+   change size when it gets there. */
+.rec-row-thumb {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 6px;
+  object-fit: cover;
 }
 .rec-row-name {
   flex: 1;
@@ -1587,6 +1637,64 @@
   font-weight: 600;
 }
 
+/* The glance at the next step, between the scrolling body and the buttons.
+   Quiet on purpose: it must read as a preview of something that has not started
+   yet, never compete with .cook-step for the cook's attention across a kitchen.
+   Tappable as well, because it names exactly where it goes. */
+.cook-peek {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 44px 20px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line-bar);
+  background: #1b1615;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  flex: none;
+}
+.cook-peek:hover {
+  background: #221b19;
+  border-color: #4a3a33;
+}
+/* Nothing to go to on the last step, so it stops being a control and is left as
+   a plain block -- see CookMode, which renders a <div> there rather than a
+   <button>. */
+.cook-peek.is-last {
+  cursor: default;
+}
+.cook-peek-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cook-peek-label {
+  font-family: var(--font-display);
+  font-variant: all-small-caps;
+  letter-spacing: 1.4px;
+  font-size: 14px;
+  color: var(--orange);
+}
+.cook-peek-text {
+  font-size: 15px;
+  line-height: 1.4;
+  color: #b9b2ae;
+  /* Two lines and then an ellipsis: the whole point is that it stays smaller
+     than the step above it, whatever the recipe writes. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cook-peek > svg {
+  flex: none;
+  color: var(--text-mute);
+}
+
 .cook-nav {
   display: flex;
   gap: 14px;
@@ -1816,6 +1924,15 @@
     margin: 0;
     padding: 4px 9px;
     flex: none;
+  }
+  /* On a phone the badges sit in the row itself, beside the chevron, so they
+     must not wrap into a second line or grow the row. */
+  .recipe-card-tags {
+    flex: none;
+    flex-wrap: nowrap;
+  }
+  .tag-pill.is-own {
+    max-width: 84px;
   }
 
   .recipe-head {
@@ -2171,6 +2288,17 @@
   .cook-chip {
     padding: 8px 14px;
     font-size: 15px;
+  }
+  .cook-peek {
+    margin: 0 16px 4px;
+    padding: 11px 14px;
+    gap: 10px;
+  }
+  .cook-peek-label {
+    font-size: 13px;
+  }
+  .cook-peek-text {
+    font-size: 14px;
   }
   .cook-nav {
     padding: 16px 16px 26px;

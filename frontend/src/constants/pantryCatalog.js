@@ -5,6 +5,9 @@ import {
   searchSuggestions,
 } from "../lib/catalogSearch";
 
+// How many rows the browse list offers before it expects the user to type.
+const BROWSE_LIMIT = 60;
+
 const UNKNOWN_CATEGORY = "Egyéb";
 
 
@@ -69,6 +72,15 @@ export function createCatalog(catalogData) {
 
   function searchCatalog(query, limit) {
     return searchSuggestions(SUGGESTION_INDEX, query, limit);
+  }
+
+  // Everything the catalog knows, in its own order (grouped by category), for
+  // the "show me what there is" list -- the add row opens it with Enter on an
+  // empty field. Capped rather than complete: a few hundred rows dropped into a
+  // panel is a wall, and anyone looking further down it is better served by
+  // typing. Shaped like a search result so the same list renders both.
+  function browseCatalog(limit = BROWSE_LIMIT) {
+    return CATALOG_ITEMS.slice(0, limit).map((entry) => ({ entry }));
   }
 
   // Every lookup key that points at an item -- the items' own keys and their
@@ -254,6 +266,7 @@ export function createCatalog(catalogData) {
   return {
     CATALOG_ITEMS,
     searchCatalog,
+    browseCatalog,
     resolveCatalogKey,
     resolveCanonicalCatalogName,
     getCatalogItemByName,

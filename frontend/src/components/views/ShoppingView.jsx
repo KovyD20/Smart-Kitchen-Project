@@ -6,6 +6,7 @@ import {
   ColorEditToggle,
   GroupCard,
   ItemRow,
+  PantryThumb,
 } from "./GroupedItems";
 import { useCollapsedGroups } from "../../hooks/useCollapsedGroups";
 import { useListKeyboardNav } from "../../hooks/useListKeyboardNav";
@@ -15,6 +16,41 @@ const ACCENT = "var(--yellow)";
 // Collapse key for the recommendations card, which is not a real category.
 const REC_KEY = "rec";
 
+// One recommended staple: the same picture, name and category the real list rows
+// carry, plus the button that puts it on the list.
+//
+// The thumbnail is what makes this card scannable — these are items the user has
+// never added, so the name is all they would otherwise have to recognise them by.
+// A recommendation is a plain catalog entry, and its `key` is already the
+// normalized catalog key the image convention is named after.
+//
+// It follows the list rows in dropping the picture on a phone (showThumb there):
+// the two cards sit in the same grid, and the width a 24px image costs is width
+// the name needs — "olívaolaj (extra szűz)" has nowhere to go but an ellipsis.
+function RecRow({ item, onAdd, showThumb }) {
+  return (
+    <div className="rec-row">
+      {showThumb && (
+        <PantryThumb
+          nameKey={item.key}
+          imageUrl={item.imageUrl}
+          className="rec-row-thumb"
+        />
+      )}
+      <span className="rec-row-name">{item.name}</span>
+      <span className="rec-row-cat">{item.category}</span>
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label={`${item.name} a listára`}
+        onClick={() => onAdd(item)}
+      >
+        <Icon name="plus" size={11} />
+      </button>
+    </div>
+  );
+}
+
 // The catalog knows which pantry staples the user is missing entirely; the design
 // has no slot for it, so it rides along as a dashed card in the same grid.
 function RecommendationsCard({
@@ -22,6 +58,7 @@ function RecommendationsCard({
   goodToHave,
   extra,
   onAdd,
+  showThumbs,
   isOpen,
   toggle,
 }) {
@@ -51,18 +88,12 @@ function RecommendationsCard({
             <p className="rec-empty">Minden alapvető tétel megvan.</p>
           ) : (
             essential.map((item) => (
-              <div key={item.key} className="rec-row">
-                <span className="rec-row-name">{item.name}</span>
-                <span className="rec-row-cat">{item.category}</span>
-                <button
-                  type="button"
-                  className="icon-btn"
-                  aria-label={`${item.name} a listára`}
-                  onClick={() => onAdd(item)}
-                >
-                  <Icon name="plus" size={11} />
-                </button>
-              </div>
+              <RecRow
+                key={item.key}
+                item={item}
+                onAdd={onAdd}
+                showThumb={showThumbs}
+              />
             ))
           )}
 
@@ -86,18 +117,12 @@ function RecommendationsCard({
                   <p className="rec-empty">Nincs hiányzó tétel.</p>
                 ) : (
                   items.map((item) => (
-                    <div key={item.key} className="rec-row">
-                      <span className="rec-row-name">{item.name}</span>
-                      <span className="rec-row-cat">{item.category}</span>
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        aria-label={`${item.name} a listára`}
-                        onClick={() => onAdd(item)}
-                      >
-                        <Icon name="plus" size={11} />
-                      </button>
-                    </div>
+                    <RecRow
+                      key={item.key}
+                      item={item}
+                      onAdd={onAdd}
+                      showThumb={showThumbs}
+                    />
                   ))
                 )}
               </div>
@@ -115,6 +140,7 @@ export default function ShoppingView({
   doneCount,
   units,
   suggest,
+  browse,
   recommendations,
   isMobile,
   colorFor,
@@ -219,7 +245,12 @@ export default function ShoppingView({
           <div className="view-spacer" />
           {collapseToggle}
           {colorToggle}
-          <AddItemRow units={units} onAdd={onAddItem} suggest={suggest} />
+          <AddItemRow
+            units={units}
+            onAdd={onAddItem}
+            suggest={suggest}
+            browse={browse}
+          />
           <button
             type="button"
             className="btn-pill btn-outline"
@@ -337,6 +368,7 @@ export default function ShoppingView({
           })}
 
           <RecommendationsCard
+            showThumbs={!isMobile}
             essential={recommendations.essential}
             goodToHave={recommendations.goodToHave}
             extra={recommendations.extra}
@@ -362,6 +394,7 @@ export default function ShoppingView({
           units={units}
           onAdd={onAddItem}
           suggest={suggest}
+          browse={browse}
           dropUp
         />
       )}

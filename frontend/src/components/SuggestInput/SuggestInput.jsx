@@ -67,6 +67,7 @@ export default function SuggestInput({
   onChange,
   onSelect,
   suggest,
+  browse,
   dropUp = false,
   className = "",
   placeholder,
@@ -74,6 +75,10 @@ export default function SuggestInput({
   ...inputProps
 }) {
   const [open, setOpen] = useState(false);
+  // Browsing is the other way in: Enter on an empty field asks for the whole
+  // catalog instead of a search over nothing. It ends the moment a character is
+  // typed, when the search has something to say again.
+  const [browsing, setBrowsing] = useState(false);
   // -1 = nothing highlighted, which is the state Enter must not steal. The first
   // ArrowDown is what arms the list.
   const [active, setActive] = useState(-1);
@@ -84,7 +89,7 @@ export default function SuggestInput({
   // Recomputed every render rather than memoised: the query changes with every
   // keystroke, so a memo over it would be a cache of exactly one entry. The
   // search is a scan of a few hundred short strings.
-  const matches = suggest ? suggest(value) : [];
+  const matches = browsing && browse ? browse() : suggest ? suggest(value) : [];
   const isOpen = open && matches.length > 0;
   const activeMatch = active >= 0 ? matches[active] : null;
 
@@ -113,6 +118,7 @@ export default function SuggestInput({
 
   const close = () => {
     setOpen(false);
+    setBrowsing(false);
     setActive(-1);
   };
 
@@ -136,20 +142,34 @@ export default function SuggestInput({
 
   const handleKeyDown = (event) => {
     switch (event.key) {
+      // With no list to walk the arrows are not ours. Taking them anyway left
+      // the add row a trap: nothing highlighted, nothing moved, and no way up
+      // to the cards from a field the user had only just tabbed into.
       case "ArrowDown":
+        if (!matches.length) break;
         event.preventDefault();
         move(1);
         break;
       case "ArrowUp":
+        if (!matches.length) break;
         event.preventDefault();
         move(-1);
         break;
       case "Enter":
-        // Nothing highlighted means the user typed a name and meant it: leave
-        // the key to the caller, which submits the row.
-        if (!activeMatch) break;
-        event.preventDefault();
-        pick(activeMatch);
+        if (activeMatch) {
+          event.preventDefault();
+          pick(activeMatch);
+          break;
+        }
+        // Nothing highlighted and nothing typed: Enter asks what there is,
+        // rather than submitting an empty row. With a name in the field it
+        // still falls through to the caller, which adds it as typed.
+        if (browse && !isOpen && !value.trim()) {
+          event.preventDefault();
+          setBrowsing(true);
+          setOpen(true);
+          break;
+        }
         break;
       case "Escape":
         // Only while the list is up. Escape is the app's "close the topmost
@@ -186,6 +206,7 @@ export default function SuggestInput({
         onChange={(event) => {
           onChange(event);
           setOpen(true);
+          setBrowsing(false);
           // Every keystroke changes the list under the highlight, so the
           // highlight cannot survive it -- and Enter goes back to submitting.
           setActive(-1);

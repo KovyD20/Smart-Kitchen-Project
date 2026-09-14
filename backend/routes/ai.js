@@ -77,6 +77,12 @@ function sendAiError(res, err, endpoint) {
   if (err.retryAfterSeconds) {
     payload.retry_after_seconds = err.retryAfterSeconds;
   }
+  // Which quota ran out, when the provider said so. The frontend needs it to
+  // tell "wait a minute" from "come back tomorrow" -- the retry hint says the
+  // former even when the truth is the latter.
+  if (err.quotaScope) {
+    payload.quota_scope = err.quotaScope;
+  }
   res.status(err.status || 500).json(payload);
 }
 

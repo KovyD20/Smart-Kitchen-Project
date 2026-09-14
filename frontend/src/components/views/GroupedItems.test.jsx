@@ -177,11 +177,48 @@ describe("ItemRow edit toggle", () => {
     );
     const row = container.querySelector(".item-row");
 
-    fireEvent.keyDown(row, { key: "ArrowRight" });
+    fireEvent.keyDown(row, { key: "+" });
     fireEvent.keyDown(row, { key: "Delete" });
 
     expect(onIncrement).toHaveBeenCalledTimes(1);
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  // The row must leave the horizontal arrows alone, or the focus can never
+  // cross to the card beside it: the page-wide navigation only ever sees keys
+  // no component has already claimed.
+  it("leaves the left and right arrows to the page navigation", () => {
+    const onIncrement = vi.fn();
+    const onDecrement = vi.fn();
+    const { container } = render(
+      <ItemRow {...editable({ onIncrement, onDecrement })} />,
+    );
+    const row = container.querySelector(".item-row");
+
+    const right = fireEvent.keyDown(row, { key: "ArrowRight" });
+    const left = fireEvent.keyDown(row, { key: "ArrowLeft" });
+
+    expect(onIncrement).not.toHaveBeenCalled();
+    expect(onDecrement).not.toHaveBeenCalled();
+    // fireEvent returns false once preventDefault was called, which is what
+    // would hide the key from useSpatialNav.
+    expect(right).toBe(true);
+    expect(left).toBe(true);
+  });
+
+  it("steps down with '-', and not past the floor", () => {
+    const onDecrement = vi.fn();
+    const { container, rerender } = render(
+      <ItemRow {...editable({ onDecrement })} />,
+    );
+    const row = container.querySelector(".item-row");
+
+    fireEvent.keyDown(row, { key: "-" });
+    expect(onDecrement).toHaveBeenCalledTimes(1);
+
+    rerender(<ItemRow {...editable({ onDecrement, disableDecrement: true })} />);
+    fireEvent.keyDown(container.querySelector(".item-row"), { key: "-" });
+    expect(onDecrement).toHaveBeenCalledTimes(1);
   });
 
   it("edits only the row whose pencil was pressed", () => {
@@ -613,5 +650,148 @@ describe("AddItemRow with catalog suggestions", () => {
       amount: 2,
       unit: "db",
     });
+  });
+});
+
+// An open row is three controls the user steps between with the arrows, so the
+// keys that act on the row itself have to work from all of them -- otherwise
+// accepting or deleting means leaving the keyboard, which is the whole reason
+// the row was opened from it.
+describe("ItemRow keys inside an open row", () => {
+  const openRow = (props) => {
+    const result = render(
+      <ItemRow
+        {...editable({
+          onAmountChange: vi.fn(),
+          onUnitChange: vi.fn(),
+          onNoteChange: vi.fn(),
+          ...props,
+        })}
+      />,
+    );
+    startEdit();
+    return result;
+  };
+
+  const noteField = () => screen.getByLabelText("Saját megjegyzés");
+
+  it("steps the amount with '+' from the amount field, without typing it", () => {
+    const onIncrement = vi.fn();
+    openRow({ onIncrement });
+
+    fireEvent.keyDown(amountField(), { key: "+" });
+
+    expect(onIncrement).toHaveBeenCalledTimes(1);
+    // A number input takes "+" as a sign character, so the press must be spent.
+    expect(amountField().value).toBe("2");
+  });
+
+  it("steps the amount from the unit picker and the note as well", () => {
+    const onIncrement = vi.fn();
+    const onDecrement = vi.fn();
+    openRow({ onIncrement, onDecrement });
+
+    fireEvent.keyDown(unitSelect(), { key: "+" });
+    fireEvent.keyDown(noteField(), { key: "-" });
+
+    expect(onIncrement).toHaveBeenCalledTimes(1);
+    expect(onDecrement).toHaveBeenCalledTimes(1);
+  });
+
+  it("respects the floor, wherever the press came from", () => {
+    const onDecrement = vi.fn();
+    openRow({ onDecrement, disableDecrement: true });
+
+    fireEvent.keyDown(unitSelect(), { key: "-" });
+
+    expect(onDecrement).not.toHaveBeenCalled();
+  });
+
+  it("accepts and closes the row on Enter from the unit picker", () => {
+    openRow();
+    expect(unitSelect()).toBeTruthy();
+
+    fireEvent.keyDown(unitSelect(), { key: "Enter" });
+
+    expect(screen.queryByLabelText("Mértékegység")).toBeNull();
+  });
+
+  it("deletes the item on Delete from an open field", () => {
+    const onDelete = vi.fn();
+    openRow({ onDelete });
+
+    fireEvent.keyDown(amountField(), { key: "Delete" });
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  // Delete is free because the caret sits at the end of what it edits;
+  // Backspace is how a typo gets fixed and must never reach the row.
+  it("leaves Backspace to the text being typed", () => {
+    const onDelete = vi.fn();
+    openRow({ onDelete });
+
+    fireEvent.keyDown(noteField(), { key: "Backspace" });
+
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("still ignores the amount keys while the row is closed and typed into", () => {
+    const onIncrement = vi.fn();
+    render(<ItemRow {...editable({ onIncrement, onAmountChange: vi.fn() })} />);
+
+    // No pencil pressed: nothing inside the row is a field yet, and the row
+    // itself must keep answering "+" as it always did.
+    fireEvent.keyDown(document.querySelector(".item-row"), { key: "+" });
+
+    expect(onIncrement).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The add row's amount is a number input, so "+" and "-" would land in it as
+// sign characters. They step it instead, matching the saved rows -- while the
+// vertical arrows stay the field's own, which is what makes it typeable.
+describe("AddItemRow amount keys", () => {
+  const amount = () => screen.getByPlaceholderText("menny.");
+
+  it("steps up from empty with '+'", () => {
+    render(<AddItemRow units={["db"]} onAdd={vi.fn()} />);
+
+    fireEvent.keyDown(amount(), { key: "+" });
+
+    expect(amount().value).toBe("1");
+  });
+
+  it("keeps stepping, and never types the character", () => {
+    render(<AddItemRow units={["db"]} onAdd={vi.fn()} />);
+
+    fireEvent.change(amount(), { target: { value: "4" } });
+    fireEvent.keyDown(amount(), { key: "+" });
+    fireEvent.keyDown(amount(), { key: "-" });
+    fireEvent.keyDown(amount(), { key: "-" });
+
+    expect(amount().value).toBe("3");
+  });
+
+  it("empties the field rather than parking it on zero", () => {
+    render(<AddItemRow units={["db"]} onAdd={vi.fn()} />);
+
+    fireEvent.change(amount(), { target: { value: "1" } });
+    fireEvent.keyDown(amount(), { key: "-" });
+
+    expect(amount().value).toBe("");
+  });
+
+  it("still adds the row on Enter", () => {
+    const onAdd = vi.fn();
+    render(<AddItemRow units={["db"]} onAdd={onAdd} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Tétel hozzáadása"), {
+      target: { value: "tej" },
+    });
+    fireEvent.keyDown(amount(), { key: "+" });
+    fireEvent.keyDown(amount(), { key: "Enter" });
+
+    expect(onAdd).toHaveBeenCalledWith({ name: "tej", amount: 1, unit: "db" });
   });
 });

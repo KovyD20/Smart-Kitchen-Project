@@ -147,3 +147,21 @@ describe("createCatalog().searchCatalog", () => {
     expect(createCatalog({ categories: [] }).searchCatalog("te")).toEqual([]);
   });
 });
+
+// The list Enter opens on an empty add field: everything there is, capped, in
+// the catalog's own order, shaped like a search result so one list renders both.
+describe("browseCatalog", () => {
+  it("offers the catalog in its own order, shaped like search hits", () => {
+    const { CATALOG_ITEMS, browseCatalog } = createCatalog(catalogData);
+    const rows = browseCatalog();
+
+    expect(rows.map((row) => row.entry.key)).toEqual(
+      CATALOG_ITEMS.map((item) => item.key),
+    );
+  });
+
+  it("stops at the limit rather than dropping hundreds of rows into a panel", () => {
+    const { browseCatalog } = createCatalog(catalogData);
+    expect(browseCatalog(2)).toHaveLength(2);
+  });
+});

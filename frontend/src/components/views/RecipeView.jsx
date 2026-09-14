@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "../Icon/Icon";
 import { groupIngredients, recipeMeta, splitByFridge } from "../../lib/recipes";
+import { arrowReachable } from "../../lib/keyboard";
 import { mainTagColor, mainTagOf } from "../../constants/recipeTags";
 
 function Servings({ value, onChange }) {
@@ -114,7 +115,7 @@ function SourceLink({ recipe }) {
 
 function StepRow({ index, text }) {
   return (
-    <div className="step-row">
+    <div className="step-row" {...arrowReachable(`step-${index}`)}>
       <span className="step-n">{index + 1}</span>
       <span className="step-text">{text}</span>
     </div>
@@ -341,7 +342,7 @@ export default function RecipeView({
             <div className="stock-group" style={{ "--accent": "var(--green)" }}>
               <div className="stock-label">{have.length} megvan a hűtőben</div>
               {have.map((ingredient, i) => (
-                <div key={i} className="stock-have">
+                <div key={i} className="stock-have" {...arrowReachable(`have-${i}`)}>
                   <Icon name="check" size={11} color="var(--green)" />
                   <span>{ingredient.name}</span>
                 </div>
@@ -351,7 +352,11 @@ export default function RecipeView({
             <div className="stock-group" style={{ "--accent": "#e0a04a" }}>
               <div className="stock-label">{missing.length} hiányzik</div>
               {missing.map((ingredient, i) => (
-                <div key={i} className="stock-missing">
+                <div
+                  key={i}
+                  className="stock-missing"
+                  {...arrowReachable(`missing-${i}`)}
+                >
                   <span className="stock-missing-qty">
                     {ingredient.amount} {ingredient.unit}
                   </span>

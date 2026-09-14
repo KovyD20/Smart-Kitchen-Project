@@ -86,6 +86,40 @@ export default function CookMode({
           )}
         </div>
 
+        {/* What comes after this step. Cooking is a queue: knowing that the onion
+            is chopped next is what lets someone start it while the pan heats.
+            Deliberately outside .cook-body, which scrolls when a step runs long
+            — a preview that scrolls out of sight is no preview.
+
+            The last step keeps the slot rather than dropping it, so the step
+            text and the buttons do not jump at the end of every recipe. */}
+        {isLast ? (
+          <div className="cook-peek is-last">
+            <span className="cook-peek-body">
+              <span className="cook-peek-label">Ez az utolsó lépés</span>
+              <span className="cook-peek-text">
+                Utána a „Kész” gomb zárja a főzés módot.
+              </span>
+            </span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="cook-peek"
+            onClick={() => onStep(index + 1)}
+          >
+            <span className="cook-peek-body">
+              <span className="cook-peek-label">
+                Következik · {index + 2}. lépés
+              </span>
+              {/* Clamped to two lines in CSS: this is a glance ahead, and a long
+                  step would otherwise take the room the current one needs. */}
+              <span className="cook-peek-text">{steps[index + 1]}</span>
+            </span>
+            <Icon name="arrowRight" size={13} />
+          </button>
+        )}
+
         <div className="cook-nav">
           <button
             type="button"

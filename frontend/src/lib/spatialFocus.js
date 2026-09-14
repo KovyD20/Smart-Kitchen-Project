@@ -38,7 +38,17 @@ export function bestInDirection(origin, direction, list) {
   let bestScore = Infinity;
 
   for (const element of list) {
-    if (element === origin || origin.contains(element)) continue;
+    // Neither direction of containment is a move. Stepping *into* the origin
+    // lands somewhere it already covers, and stepping *out* to its container is
+    // worse: an open shopping row is itself focusable, so Left from the amount
+    // field picked the row's own box -- which looks like nothing happening, and
+    // swallowed the press that should have reached the note beside it.
+    if (
+      element === origin ||
+      origin.contains(element) ||
+      element.contains(origin)
+    )
+      continue;
     const rect = element.getBoundingClientRect();
     const to = centerOf(rect);
 

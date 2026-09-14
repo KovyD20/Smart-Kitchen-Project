@@ -33,8 +33,20 @@ const MESSAGES = {
 
 // The free tier caps both requests per minute and requests per day, and the quota
 // is per project rather than per user -- so "wait a bit" and "come back tomorrow"
-// are genuinely different answers. A retry hint means the shorter one.
-function quotaMessage(retryAfterSeconds) {
+// are genuinely different answers.
+//
+// `quota_scope` decides it whenever the backend could read which limit was hit,
+// and it has to win over the retry hint: on the daily quota the provider still
+// answers "retry in 14s", so going by the hint alone promised a wait of under a
+// minute all evening and sent the user round a loop no amount of waiting could
+// end. The hint is still what fills in the number for the short limits, and is
+// the only signal left when the provider names no quota at all.
+function quotaMessage(data) {
+  const retryAfterSeconds = data?.retry_after_seconds;
+
+  if (data?.quota_scope === "daily") {
+    return "Az AI napi ingyenes keretét elhasználtuk. Próbáld újra holnap.";
+  }
   if (retryAfterSeconds && retryAfterSeconds <= 300) {
     return `Az AI percenkénti keretét elhasználtuk. Próbáld újra kb. ${retryAfterSeconds} másodperc múlva.`;
   }
@@ -45,7 +57,7 @@ export function aiErrorMessage(status, data) {
   const code = data?.code;
 
   if (code === "AI_QUOTA") {
-    return quotaMessage(data?.retry_after_seconds);
+    return quotaMessage(data);
   }
 
   if (code && MESSAGES[code]) return MESSAGES[code];

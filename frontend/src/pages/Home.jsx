@@ -135,6 +135,7 @@ export default function Home({ user }) {
   const {
     resolveCatalogKey,
     searchCatalog,
+    browseCatalog,
     ready: catalogReady,
     loading: catalogLoading,
     error: catalogError,
@@ -160,9 +161,15 @@ export default function Home({ user }) {
   // saved. Holds the source URL too, which is not stored on the recipe (yet).
   const [importedRecipe, setImportedRecipe] = useState(null);
   const [filterTag, setFilterTag] = useState("all");
-  // "name" | "availability". Recipes arrive ordered by name from Firestore, so
-  // only "availability" needs sorting here.
-  const [sortMode, setSortMode] = useState("name");
+  // "name" | "course" | "availability". Recipes arrive ordered by name from
+  // Firestore, so only the other two need sorting here.
+  //
+  // Course is what the list opens on: past a dozen recipes an alphabetical run
+  // puts a soup between two desserts, while course order ("leves", "főétel",
+  // "desszert" — see MAIN_TAG_NAMES) matches how someone actually looks for
+  // something to cook. Name order is one chip away and sorts within each course
+  // anyway, so nothing is lost.
+  const [sortMode, setSortMode] = useState("course");
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [servingsFor, setServingsFor] = useState({});
@@ -530,6 +537,7 @@ export default function Home({ user }) {
           doneCount={doneCount}
           units={SYSTEM_UNITS}
           suggest={searchCatalog}
+          browse={browseCatalog}
           recommendations={missingRecommendations}
           isMobile={isMobile}
           colorFor={categoryColorFor}
@@ -573,6 +581,7 @@ export default function Home({ user }) {
           itemCount={fridge.length}
           units={SYSTEM_UNITS}
           suggest={searchCatalog}
+          browse={browseCatalog}
           isMobile={isMobile}
           colorFor={categoryColorFor}
           isCustomColor={isCustomCategoryColor}

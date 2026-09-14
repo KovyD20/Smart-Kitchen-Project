@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { isPlainKey, isTypingTarget } from "../lib/keyboard";
+import { isPlainKey, isTypingTarget, ROVING_ITEM_ATTR } from "../lib/keyboard";
 import { bestInDirection } from "../lib/spatialFocus";
 
 // Everything the browser can focus, minus the things we deliberately took out of
@@ -23,21 +23,60 @@ const DIRECTIONS = {
 };
 
 // Fields whose arrow keys belong to the widget: a textarea moves its caret by
-// line, a number input steps its value, a select changes the option. Escape is
-// how you leave those. A single-line text field has nothing to do with the
-// vertical arrows, so those may carry the focus onwards.
+// line, a number input steps its value. Escape is how you leave those. A field
+// that only needs one axis hands the other one back:
+//
+//   "vertical-only"   -- a single-line text field. Left/right are the caret's,
+//                        up/down have nothing to do and may move the focus.
+//   "horizontal-only" -- a select or a number field. Both spend their meaning on
+//                        the vertical axis (an option list is a column, a
+//                        stepper counts up and down), so left/right are free to
+//                        move on -- and they have to be, because both sit
+//                        wedged in a row of other controls. An open shopping
+//                        row is amount, unit and note side by side, and with
+//                        both fields keeping all four arrows the focus could
+//                        enter but never leave: the note was unreachable
+//                        without a mouse.
 function fieldArrowPolicy(element) {
   if (!isTypingTarget(element)) return "navigate";
   const tag = element.tagName;
-  if (tag === "TEXTAREA" || tag === "SELECT") return "native";
+  if (tag === "TEXTAREA") return "native";
+  if (tag === "SELECT") return "horizontal-only";
   if (tag === "INPUT") {
     const type = String(element.type || "text").toLowerCase();
-    if (type === "number" || type === "range" || type === "date" || type === "time")
-      return "native";
+    if (type === "number") return "horizontal-only";
+    // A date or time field really does use left/right itself, to walk between
+    // its segments, so it keeps every arrow. (A slider never reaches this
+    // branch: isTypingTarget counts range as a button, so the arrows move the
+    // focus rather than its value.)
+    if (type === "date" || type === "time") return "native";
     // Left/right are the caret's; up/down are free.
     return "vertical-only";
   }
   return "native";
+}
+
+// Whether the caret in a text field still has somewhere to go the pressed way.
+//
+// This is what lets a text field be left sideways at all. Left/right belong to
+// the caret while there is text to walk, but at the end of the value the press
+// is spare -- and handing it back is the difference between the note on an open
+// shopping row being a stop on the way and being a dead end the focus can enter
+// but never leave.
+function caretCanMove(element, direction) {
+  let start = null;
+  let end = null;
+  try {
+    start = element.selectionStart;
+    end = element.selectionEnd;
+  } catch {
+    // Some input types (email, number) refuse to report a selection at all.
+    return false;
+  }
+  if (start === null || end === null) return false;
+  // A selection belongs to the caret as well: collapsing it is a real move.
+  if (start !== end) return true;
+  return direction === "left" ? start > 0 : end < (element.value?.length ?? 0);
 }
 
 // checkVisibility rather than a measured rect: it answers "display:none or
@@ -49,7 +88,16 @@ function isVisible(element) {
 
 function isCandidate(element) {
   if (element.disabled) return false;
-  if (element.tabIndex < 0) return false;
+  // Out of the tab order and not a roving list item: something we deliberately
+  // took out of reach (the buttons inside a list row, which the row's own keys
+  // drive instead).
+  //
+  // A roving item is the opposite case -- focusable, and the only way to it is
+  // an arrow key. Excluding it would leave a shopping list whose focus cannot
+  // move sideways at all: every row of the neighbouring card sits at
+  // tabIndex -1, so there would be nothing for Right to land on.
+  if (element.tabIndex < 0 && !element.hasAttribute(ROVING_ITEM_ATTR))
+    return false;
   if (element.hasAttribute("data-nav-skip")) return false;
   if (element.closest('[aria-hidden="true"]')) return false;
   if (element.closest("[hidden]")) return false;
@@ -136,7 +184,18 @@ export function useSpatialNav({ enabled = true, onFallback } = {}) {
       if (active) {
         const policy = fieldArrowPolicy(active);
         if (policy === "native") return;
-        if (policy === "vertical-only" && direction !== "up" && direction !== "down")
+        if (
+          policy === "vertical-only" &&
+          direction !== "up" &&
+          direction !== "down" &&
+          caretCanMove(active, direction)
+        )
+          return;
+        if (
+          policy === "horizontal-only" &&
+          direction !== "left" &&
+          direction !== "right"
+        )
           return;
       }
 

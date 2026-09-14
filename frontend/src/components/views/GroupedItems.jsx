@@ -87,25 +87,19 @@ export function GroupCard({
   return (
     <div className="group-card" style={{ "--accent": accent }}>
       <div className="group-head-row">
-        {/* Arrow keys follow the treeview convention: they open and close the
-            card only in the direction they point, so "close" on an already
-            closed card does not reopen it. */}
+        {/* No arrow handling here, deliberately. The treeview convention (Right
+            opens, Left closes) reads well on a tree standing in one column, but
+            these cards sit side by side in a grid: taking the horizontal arrows
+            walled each card off from its neighbour, since the page-wide
+            navigation never sees a key a component has already handled.
+            Collapsing is what Enter and Space are for, and a <button> answers
+            both by itself. */}
         <button
           type="button"
           className="group-head"
           aria-expanded={open}
           onClick={onToggle}
           {...navProps}
-          onKeyDown={(event) => {
-            if (!isPlainKey(event)) return;
-            if (event.key === "ArrowRight" && !open) {
-              event.preventDefault();
-              onToggle();
-            } else if (event.key === "ArrowLeft" && open) {
-              event.preventDefault();
-              onToggle();
-            }
-          }}
         >
           <span className="group-name">{category}</span>
           <span className="group-meta">{meta}</span>
@@ -160,7 +154,7 @@ export function GroupCard({
 // written on blur or Enter, so one edit costs one write instead of one per
 // keystroke -- and a half-typed "1" on the way to "150" never lands as the real
 // amount. Escape abandons the edit.
-function AmountField({ value, onCommit, onDone }) {
+function AmountField({ value, onCommit, onStep, onDone }) {
   const [draft, setDraft] = useState(null);
 
   const commit = () => {
@@ -187,6 +181,19 @@ function AmountField({ value, onCommit, onDone }) {
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {
+        // "+" and "-" step the item instead of being typed into it. A number
+        // input accepts both as sign characters, so without this the key that
+        // steps the amount everywhere else quietly corrupted it here.
+        //
+        // The draft goes with the press: the stepper acts on the saved value,
+        // and a field left showing half-typed digits while the real number
+        // moved underneath reads as the key having done nothing.
+        if (e.key === "+" || e.key === "-") {
+          e.preventDefault();
+          setDraft(null);
+          onStep?.(e.key === "+" ? 1 : -1);
+          return;
+        }
         // Committed here rather than by blurring the field: Enter should write
         // even when the row is being driven without focus, and the blur that
         // follows is then a no-op because the draft is already cleared.
@@ -271,10 +278,36 @@ function NoteField({ value, maxLength, onCommit, onDone }) {
 // handling instead. Those keys work in both modes, so hiding the buttons costs
 // the keyboard nothing. With the mouse nothing changes.
 //
-// The thumbnail is opportunistic: `pantryImageUrl` builds a conventional path
-// without knowing whether the file exists, and a load failure drops the <img>
-// entirely rather than leaving an empty slot — so a partially filled asset set
-// costs nothing in rows it does not cover.
+// Catalog thumbnail for a row, wherever one is shown.
+//
+// Opportunistic by design: `pantryImageUrl` builds a conventional path without
+// knowing whether the file exists, and a load failure drops the <img> entirely
+// rather than leaving an empty slot — so a partially filled asset set costs
+// nothing in rows it does not cover.
+//
+// The failure is remembered as the src that failed rather than a plain boolean:
+// these rows are reused across renders (the recommendations list re-sorts as
+// items are ticked off), and a boolean would keep hiding the image of whatever
+// item took the slot next.
+export function PantryThumb({ nameKey, imageUrl, className = "item-thumb" }) {
+  const [failedSrc, setFailedSrc] = useState(null);
+
+  const src = pantryImageUrl({ nameKey, imageUrl });
+  if (!src || failedSrc === src) return null;
+
+  return (
+    <img
+      className={className}
+      src={src}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailedSrc(src)}
+    />
+  );
+}
+
 export function ItemRow({
   name,
   nameKey,
@@ -299,9 +332,7 @@ export function ItemRow({
   navProps,
 }) {
   const rowRef = useRef(null);
-  const [thumbFailed, setThumbFailed] = useState(false);
   const [editing, setEditing] = useState(false);
-  const thumbSrc = showThumb ? pantryImageUrl({ nameKey, imageUrl }) : null;
 
   const canEdit = Boolean(onAmountChange || onUnitChange || onNoteChange);
   // Guarded by canEdit as well: a row can lose its handlers between renders
@@ -323,8 +354,24 @@ export function ItemRow({
   // Row-level shortcuts. `isTypingTarget` guards them because the amount field
   // lives inside the row: while it is open the arrows belong to the caret, and
   // Delete to the text, not to the item.
+  //
+  // No arrow key means anything here, with or without a modifier. All four
+  // belong to moving around: the vertical pair to the list, the horizontal pair
+  // to the page-wide navigation that carries the focus to the card beside this
+  // one — and useSpatialNav never sees a key a row has already handled, so a
+  // row that claimed one would wall its own card off.
+  //
+  // Changing the row is what Enter is for. It opens the amount, the unit and
+  // the note as real fields, and the arrows walk between them there.
+  //
+  // "+" and "-" stay as the one shortcut that skips that trip, matching the two
+  // buttons the row itself shows. They are safe to keep precisely because they
+  // are not arrows: nothing else on the page wants them.
   const handleKeyDown = (event) => {
-    if (isTypingTarget(event) || !isPlainKey(event)) return;
+    // A field that already acted has spent the key -- the amount commits on
+    // Enter and hands it back preventDefault'd, and re-running it here would
+    // close the row twice.
+    if (event.defaultPrevented || !isPlainKey(event)) return;
 
     const run = (handler) => {
       if (!handler) return;
@@ -332,11 +379,43 @@ export function ItemRow({
       handler();
     };
 
+    // While the row is open these four mean the row itself, wherever the focus
+    // sits among its fields. An open row is three controls being stepped
+    // through, and having to leave the unit picker just to accept the edit --
+    // or reach for the mouse to delete -- is what made editing from the
+    // keyboard not worth starting.
+    //
+    // Backspace is deliberately not here, and neither key is taken while the
+    // row is closed by something the user is typing into: that is how a typo in
+    // the note gets fixed. Delete is free because the caret sits at the end of
+    // what it edits, where there is nothing to its right to remove.
+    if (isEditing) {
+      switch (event.key) {
+        case "+":
+          run(onIncrement);
+          return;
+        case "-":
+          if (!disableDecrement) run(onDecrement);
+          return;
+        case "Enter":
+          event.preventDefault();
+          stopEditing();
+          return;
+        case "Delete":
+          run(onDelete);
+          return;
+        default:
+          break;
+      }
+    }
+
+    if (isTypingTarget(event)) return;
+
     switch (event.key) {
-      case "ArrowRight":
+      case "+":
         run(onIncrement);
         break;
-      case "ArrowLeft":
+      case "-":
         if (!disableDecrement) run(onDecrement);
         break;
       case " ":
@@ -379,17 +458,7 @@ export function ItemRow({
         </button>
       )}
 
-      {thumbSrc && !thumbFailed && (
-        <img
-          className="item-thumb"
-          src={thumbSrc}
-          alt=""
-          aria-hidden="true"
-          loading="lazy"
-          decoding="async"
-          onError={() => setThumbFailed(true)}
-        />
-      )}
+      {showThumb && <PantryThumb nameKey={nameKey} imageUrl={imageUrl} />}
 
       <div className="item-label">
         <span className={`item-name${done ? " is-done" : ""}`}>{name}</span>
@@ -434,6 +503,10 @@ export function ItemRow({
             <AmountField
               value={amount}
               onCommit={onAmountChange}
+              onStep={(delta) => {
+                if (delta > 0) onIncrement?.();
+                else if (!disableDecrement) onDecrement?.();
+              }}
               onDone={stopEditing}
             />
           ) : (
@@ -518,7 +591,7 @@ export function ItemRow({
 //
 // `dropUp` is for the mobile copy of this row, which sits at the bottom edge of
 // the screen where a panel below the field would be off-screen.
-export function AddItemRow({ units, onAdd, suggest, dropUp }) {
+export function AddItemRow({ units, onAdd, suggest, browse, dropUp }) {
   const [draft, setDraft] = useState({ name: "", amount: "", unit: "db" });
 
   const submit = () => {
@@ -527,6 +600,16 @@ export function AddItemRow({ units, onAdd, suggest, dropUp }) {
     if (!name || !Number.isFinite(amount) || amount <= 0) return;
     onAdd({ name, amount, unit: draft.unit || "db" });
     setDraft({ name: "", amount: "", unit: "db" });
+  };
+
+  // Stepping down off 1 empties the field rather than parking it on 0: the
+  // placeholder is the honest state for "no amount yet", and submit() refuses
+  // anything at or below zero anyway.
+  const stepAmount = (delta) => {
+    setDraft((prev) => {
+      const next = (Number(prev.amount) || 0) + delta;
+      return { ...prev, amount: next > 0 ? String(next) : "" };
+    });
   };
 
   // A picked suggestion brings its package size with it, the way the
@@ -551,6 +634,7 @@ export function AddItemRow({ units, onAdd, suggest, dropUp }) {
         className="add-name"
         placeholder="Tétel hozzáadása"
         suggest={suggest}
+        browse={browse}
         dropUp={dropUp}
         value={draft.name}
         onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
@@ -565,7 +649,18 @@ export function AddItemRow({ units, onAdd, suggest, dropUp }) {
         placeholder="menny."
         value={draft.amount}
         onChange={(e) => setDraft((p) => ({ ...p, amount: e.target.value }))}
-        onKeyDown={(e) => e.key === "Enter" && submit()}
+        // Up and down are the field's own (the browser steps the number), and
+        // "+"/"-" do the same thing rather than being typed in -- a number
+        // input takes both as sign characters, which is never what someone
+        // reaching for them meant. Same keys as on a saved row, one step each.
+        onKeyDown={(e) => {
+          if (e.key === "+" || e.key === "-") {
+            e.preventDefault();
+            stepAmount(e.key === "+" ? 1 : -1);
+            return;
+          }
+          if (e.key === "Enter") submit();
+        }}
       />
       <select
         value={draft.unit}

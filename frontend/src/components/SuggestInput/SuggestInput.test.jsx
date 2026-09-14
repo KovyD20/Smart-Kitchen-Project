@@ -29,7 +29,7 @@ const suggest = (query) => searchSuggestions(index, query);
 
 // The field is controlled by its parent, so the test needs one -- otherwise
 // typing never changes `value` and the list never moves.
-function Harness({ onSelect = () => {}, onKeyDown, plain = false }) {
+function Harness({ onSelect = () => {}, onKeyDown, plain = false, browse }) {
   const [value, setValue] = useState("");
   return (
     <SuggestInput
@@ -37,6 +37,7 @@ function Harness({ onSelect = () => {}, onKeyDown, plain = false }) {
       onChange={(event) => setValue(event.target.value)}
       onSelect={onSelect}
       onKeyDown={onKeyDown}
+      browse={browse}
       // `plain` rather than a suggest prop defaulting to undefined: a default
       // parameter would swallow exactly the case being tested.
       suggest={plain ? undefined : suggest}
@@ -201,5 +202,75 @@ describe("SuggestInput", () => {
 
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(field().value).toBe("ke");
+  });
+});
+
+// Enter on an empty field is the second way in: it asks what the catalog has,
+// rather than submitting a row with no name. The list that comes back is the
+// same one the search produces, so it scrolls and walks with the arrows like
+// any other.
+describe("SuggestInput browsing", () => {
+  const browse = () => ENTRIES.map((e) => ({ entry: e }));
+
+  it("opens the whole catalog on Enter over an empty field", () => {
+    render(<Harness browse={browse} />);
+    expect(options()).toHaveLength(0);
+
+    press("Enter");
+
+    expect(names()).toEqual([
+      expect.stringContaining("kenyér"),
+      expect.stringContaining("kefir"),
+      expect.stringContaining("natúr kefir"),
+      expect.stringContaining("burgonya"),
+    ]);
+  });
+
+  it("walks and picks from the browsed list", () => {
+    const onSelect = vi.fn();
+    render(<Harness browse={browse} onSelect={onSelect} />);
+
+    press("Enter");
+    press("ArrowDown");
+    press("ArrowDown");
+    press("Enter");
+
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "kefir" }),
+    );
+  });
+
+  it("goes back to searching as soon as something is typed", () => {
+    render(<Harness browse={browse} />);
+
+    press("Enter");
+    type("bur");
+
+    expect(names()).toEqual([expect.stringContaining("burgonya")]);
+  });
+
+  it("leaves Enter to the caller when a name has been typed", () => {
+    const onKeyDown = vi.fn();
+    render(<Harness browse={browse} onKeyDown={onKeyDown} />);
+
+    type("sajat termek");
+    press("Enter");
+
+    expect(onKeyDown).toHaveBeenCalled();
+    // And not the browse list: a typed name means "add this one", not "show me
+    // what there is".
+    expect(options()).toHaveLength(0);
+  });
+
+  // The trap this replaced: the field took both arrows whatever the state, so
+  // on an empty add row nothing moved and nothing could be reached from it.
+  it("leaves the arrows alone while there is no list", () => {
+    render(<Harness plain />);
+
+    const down = fireEvent.keyDown(field(), { key: "ArrowDown" });
+    const up = fireEvent.keyDown(field(), { key: "ArrowUp" });
+
+    expect(down).toBe(true);
+    expect(up).toBe(true);
   });
 });

@@ -10,19 +10,26 @@ function apiError(status, body) {
   return err;
 }
 
-function quotaBody(retryDelay) {
+function quotaBody(retryDelay, quotaId) {
   return {
     error: {
       code: 429,
       status: "RESOURCE_EXHAUSTED",
       message: "You exceeded your current quota.",
       details: [
-        { "@type": "type.googleapis.com/google.rpc.QuotaFailure" },
+        {
+          "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+          ...(quotaId ? { violations: [{ quotaId, quotaValue: "20" }] } : {}),
+        },
         { "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay },
       ],
     },
   };
 }
+
+// The two quotaIds the free tier actually answers with.
+const DAILY_QUOTA_ID = "GenerateRequestsPerDayPerProjectPerModel-FreeTier";
+const MINUTE_QUOTA_ID = "GenerateRequestsPerMinutePerProjectPerModel-FreeTier";
 
 describe("classifyAiError", () => {
   it("maps 429 to status 429 with the AI_QUOTA code", () => {
@@ -41,6 +48,27 @@ describe("classifyAiError", () => {
     expect(
       classifyAiError(apiError(429, quotaBody("7.2s"))).retryAfterSeconds,
     ).toBe(8);
+  });
+
+  // The case that sent users round a loop: the day's 20 requests are gone, and
+  // the provider still says "retry in 14s".
+  it("reads the daily quota out of the violation, short retry hint and all", () => {
+    const result = classifyAiError(
+      apiError(429, quotaBody("14s", DAILY_QUOTA_ID)),
+    );
+    expect(result.quotaScope).toBe("daily");
+    expect(result.retryAfterSeconds).toBe(14);
+  });
+
+  it("does not call a per-minute quota daily", () => {
+    const result = classifyAiError(
+      apiError(429, quotaBody("14s", MINUTE_QUOTA_ID)),
+    );
+    expect(result.quotaScope).toBeNull();
+  });
+
+  it("names no scope when the body carries no quotaId", () => {
+    expect(classifyAiError(apiError(429, quotaBody("14s"))).quotaScope).toBeNull();
   });
 
   it("leaves retryAfterSeconds null when the body carries no retry hint", () => {

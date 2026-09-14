@@ -70,14 +70,32 @@ describe("ShoppingView keyboard navigation", () => {
     expect(header().tabIndex).toBe(-1);
   });
 
-  it("steps the amount with the left and right arrows", () => {
+  it("steps the amount with '+' and '-'", () => {
     const onUpdateItem = vi.fn();
     render(
       <ShoppingView {...baseProps} groups={threeItems()} onUpdateItem={onUpdateItem} />,
     );
-    fireEvent.keyDown(rows()[0], { key: "ArrowRight" });
-    fireEvent.keyDown(rows()[0], { key: "ArrowLeft" });
+    fireEvent.keyDown(rows()[0], { key: "+" });
+    fireEvent.keyDown(rows()[0], { key: "-" });
     expect(onUpdateItem.mock.calls.map((call) => call[1])).toEqual([1, -1]);
+  });
+
+  // The horizontal arrows belong to the page-wide navigation, which is what
+  // carries the focus to the card beside this one. The list must not touch
+  // them: this hook only walks up and down (layout: "list").
+  it("leaves the left and right arrows alone", () => {
+    const onUpdateItem = vi.fn();
+    render(
+      <ShoppingView {...baseProps} groups={threeItems()} onUpdateItem={onUpdateItem} />,
+    );
+
+    const right = fireEvent.keyDown(rows()[0], { key: "ArrowRight" });
+    const left = fireEvent.keyDown(rows()[0], { key: "ArrowLeft" });
+
+    expect(onUpdateItem).not.toHaveBeenCalled();
+    expect(right).toBe(true);
+    expect(left).toBe(true);
+    expect(document.activeElement).not.toBe(rows()[1]);
   });
 
   it("ticks an item off with Space", () => {
@@ -145,17 +163,137 @@ describe("ShoppingView keyboard navigation", () => {
     );
   });
 
-  it("opens and closes the card with the right and left arrows", () => {
+  // The card header keeps no arrow of its own: all four are for moving, and the
+  // cards stand side by side, so a header that answered Left/Right cut its card
+  // off from the one next to it.
+  it("leaves every arrow alone on a category header", () => {
     render(<ShoppingView {...baseProps} groups={threeItems()} />);
     expect(header().getAttribute("aria-expanded")).toBe("true");
 
-    fireEvent.keyDown(header(), { key: "ArrowLeft" });
-    expect(header().getAttribute("aria-expanded")).toBe("false");
-    // Pointing the same way twice must not reopen it.
-    fireEvent.keyDown(header(), { key: "ArrowLeft" });
-    expect(header().getAttribute("aria-expanded")).toBe("false");
+    const left = fireEvent.keyDown(header(), { key: "ArrowLeft" });
+    const right = fireEvent.keyDown(header(), { key: "ArrowRight" });
 
-    fireEvent.keyDown(header(), { key: "ArrowRight" });
     expect(header().getAttribute("aria-expanded")).toBe("true");
+    expect(left).toBe(true);
+    expect(right).toBe(true);
+  });
+
+  it("still collapses the card by activating the header", () => {
+    render(<ShoppingView {...baseProps} groups={threeItems()} />);
+
+    // What Enter and Space on a <button> do for us.
+    fireEvent.click(header());
+
+    expect(header().getAttribute("aria-expanded")).toBe("false");
+  });
+});
+
+// On anything wider than a phone the cards stand side by side, and the arrows
+// have to follow what the eye sees rather than the order the cards happen to be
+// written in. Document order runs card by card, so Down from the last vegetable
+// used to land on the first fruit next to it, skipping the card underneath.
+//
+// jsdom measures nothing, so the grid is declared here: two columns, with
+// "Zöldség" and "Pékáru" stacked on the left and "Gyümölcs" alone on the right.
+describe("ShoppingView navigation across a grid of cards", () => {
+  const place = (element, x, y, w = 400, h = 28) => {
+    element.getBoundingClientRect = () => ({
+      x,
+      y,
+      left: x,
+      top: y,
+      right: x + w,
+      bottom: y + h,
+      width: w,
+      height: h,
+    });
+  };
+
+  const COLUMNS = {
+    Zöldség: [0, 0],
+    Gyümölcs: [500, 0],
+    Pékáru: [0, 300],
+  };
+
+  const layOut = () => {
+    for (const card of document.querySelectorAll(".group-card")) {
+      const name = card.querySelector(".group-name").textContent;
+      const [x, top] = COLUMNS[name];
+      // The header, then a row every 40px under it.
+      card.querySelectorAll("[data-kbd-item]").forEach((element, i) => {
+        place(element, x, top + i * 40);
+      });
+    }
+  };
+
+  const twoColumns = () => [
+    { category: "Zöldség", items: [item("a", "Alma"), item("b", "Bab")] },
+    { category: "Gyümölcs", items: [item("c", "Citrom")] },
+    { category: "Pékáru", items: [item("k", "Kifli")] },
+  ];
+
+  const row = (name) => screen.getByRole("listitem", { name });
+
+  const renderGrid = () => {
+    render(<ShoppingView {...baseProps} groups={twoColumns()} />);
+    layOut();
+  };
+
+  it("goes to the card below, not the one beside it", () => {
+    renderGrid();
+    row("Bab").focus();
+
+    fireEvent.keyDown(row("Bab"), { key: "ArrowDown" });
+
+    // The bakery header is what sits under the last vegetable.
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: /Pékáru/ }),
+    );
+  });
+
+  it("still walks the rows inside one card", () => {
+    renderGrid();
+    row("Alma").focus();
+
+    fireEvent.keyDown(row("Alma"), { key: "ArrowDown" });
+
+    expect(document.activeElement).toBe(row("Bab"));
+  });
+
+  it("comes back up the same way", () => {
+    renderGrid();
+    const bakery = screen.getByRole("button", { name: /Pékáru/ });
+    bakery.focus();
+
+    fireEvent.keyDown(bakery, { key: "ArrowUp" });
+
+    expect(document.activeElement).toBe(row("Bab"));
+  });
+
+  // The bug this replaced: from the top row of the second column, Up walked
+  // back through document order to the last row of the card written before it
+  // -- three cards away on screen. With nothing above it inside the list, the
+  // key now belongs to the page, which can reach the add row over the grid.
+  it("gives Up back to the page from the top of a column", () => {
+    renderGrid();
+    const fruit = screen.getByRole("button", { name: /Gyümölcs/ });
+    fruit.focus();
+
+    const up = fireEvent.keyDown(fruit, { key: "ArrowUp" });
+
+    expect(up).toBe(true);
+    expect(document.activeElement).toBe(fruit);
+  });
+
+  it("leaves the horizontal arrows to the page-wide navigation", () => {
+    renderGrid();
+    row("Alma").focus();
+
+    // Not handled here: reaching "Citrom" in the next column is the page
+    // navigation's job, and it only ever sees keys this hook did not take.
+    const right = fireEvent.keyDown(row("Alma"), { key: "ArrowRight" });
+
+    expect(right).toBe(true);
+    expect(document.activeElement).toBe(row("Alma"));
   });
 });
